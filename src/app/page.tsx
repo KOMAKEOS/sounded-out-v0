@@ -33,24 +33,26 @@ export default function Home() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(function loadEvents() {
-    supabase
-      .from('events')
-      .select('*, venue:venues(*)')
-      .eq('status', 'published')
-      .gte('start_time', new Date().toISOString().split('T')[0])
-      .order('start_time', { ascending: true })
-      .then(function(result) {
-        if (result.error) {
-          console.error('Error loading events:', result.error)
-        } else {
-          setEvents(result.data as Event[])
-        }
-        setLoading(false)
-      })
+  useEffect(() => {
+    async function loadEvents() {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*, venue:venues(*)')
+        .eq('status', 'published')
+        .gte('start_time', new Date().toISOString().split('T')[0])
+        .order('start_time', { ascending: true })
+
+      if (error) {
+        console.error('Error loading events:', error)
+      } else {
+        setEvents(data as Event[])
+      }
+      setLoading(false)
+    }
+    loadEvents()
   }, [])
 
-  useEffect(function initMap() {
+  useEffect(() => {
     if (!mapContainer.current || map.current) return
 
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
@@ -62,18 +64,18 @@ export default function Home() {
       zoom: 13
     })
 
-    return function cleanup() {
+    return () => {
       if (map.current) map.current.remove()
     }
   }, [])
 
-  useEffect(function addMarkers() {
+  useEffect(() => {
     if (!map.current || events.length === 0) return
 
-    events.forEach(function(event) {
+    events.forEach((event) => {
       if (!event.venue) return
 
-      var el = document.createElement('div')
+      const el = document.createElement('div')
       el.style.width = '32px'
       el.style.height = '32px'
       el.style.background = 'linear-gradient(135deg, #ff3366 0%, #ff6b35 100%)'
@@ -82,7 +84,7 @@ export default function Home() {
       el.style.boxShadow = '0 4px 12px rgba(255, 51, 102, 0.4)'
       el.style.cursor = 'pointer'
 
-      el.onclick = function() {
+      el.onclick = () => {
         setSelectedEvent(event)
         if (map.current && event.venue) {
           map.current.flyTo({
@@ -98,30 +100,30 @@ export default function Home() {
     })
   }, [events])
 
-  function formatTime(dateStr: string) {
+  const formatTime = (dateStr: string) => {
     return new Date(dateStr).toLocaleTimeString('en-GB', {
       hour: '2-digit',
       minute: '2-digit'
     })
   }
 
-  function formatDate(dateStr: string) {
-    var date = new Date(dateStr)
-    var today = new Date()
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const today = new Date()
     if (date.toDateString() === today.toDateString()) return 'Tonight'
     return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   }
 
-  function formatPrice(min: number | null, max: number | null) {
+  const formatPrice = (min: number | null, max: number | null) => {
     if (!min && !max) return 'Free / TBC'
     if (min && max && min !== max) return '£' + min + '–£' + max
     return '£' + (min || max)
   }
 
-  var mainStyle = { height: '100vh', width: '100vw', position: 'relative' as const }
-  var mapStyle = { height: '100%', width: '100%' }
-  var headerStyle = {
-    position: 'absolute' as const,
+  const mainStyle: React.CSSProperties = { height: '100vh', width: '100vw', position: 'relative' }
+  const mapStyle: React.CSSProperties = { height: '100%', width: '100%' }
+  const headerStyle: React.CSSProperties = {
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
@@ -129,8 +131,8 @@ export default function Home() {
     background: 'linear-gradient(to bottom, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0) 100%)',
     zIndex: 10
   }
-  var bottomStyle = {
-    position: 'absolute' as const,
+  const bottomStyle: React.CSSProperties = {
+    position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
@@ -138,34 +140,34 @@ export default function Home() {
     padding: '60px 16px 24px',
     zIndex: 10
   }
-  var cardStyle = {
+  const cardStyle: React.CSSProperties = {
     flexShrink: 0,
     width: '200px',
     padding: '14px',
     background: '#141416',
     border: '1px solid rgba(255,255,255,0.1)',
     borderRadius: '12px',
-    textAlign: 'left' as const,
+    textAlign: 'left',
     cursor: 'pointer',
     color: 'white'
   }
-  var overlayStyle = {
-    position: 'absolute' as const,
+  const overlayStyle: React.CSSProperties = {
+    position: 'absolute',
     inset: 0,
     background: 'rgba(0,0,0,0.7)',
     zIndex: 20,
     display: 'flex',
-    alignItems: 'flex-end' as const,
+    alignItems: 'flex-end',
     justifyContent: 'center'
   }
-  var modalStyle = {
+  const modalStyle: React.CSSProperties = {
     width: '100%',
     maxWidth: '480px',
     background: '#141416',
     borderRadius: '20px 20px 0 0',
     padding: '24px'
   }
-  var buttonStyle = {
+  const buttonStyle: React.CSSProperties = {
     display: 'block',
     width: '100%',
     padding: '16px',
@@ -174,7 +176,7 @@ export default function Home() {
     fontSize: '16px',
     fontWeight: 700,
     color: 'white',
-    textAlign: 'center' as const,
+    textAlign: 'center',
     textDecoration: 'none'
   }
 
@@ -194,33 +196,31 @@ export default function Home() {
           <p style={{ color: '#a0a0a5', fontSize: '14px', textAlign: 'center' }}>No events found</p>
         ) : (
           <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '8px' }}>
-            {events.map(function(event) {
-              return (
-                <button
-                  key={event.id}
-                  onClick={function() {
-                    setSelectedEvent(event)
-                    if (map.current && event.venue) {
-                      map.current.flyTo({ center: [event.venue.lng, event.venue.lat], zoom: 15 })
-                    }
-                  }}
-                  style={cardStyle}
-                >
-                  <p style={{ fontSize: '10px', color: '#ff3366', fontWeight: 700, marginBottom: '6px' }}>
-                    {formatDate(event.start_time)} - {formatTime(event.start_time)}
-                  </p>
-                  <p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{event.title}</p>
-                  <p style={{ fontSize: '12px', color: '#a0a0a5' }}>{event.venue?.name || 'Venue TBC'}</p>
-                </button>
-              )
-            })}
+            {events.map((event) => (
+              <button
+                key={event.id}
+                onClick={() => {
+                  setSelectedEvent(event)
+                  if (map.current && event.venue) {
+                    map.current.flyTo({ center: [event.venue.lng, event.venue.lat], zoom: 15 })
+                  }
+                }}
+                style={cardStyle}
+              >
+                <p style={{ fontSize: '10px', color: '#ff3366', fontWeight: 700, marginBottom: '6px' }}>
+                  {formatDate(event.start_time)} - {formatTime(event.start_time)}
+                </p>
+                <p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{event.title}</p>
+                <p style={{ fontSize: '12px', color: '#a0a0a5' }}>{event.venue?.name || 'Venue TBC'}</p>
+              </button>
+            ))}
           </div>
         )}
       </div>
 
       {selectedEvent ? (
-        <div style={overlayStyle} onClick={function() { setSelectedEvent(null) }}>
-          <div style={modalStyle} onClick={function(e) { e.stopPropagation() }}>
+        <div style={overlayStyle} onClick={() => setSelectedEvent(null)}>
+          <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
             <div style={{ width: '40px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', margin: '0 auto 20px' }}></div>
 
             <p style={{ fontSize: '11px', color: '#ff3366', fontWeight: 700, marginBottom: '8px' }}>
@@ -237,13 +237,11 @@ export default function Home() {
 
             {selectedEvent.genres ? (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
-                {selectedEvent.genres.split(',').map(function(genre, i) {
-                  return (
-                    <span key={i} style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.08)', borderRadius: '20px', fontSize: '12px', color: '#a0a0a5' }}>
-                      {genre.trim()}
-                    </span>
-                  )
-                })}
+                {selectedEvent.genres.split(',').map((genre, i) => (
+                  <span key={i} style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.08)', borderRadius: '20px', fontSize: '12px', color: '#a0a0a5' }}>
+                    {genre.trim()}
+                  </span>
+                ))}
               </div>
             ) : null}
 
