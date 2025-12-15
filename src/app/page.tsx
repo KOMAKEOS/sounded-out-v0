@@ -118,36 +118,76 @@ export default function Home() {
     return '£' + (min || max)
   }
 
-  return (
-    <main style={{ height: '100vh', width: '100vw', position: 'relative' }}>
-      <div ref={mapContainer} style={{ height: '100%', width: '100%' }} />
+  var mainStyle = { height: '100vh', width: '100vw', position: 'relative' as const }
+  var mapStyle = { height: '100%', width: '100%' }
+  var headerStyle = {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    padding: '16px 20px',
+    background: 'linear-gradient(to bottom, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0) 100%)',
+    zIndex: 10
+  }
+  var bottomStyle = {
+    position: 'absolute' as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    background: 'linear-gradient(to top, rgba(10,10,11,0.98) 0%, rgba(10,10,11,0) 100%)',
+    padding: '60px 16px 24px',
+    zIndex: 10
+  }
+  var cardStyle = {
+    flexShrink: 0,
+    width: '200px',
+    padding: '14px',
+    background: '#141416',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '12px',
+    textAlign: 'left' as const,
+    cursor: 'pointer',
+    color: 'white'
+  }
+  var overlayStyle = {
+    position: 'absolute' as const,
+    inset: 0,
+    background: 'rgba(0,0,0,0.7)',
+    zIndex: 20,
+    display: 'flex',
+    alignItems: 'flex-end' as const,
+    justifyContent: 'center'
+  }
+  var modalStyle = {
+    width: '100%',
+    maxWidth: '480px',
+    background: '#141416',
+    borderRadius: '20px 20px 0 0',
+    padding: '24px'
+  }
+  var buttonStyle = {
+    display: 'block',
+    width: '100%',
+    padding: '16px',
+    background: 'linear-gradient(135deg, #ff3366 0%, #ff6b35 100%)',
+    borderRadius: '12px',
+    fontSize: '16px',
+    fontWeight: 700,
+    color: 'white',
+    textAlign: 'center' as const,
+    textDecoration: 'none'
+  }
 
-      <header style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        padding: '16px 20px',
-        background: 'linear-gradient(to bottom, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0) 100%)',
-        zIndex: 10
-      }}>
-        <h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: '24px', fontWeight: 800 }}>
-          SOUNDED OUT
-        </h1>
-        <p style={{ fontSize: '12px', color: '#a0a0a5', marginTop: '2px' }}>
-          Newcastle
-        </p>
+  return (
+    <main style={mainStyle}>
+      <div ref={mapContainer} style={mapStyle}></div>
+
+      <header style={headerStyle}>
+        <h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: '24px', fontWeight: 800 }}>SOUNDED OUT</h1>
+        <p style={{ fontSize: '12px', color: '#a0a0a5', marginTop: '2px' }}>Newcastle</p>
       </header>
 
-      <div style={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: 'linear-gradient(to top, rgba(10,10,11,0.98) 0%, rgba(10,10,11,0) 100%)',
-        padding: '60px 16px 24px',
-        zIndex: 10
-      }}>
+      <div style={bottomStyle}>
         {loading ? (
           <p style={{ color: '#a0a0a5', fontSize: '14px', textAlign: 'center' }}>Loading...</p>
         ) : events.length === 0 ? (
@@ -164,27 +204,13 @@ export default function Home() {
                       map.current.flyTo({ center: [event.venue.lng, event.venue.lat], zoom: 15 })
                     }
                   }}
-                  style={{
-                    flexShrink: 0,
-                    width: '200px',
-                    padding: '14px',
-                    background: '#141416',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '12px',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    color: 'white'
-                  }}
+                  style={cardStyle}
                 >
                   <p style={{ fontSize: '10px', color: '#ff3366', fontWeight: 700, marginBottom: '6px' }}>
-                    {formatDate(event.start_time)} · {formatTime(event.start_time)}
+                    {formatDate(event.start_time)} - {formatTime(event.start_time)}
                   </p>
-                  <p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>
-                    {event.title}
-                  </p>
-                  <p style={{ fontSize: '12px', color: '#a0a0a5' }}>
-                    {event.venue?.name || 'Venue TBC'}
-                  </p>
+                  <p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{event.title}</p>
+                  <p style={{ fontSize: '12px', color: '#a0a0a5' }}>{event.venue?.name || 'Venue TBC'}</p>
                 </button>
               )
             })}
@@ -192,33 +218,13 @@ export default function Home() {
         )}
       </div>
 
-      {selectedEvent && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'rgba(0,0,0,0.7)',
-            zIndex: 20,
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'center'
-          }}
-          onClick={function() { setSelectedEvent(null) }}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '480px',
-              background: '#141416',
-              borderRadius: '20px 20px 0 0',
-              padding: '24px'
-            }}
-            onClick={function(e) { e.stopPropagation() }}
-          >
-            <div style={{ width: '40px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', margin: '0 auto 20px' }} />
+      {selectedEvent ? (
+        <div style={overlayStyle} onClick={function() { setSelectedEvent(null) }}>
+          <div style={modalStyle} onClick={function(e) { e.stopPropagation() }}>
+            <div style={{ width: '40px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', margin: '0 auto 20px' }}></div>
 
             <p style={{ fontSize: '11px', color: '#ff3366', fontWeight: 700, marginBottom: '8px' }}>
-              {formatDate(selectedEvent.start_time)} · {formatTime(selectedEvent.start_time)}
+              {formatDate(selectedEvent.start_time)} - {formatTime(selectedEvent.start_time)}
             </p>
 
             <h2 style={{ fontSize: '28px', fontFamily: 'Syne, sans-serif', fontWeight: 800, marginBottom: '8px' }}>
@@ -227,14 +233,9 @@ export default function Home() {
 
             <p style={{ fontSize: '16px', color: '#a0a0a5', marginBottom: '16px' }}>
               {selectedEvent.venue?.name}
-              {selectedEvent.venue?.address && (
-                <span style={{ display: 'block', fontSize: '14px', marginTop: '2px' }}>
-                  {selectedEvent.venue.address}
-                </span>
-              )}
             </p>
 
-            {selectedEvent.genres && (
+            {selectedEvent.genres ? (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
                 {selectedEvent.genres.split(',').map(function(genre, i) {
                   return (
@@ -244,36 +245,20 @@ export default function Home() {
                   )
                 })}
               </div>
-            )}
+            ) : null}
 
             <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '24px' }}>
               {formatPrice(selectedEvent.price_min, selectedEvent.price_max)}
             </p>
 
-            {selectedEvent.event_url && (
-              
-                href={selectedEvent.event_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '16px',
-                  background: 'linear-gradient(135deg, #ff3366 0%, #ff6b35 100%)',
-                  borderRadius: '12px',
-                  fontSize: '16px',
-                  fontWeight: 700,
-                  color: 'white',
-                  textAlign: 'center',
-                  textDecoration: 'none'
-                }}
-              >
+            {selectedEvent.event_url ? (
+              <a href={selectedEvent.event_url} target="_blank" rel="noopener noreferrer" style={buttonStyle}>
                 GET TICKETS
               </a>
-            )}
+            ) : null}
           </div>
         </div>
-      )}
+      ) : null}
     </main>
   )
 }
