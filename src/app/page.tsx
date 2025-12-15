@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '../../lib/supabase'
 
 type Venue = {
   id: string
