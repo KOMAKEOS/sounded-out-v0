@@ -75,14 +75,14 @@ export default function Home() {
     events.forEach((event) => {
       if (!event.venue) return
 
-      const el = document.createElement('div')
+     const el = document.createElement('div')
       el.style.width = '32px'
-      el.style.height = '32px'
-      el.style.background = 'linear-gradient(135deg, #ab67f7 0%, #d7b3ff 100%)'
-      el.style.borderRadius = '50%'
-      el.style.border = '2px solid white'
-      el.style.boxShadow = '0 4px 12px rgba(171, 103, 247, 0.4)'
+      el.style.height = '42px'
       el.style.cursor = 'pointer'
+      el.innerHTML = `<svg viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#ab67f7"/>
+        <circle cx="12" cy="12" r="5" fill="white"/>
+      </svg>`
 
       el.onclick = () => {
         setSelectedEvent(event)
