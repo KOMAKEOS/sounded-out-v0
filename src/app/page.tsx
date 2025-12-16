@@ -78,7 +78,7 @@ export default function Home() {
       const el = document.createElement('div')
       el.style.width = '32px'
       el.style.height = '32px'
-      el.style.background = 'linear-gradient(135deg, #ff3366 0%, #ff6b35 100%)'
+      el.style.background = 'linear-gradient(135deg, #ab67f7 0%, #d7b3ff 100%)'
       el.style.borderRadius = '50%'
       el.style.border = '2px solid white'
       el.style.boxShadow = '0 4px 12px rgba(255, 51, 102, 0.4)'
