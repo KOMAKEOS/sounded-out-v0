@@ -81,7 +81,7 @@ export default function Home() {
       el.style.background = 'linear-gradient(135deg, #ab67f7 0%, #d7b3ff 100%)'
       el.style.borderRadius = '50%'
       el.style.border = '2px solid white'
-      el.style.boxShadow = '0 4px 12px rgba(255, 51, 102, 0.4)'
+      el.style.boxShadow = '0 4px 12px rgba(171, 103, 247, 0.4)'
       el.style.cursor = 'pointer'
 
       el.onclick = () => {
@@ -171,7 +171,7 @@ export default function Home() {
     display: 'block',
     width: '100%',
     padding: '16px',
-    background: 'linear-gradient(135deg, #ff3366 0%, #ff6b35 100%)',
+    background: 'linear-gradient(135deg, #ab67f7 0%, #d7b3ff 100%)',
     borderRadius: '12px',
     fontSize: '16px',
     fontWeight: 700,
@@ -207,7 +207,7 @@ export default function Home() {
                 }}
                 style={cardStyle}
               >
-                <p style={{ fontSize: '10px', color: '#ff3366', fontWeight: 700, marginBottom: '6px' }}>
+                <p style={{ fontSize: '10px', color: '#ab67f7', fontWeight: 700, marginBottom: '6px' }}>
                   {formatDate(event.start_time)} - {formatTime(event.start_time)}
                 </p>
                 <p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{event.title}</p>
@@ -223,7 +223,7 @@ export default function Home() {
           <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
             <div style={{ width: '40px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', margin: '0 auto 20px' }}></div>
 
-            <p style={{ fontSize: '11px', color: '#ff3366', fontWeight: 700, marginBottom: '8px' }}>
+            <p style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 700, marginBottom: '8px' }}>
               {formatDate(selectedEvent.start_time)} - {formatTime(selectedEvent.start_time)}
             </p>
 
