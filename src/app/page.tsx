@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import mapboxgl from 'mapbox-gl'
 import { supabase } from '../lib/supabase'
 
@@ -29,27 +29,38 @@ type Event = {
   venue?: Venue
 }
 
-type DateFilter = 'tonight' | 'tomorrow' | 'weekend' | 'all' | string // string for specific dates
+type DateFilter = 'tonight' | 'tomorrow' | 'weekend' | 'all' | string
+type ViewMode = 'map' | 'preview' | 'detail' | 'list'
 
 export default function Home() {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const markersRef = useRef<mapboxgl.Marker[]>([])
+  const previewCardRef = useRef<HTMLDivElement>(null)
+  
   const [events, setEvents] = useState<Event[]>([])
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
-  const [showList, setShowList] = useState(false)
-  const [showDatePicker, setShowDatePicker] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [selectedEventIndex, setSelectedEventIndex] = useState(0)
   const [dateFilter, setDateFilter] = useState<DateFilter>('tonight')
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  
+  // View state
+  const [viewMode, setViewMode] = useState<ViewMode>('map')
+  const [selectedEventIndex, setSelectedEventIndex] = useState(0)
+  
+  // Touch handling for swipe
+  const [touchStart, setTouchStart] = useState<number | null>(null)
+  const [touchEnd, setTouchEnd] = useState<number | null>(null)
+  const [swipeOffset, setSwipeOffset] = useState(0)
+  const [isAnimating, setIsAnimating] = useState(false)
+
+  // Minimum swipe distance
+  const minSwipeDistance = 50
 
   // Date helpers
   const getDateString = (date: Date) => date.toDateString()
   
-  const isTonight = (dateStr: string) => {
-    return getDateString(new Date(dateStr)) === getDateString(new Date())
-  }
-
+  const isTonight = (dateStr: string) => getDateString(new Date(dateStr)) === getDateString(new Date())
+  
   const isTomorrow = (dateStr: string) => {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -59,22 +70,15 @@ export default function Home() {
   const isWeekend = (dateStr: string) => {
     const eventDate = new Date(dateStr)
     const today = new Date()
-    
-    // Find this weekend's Friday, Saturday, Sunday
     const dayOfWeek = today.getDay()
     const friday = new Date(today)
-    friday.setDate(today.getDate() + (5 - dayOfWeek + 7) % 7)
-    if (dayOfWeek >= 5) friday.setDate(today.getDate()) // Already weekend
-    
+    friday.setDate(today.getDate() + ((5 - dayOfWeek + 7) % 7 || 7))
+    if (dayOfWeek >= 5) friday.setDate(today.getDate())
     const sunday = new Date(friday)
     sunday.setDate(friday.getDate() + 2)
     sunday.setHours(23, 59, 59)
-    
+    friday.setHours(0, 0, 0)
     return eventDate >= friday && eventDate <= sunday
-  }
-
-  const isSpecificDate = (dateStr: string, targetDate: string) => {
-    return getDateString(new Date(dateStr)) === targetDate
   }
 
   const getDateLabel = (dateStr: string) => {
@@ -83,7 +87,6 @@ export default function Home() {
     return new Date(dateStr).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   }
 
-  // Get next 7 days for date picker
   const getNext7Days = () => {
     const days = []
     for (let i = 0; i < 7; i++) {
@@ -92,31 +95,38 @@ export default function Home() {
       days.push({
         dateString: getDateString(date),
         dayName: date.toLocaleDateString('en-GB', { weekday: 'short' }),
-        dayNum: date.getDate(),
-        isToday: i === 0
+        dayNum: date.getDate()
       })
     }
     return days
   }
 
-  // Filter events based on selected date filter
+  // Filter events
   const filteredEvents = useMemo(() => {
+    let filtered: Event[] = []
     switch (dateFilter) {
       case 'tonight':
-        return events.filter(e => isTonight(e.start_time))
+        filtered = events.filter(e => isTonight(e.start_time))
+        break
       case 'tomorrow':
-        return events.filter(e => isTomorrow(e.start_time))
+        filtered = events.filter(e => isTomorrow(e.start_time))
+        break
       case 'weekend':
-        return events.filter(e => isWeekend(e.start_time))
+        filtered = events.filter(e => isWeekend(e.start_time))
+        break
       case 'all':
-        return events
+        filtered = events
+        break
       default:
-        // Specific date string
-        return events.filter(e => isSpecificDate(e.start_time, dateFilter))
+        filtered = events.filter(e => getDateString(new Date(e.start_time)) === dateFilter)
     }
+    return filtered
   }, [events, dateFilter])
 
-  // Group filtered events by date for the list
+  // Current selected event
+  const selectedEvent = filteredEvents[selectedEventIndex] || null
+
+  // Group events by date for list view
   const groupedEvents = useMemo(() => {
     const groups: { [key: string]: Event[] } = {}
     filteredEvents.forEach(event => {
@@ -127,20 +137,59 @@ export default function Home() {
     return groups
   }, [filteredEvents])
 
-  // Get filter label for bottom bar
   const getFilterLabel = () => {
     switch (dateFilter) {
       case 'tonight': return 'tonight'
       case 'tomorrow': return 'tomorrow'
       case 'weekend': return 'this weekend'
       case 'all': return 'upcoming'
-      default: 
-        const date = new Date(dateFilter)
-        return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
+      default: return new Date(dateFilter).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
     }
   }
 
-  // Load events from Supabase
+  // Format helpers
+  const formatTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const formatPrice = (min: number | null, max: number | null) => {
+    if (min === 0 || (!min && !max)) return null // Free
+    if (min && max && min !== max) return `£${min}–${max}`
+    return `£${min || max}`
+  }
+
+  const isFree = (min: number | null, max: number | null) => {
+    return min === 0 || (!min && !max)
+  }
+
+  const getCompactGenres = (genres: string | null) => {
+    if (!genres) return null
+    return genres.split(',').map(g => g.trim()).slice(0, 2).join(' · ')
+  }
+
+  const getGoogleMapsUrl = (venue: Venue) => {
+    return `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`
+  }
+
+  // Calculate spread of events to determine zoom
+  const calculateSpread = (events: Event[]) => {
+    if (events.length <= 1) return 0
+    const venues = events.filter(e => e.venue).map(e => e.venue!)
+    if (venues.length <= 1) return 0
+    let maxDistance = 0
+    for (let i = 0; i < venues.length; i++) {
+      for (let j = i + 1; j < venues.length; j++) {
+        const distance = Math.sqrt(
+          Math.pow((venues[j].lat - venues[i].lat) * 111000, 2) +
+          Math.pow((venues[j].lng - venues[i].lng) * 111000 * Math.cos(venues[i].lat * Math.PI / 180), 2)
+        )
+        maxDistance = Math.max(maxDistance, distance)
+      }
+    }
+    return maxDistance
+  }
+
+  // Load events
   useEffect(() => {
     async function loadEvents() {
       const { data, error } = await supabase
@@ -149,153 +198,223 @@ export default function Home() {
         .eq('status', 'published')
         .gte('start_time', new Date().toISOString().split('T')[0])
         .order('start_time', { ascending: true })
-
-      if (error) {
-        console.error('Error loading events:', error)
-      } else {
-        setEvents(data as Event[])
-      }
+      if (error) console.error('Error:', error)
+      else setEvents(data as Event[])
       setLoading(false)
     }
     loadEvents()
   }, [])
 
-  // Initialize map - centered on Newcastle city center (Grainger Town)
+  // Initialize map
   useEffect(() => {
     if (!mapContainer.current || map.current) return
-
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
-
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-1.6131, 54.9695], // Newcastle city center - Grey's Monument area
+      center: [-1.6131, 54.9695],
       zoom: 15
     })
-
-    return () => {
-      if (map.current) map.current.remove()
-    }
+    return () => { if (map.current) map.current.remove() }
   }, [])
 
-  // Add markers for filtered events
+  // Navigate to event on map
+  const flyToEvent = useCallback((event: Event, zoom: number = 16) => {
+    if (!map.current || !event.venue) return
+    map.current.flyTo({
+      center: [event.venue.lng, event.venue.lat],
+      zoom,
+      duration: 800,
+      easing: (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2 // ease-in-out-cubic
+    })
+  }, [])
+
+  // Update markers
   useEffect(() => {
     if (!map.current) return
 
-    // Clear existing markers
-    markersRef.current.forEach(marker => marker.remove())
+    // Clear existing
+    markersRef.current.forEach(m => m.remove())
     markersRef.current = []
 
-    if (filteredEvents.length === 0) return
+    if (filteredEvents.length === 0) {
+      map.current.flyTo({ center: [-1.6131, 54.9695], zoom: 15, duration: 800 })
+      return
+    }
 
-    filteredEvents.forEach((event, index) => {
-      if (!event.venue) return
+    // Group by venue for clustering
+    const venueGroups: { [key: string]: Event[] } = {}
+    filteredEvents.forEach(event => {
+      if (event.venue) {
+        const key = `${event.venue.lat},${event.venue.lng}`
+        if (!venueGroups[key]) venueGroups[key] = []
+        venueGroups[key].push(event)
+      }
+    })
+
+    Object.entries(venueGroups).forEach(([_, eventsAtVenue]) => {
+      const venue = eventsAtVenue[0].venue!
+      const isCluster = eventsAtVenue.length > 1
+      const isSelected = viewMode === 'preview' && selectedEvent?.venue?.id === venue.id
 
       const el = document.createElement('div')
       el.style.cursor = 'pointer'
-      el.style.width = '32px'
-      el.style.height = '42px'
-      
-      el.innerHTML = `
-        <svg viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 3px 8px rgba(171, 103, 247, 0.6));">
-          <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#grad${index})"/>
-          <circle cx="12" cy="12" r="5" fill="white"/>
-          <defs>
-            <linearGradient id="grad${index}" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#ab67f7"/>
-              <stop offset="100%" style="stop-color:#d7b3ff"/>
-            </linearGradient>
-          </defs>
-        </svg>
-      `
+      el.style.transition = 'transform 0.3s ease'
+      el.style.transform = isSelected ? 'scale(1.2)' : 'scale(1)'
+
+      if (isCluster) {
+        el.style.width = '48px'
+        el.style.height = '48px'
+        el.innerHTML = `
+          <div style="
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, #ab67f7 0%, #d7b3ff 100%);
+            border-radius: 50%;
+            border: 3px solid white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: bold; color: white;
+            box-shadow: 0 4px 16px rgba(171, 103, 247, 0.5);
+            transition: all 0.3s ease;
+          ">${eventsAtVenue.length}</div>
+        `
+      } else {
+        el.style.width = '36px'
+        el.style.height = '46px'
+        el.innerHTML = `
+          <svg viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg" 
+               style="filter: drop-shadow(0 4px 12px rgba(171, 103, 247, ${isSelected ? '0.8' : '0.5'})); transition: all 0.3s ease;">
+            <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" 
+                  fill="url(#pinGrad)"/>
+            <circle cx="12" cy="12" r="5" fill="white"/>
+            <defs>
+              <linearGradient id="pinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#ab67f7"/>
+                <stop offset="100%" style="stop-color:#d7b3ff"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        `
+      }
 
       el.onclick = () => {
-        const eventIndex = events.findIndex(e => e.id === event.id)
-        setSelectedEventIndex(eventIndex)
-        setSelectedEvent(event)
-        setShowList(false)
-        setShowDatePicker(false)
-        if (map.current && event.venue) {
-          map.current.flyTo({
-            center: [event.venue.lng, event.venue.lat],
-            zoom: 16,
-            duration: 800
-          })
+        if (isCluster) {
+          map.current?.flyTo({ center: [venue.lng, venue.lat], zoom: 17, duration: 800 })
+        } else {
+          const idx = filteredEvents.findIndex(e => e.id === eventsAtVenue[0].id)
+          setSelectedEventIndex(idx)
+          setViewMode('preview')
+          flyToEvent(eventsAtVenue[0])
         }
       }
 
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([event.venue.lng, event.venue.lat])
-        .addTo(map.current as mapboxgl.Map)
-      
+      const marker = new mapboxgl.Marker(el).setLngLat([venue.lng, venue.lat]).addTo(map.current!)
       markersRef.current.push(marker)
     })
 
-    // Fit map to show all pins if there are multiple
-    if (filteredEvents.length > 1) {
-      const bounds = new mapboxgl.LngLatBounds()
-      filteredEvents.forEach(event => {
-        if (event.venue) {
-          bounds.extend([event.venue.lng, event.venue.lat])
+    // Smart zoom
+    if (viewMode === 'map') {
+      const spread = calculateSpread(filteredEvents)
+      if (filteredEvents.length === 1 || spread < 500) {
+        const first = filteredEvents.find(e => e.venue)
+        if (first?.venue) {
+          map.current.flyTo({ center: [first.venue.lng, first.venue.lat], zoom: 16, duration: 800 })
         }
-      })
-      map.current.fitBounds(bounds, { padding: 80, maxZoom: 15 })
-    }
-  }, [filteredEvents, events])
-
-  // Navigation between events
-  const goToPrevEvent = () => {
-    if (selectedEventIndex > 0) {
-      const newIndex = selectedEventIndex - 1
-      setSelectedEventIndex(newIndex)
-      setSelectedEvent(events[newIndex])
-      if (map.current && events[newIndex].venue) {
-        map.current.flyTo({
-          center: [events[newIndex].venue!.lng, events[newIndex].venue!.lat],
-          zoom: 16,
-          duration: 500
-        })
+      } else {
+        const bounds = new mapboxgl.LngLatBounds()
+        filteredEvents.forEach(e => { if (e.venue) bounds.extend([e.venue.lng, e.venue.lat]) })
+        map.current.fitBounds(bounds, { padding: 80, maxZoom: 15, duration: 800 })
       }
     }
+  }, [filteredEvents, viewMode, selectedEvent, flyToEvent])
+
+  // Touch handlers for swipe
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null)
+    setTouchStart(e.targetTouches[0].clientX)
   }
 
-  const goToNextEvent = () => {
-    if (selectedEventIndex < events.length - 1) {
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!touchStart) return
+    const currentTouch = e.targetTouches[0].clientX
+    setTouchEnd(currentTouch)
+    const diff = touchStart - currentTouch
+    // Limit swipe offset
+    const maxOffset = 100
+    setSwipeOffset(Math.max(-maxOffset, Math.min(maxOffset, diff)))
+  }
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) {
+      setSwipeOffset(0)
+      return
+    }
+    const distance = touchStart - touchEnd
+    const isLeftSwipe = distance > minSwipeDistance
+    const isRightSwipe = distance < -minSwipeDistance
+
+    setIsAnimating(true)
+    
+    if (isLeftSwipe && selectedEventIndex < filteredEvents.length - 1) {
+      // Next event
       const newIndex = selectedEventIndex + 1
       setSelectedEventIndex(newIndex)
-      setSelectedEvent(events[newIndex])
-      if (map.current && events[newIndex].venue) {
-        map.current.flyTo({
-          center: [events[newIndex].venue!.lng, events[newIndex].venue!.lat],
-          zoom: 16,
-          duration: 500
-        })
-      }
+      flyToEvent(filteredEvents[newIndex])
+    } else if (isRightSwipe && selectedEventIndex > 0) {
+      // Previous event
+      const newIndex = selectedEventIndex - 1
+      setSelectedEventIndex(newIndex)
+      flyToEvent(filteredEvents[newIndex])
+    }
+
+    setSwipeOffset(0)
+    setTouchStart(null)
+    setTouchEnd(null)
+    setTimeout(() => setIsAnimating(false), 300)
+  }
+
+  // Navigation functions
+  const goToNext = () => {
+    if (selectedEventIndex < filteredEvents.length - 1) {
+      setIsAnimating(true)
+      const newIndex = selectedEventIndex + 1
+      setSelectedEventIndex(newIndex)
+      flyToEvent(filteredEvents[newIndex])
+      setTimeout(() => setIsAnimating(false), 300)
     }
   }
 
-  // Format helpers
-  const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+  const goToPrev = () => {
+    if (selectedEventIndex > 0) {
+      setIsAnimating(true)
+      const newIndex = selectedEventIndex - 1
+      setSelectedEventIndex(newIndex)
+      flyToEvent(filteredEvents[newIndex])
+      setTimeout(() => setIsAnimating(false), 300)
+    }
   }
 
-  const formatPrice = (min: number | null, max: number | null) => {
-    if (!min && !max) return 'Free / TBC'
-    if (min === 0 && !max) return 'Free'
-    if (min && max && min !== max) return `£${min} – £${max}`
-    return `£${min || max}`
+  const openDetail = () => {
+    setViewMode('detail')
   }
 
-  const getGoogleMapsUrl = (venue: Venue) => {
-    return `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`
+  const closePreview = () => {
+    setViewMode('map')
+    // Reset zoom to fit all
+    if (map.current && filteredEvents.length > 0) {
+      const spread = calculateSpread(filteredEvents)
+      if (spread >= 500) {
+        const bounds = new mapboxgl.LngLatBounds()
+        filteredEvents.forEach(e => { if (e.venue) bounds.extend([e.venue.lng, e.venue.lat]) })
+        map.current.fitBounds(bounds, { padding: 80, maxZoom: 15, duration: 800 })
+      }
+    }
   }
 
   const handleFilterChange = (filter: DateFilter) => {
     setDateFilter(filter)
     setShowDatePicker(false)
+    setViewMode('map')
+    setSelectedEventIndex(0)
   }
 
   return (
@@ -313,76 +432,43 @@ export default function Home() {
         overflow: 'hidden', 
         background: '#0a0a0b'
       }}>
-        {/* Full screen map */}
-        <div ref={mapContainer} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+        {/* Map */}
+        <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
 
-        {/* Floating header with filters */}
+        {/* Header */}
         <header style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
+          top: 0, left: 0, right: 0,
           padding: '50px 20px 20px',
-          background: 'linear-gradient(to bottom, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0.85) 70%, transparent 100%)',
-          zIndex: 10
+          background: 'linear-gradient(to bottom, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0.8) 70%, transparent 100%)',
+          zIndex: 10,
+          opacity: viewMode === 'detail' ? 0.3 : 1,
+          transition: 'opacity 0.3s ease'
         }}>
-          <h1 style={{ 
-            fontFamily: 'system-ui, -apple-system, sans-serif', 
-            fontSize: '22px', 
-            fontWeight: 800,
-            letterSpacing: '-0.5px'
-          }}>
-            SOUNDED OUT
-          </h1>
+          <h1 style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.5px' }}>SOUNDED OUT</h1>
           <p style={{ fontSize: '12px', color: '#888', marginTop: '2px', marginBottom: '14px' }}>Newcastle</p>
           
-          {/* Date filter pills */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => handleFilterChange('tonight')}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '20px',
-                border: 'none',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: dateFilter === 'tonight' ? '#ab67f7' : 'rgba(255,255,255,0.1)',
-                color: dateFilter === 'tonight' ? 'white' : '#888'
-              }}
-            >
-              Tonight
-            </button>
-            <button
-              onClick={() => handleFilterChange('tomorrow')}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '20px',
-                border: 'none',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: dateFilter === 'tomorrow' ? '#ab67f7' : 'rgba(255,255,255,0.1)',
-                color: dateFilter === 'tomorrow' ? 'white' : '#888'
-              }}
-            >
-              Tomorrow
-            </button>
-            <button
-              onClick={() => handleFilterChange('weekend')}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '20px',
-                border: 'none',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: dateFilter === 'weekend' ? '#ab67f7' : 'rgba(255,255,255,0.1)',
-                color: dateFilter === 'weekend' ? 'white' : '#888'
-              }}
-            >
-              Weekend
-            </button>
+          {/* Date filters */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {(['tonight', 'tomorrow', 'weekend'] as DateFilter[]).map(f => (
+              <button
+                key={f}
+                onClick={() => handleFilterChange(f)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: dateFilter === f ? '#ab67f7' : 'rgba(255,255,255,0.1)',
+                  color: dateFilter === f ? 'white' : '#888',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
             <button
               onClick={() => setShowDatePicker(!showDatePicker)}
               style={{
@@ -392,42 +478,42 @@ export default function Home() {
                 fontSize: '13px',
                 fontWeight: 600,
                 cursor: 'pointer',
-                background: (dateFilter !== 'tonight' && dateFilter !== 'tomorrow' && dateFilter !== 'weekend' && dateFilter !== 'all') 
-                  ? '#ab67f7' : 'rgba(255,255,255,0.1)',
-                color: (dateFilter !== 'tonight' && dateFilter !== 'tomorrow' && dateFilter !== 'weekend' && dateFilter !== 'all') 
-                  ? 'white' : '#ab67f7'
+                background: 'rgba(255,255,255,0.1)',
+                color: '#ab67f7',
+                transition: 'all 0.2s ease'
               }}
             >
               {showDatePicker ? 'Less ▲' : 'More ▼'}
             </button>
           </div>
 
-          {/* Expanded date picker */}
+          {/* Date picker */}
           {showDatePicker && (
             <div style={{
               marginTop: '12px',
               padding: '16px',
               background: '#1e1e24',
               borderRadius: '16px',
-              border: '1px solid rgba(255,255,255,0.1)'
+              animation: 'slideDown 0.2s ease'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 {getNext7Days().map((day) => (
                   <button
                     key={day.dateString}
                     onClick={() => handleFilterChange(day.dateString)}
                     style={{
-                      width: '38px',
+                      width: '40px',
                       padding: '8px 4px',
-                      borderRadius: '10px',
+                      borderRadius: '12px',
                       border: 'none',
                       cursor: 'pointer',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
-                      gap: '2px',
+                      gap: '4px',
                       background: dateFilter === day.dateString ? '#ab67f7' : 'transparent',
-                      color: dateFilter === day.dateString ? 'white' : '#888'
+                      color: dateFilter === day.dateString ? 'white' : '#888',
+                      transition: 'all 0.2s ease'
                     }}
                   >
                     <span style={{ fontSize: '10px', textTransform: 'uppercase' }}>{day.dayName}</span>
@@ -439,19 +525,18 @@ export default function Home() {
           )}
         </header>
 
-        {/* Bottom bar - tap to expand */}
-        {!showList && !selectedEvent && (
+        {/* Bottom bar - Default state */}
+        {viewMode === 'map' && (
           <div 
-            onClick={() => setShowList(true)}
+            onClick={() => setViewMode('list')}
             style={{
               position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
+              bottom: 0, left: 0, right: 0,
               padding: '30px 20px 34px',
-              background: 'linear-gradient(to top, rgba(10,10,11,1) 0%, rgba(10,10,11,0.95) 70%, transparent 100%)',
+              background: 'linear-gradient(to top, rgba(10,10,11,1) 0%, rgba(10,10,11,0.9) 70%, transparent 100%)',
               zIndex: 10,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              animation: 'slideUp 0.3s ease'
             }}
           >
             <div style={{
@@ -472,291 +557,352 @@ export default function Home() {
           </div>
         )}
 
-        {/* Bottom sheet - event list (half screen, map visible) */}
-        {showList && !selectedEvent && (
-          <div style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: '#141416',
-            borderRadius: '24px 24px 0 0',
-            padding: '12px 16px 34px',
-            zIndex: 20,
-            maxHeight: '50vh',
-            overflowY: 'auto',
-            borderTop: '1px solid rgba(255,255,255,0.1)'
-          }}>
-            {/* Handle */}
+        {/* Preview Card - Swipeable */}
+        {viewMode === 'preview' && selectedEvent && (
+          <div
+            ref={previewCardRef}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            style={{
+              position: 'absolute',
+              bottom: 0, left: 0, right: 0,
+              zIndex: 15,
+              animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+            }}
+          >
+            {/* Tap outside to close */}
             <div 
-              onClick={() => setShowList(false)}
-              style={{ 
-                width: '36px', 
-                height: '4px', 
+              onClick={closePreview}
+              style={{ height: '100px', width: '100%' }}
+            />
+            
+            <div style={{
+              background: '#141416',
+              borderRadius: '24px 24px 0 0',
+              padding: '16px 20px 34px',
+              borderTop: '1px solid rgba(255,255,255,0.1)',
+              transform: `translateX(${-swipeOffset}px)`,
+              transition: isAnimating ? 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none'
+            }}>
+              {/* Handle */}
+              <div style={{ 
+                width: '36px', height: '4px', 
                 background: '#444', 
                 borderRadius: '2px', 
                 margin: '0 auto 16px',
                 cursor: 'pointer'
-              }} 
-            />
+              }} onClick={closePreview} />
 
-            {/* Event list grouped by date */}
-            {Object.keys(groupedEvents).length === 0 ? (
-              <p style={{ textAlign: 'center', color: '#666', padding: '20px' }}>
-                No events {getFilterLabel()}
-              </p>
-            ) : (
-              Object.entries(groupedEvents).map(([dateLabel, dateEvents]) => (
-                <div key={dateLabel} style={{ marginBottom: '16px' }}>
-                  {/* Date header */}
-                  <h3 style={{ 
-                    fontSize: '13px', 
-                    fontWeight: 700, 
-                    color: dateLabel === 'Tonight' ? '#ab67f7' : '#666',
-                    marginBottom: '10px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
-                  }}>
-                    {dateLabel}
+              {/* Position indicator */}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                gap: '6px', 
+                marginBottom: '16px' 
+              }}>
+                {filteredEvents.map((_, i) => (
+                  <div key={i} style={{
+                    width: i === selectedEventIndex ? '20px' : '6px',
+                    height: '6px',
+                    borderRadius: '3px',
+                    background: i === selectedEventIndex ? '#ab67f7' : 'rgba(255,255,255,0.2)',
+                    transition: 'all 0.3s ease'
+                  }} />
+                ))}
+              </div>
+
+              {/* Card content */}
+              <div style={{ display: 'flex', gap: '16px' }}>
+                {/* Left: Info */}
+                <div style={{ flex: 1 }}>
+                  {/* Time + Date */}
+                  <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, marginBottom: '6px' }}>
+                    {formatTime(selectedEvent.start_time)} · {getDateLabel(selectedEvent.start_time)}
+                  </p>
+                  
+                  {/* Title */}
+                  <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '6px', lineHeight: 1.2 }}>
+                    {selectedEvent.title}
                   </h3>
                   
-                  {/* Events for this date */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {dateEvents.map((event) => {
-                      const eventIndex = events.findIndex(e => e.id === event.id)
-                      return (
-                        <div
-                          key={event.id}
-                          onClick={() => {
-                            setSelectedEventIndex(eventIndex)
-                            setSelectedEvent(event)
-                            setShowList(false)
-                            if (map.current && event.venue) {
-                              map.current.flyTo({
-                                center: [event.venue.lng, event.venue.lat],
-                                zoom: 16,
-                                duration: 800
-                              })
-                            }
-                          }}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            padding: '12px',
-                            background: '#1e1e24',
-                            borderRadius: '12px',
-                            cursor: 'pointer',
-                            border: '1px solid rgba(255,255,255,0.05)'
-                          }}
-                        >
-                          <span style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, minWidth: '46px' }}>
-                            {formatTime(event.start_time)}
-                          </span>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>{event.title}</div>
-                            <div style={{ fontSize: '12px', color: '#888' }}>{event.venue?.name}</div>
-                          </div>
-                          <span style={{ color: '#555', fontSize: '16px' }}>›</span>
-                        </div>
-                      )
-                    })}
+                  {/* Venue */}
+                  <p style={{ fontSize: '14px', color: '#888', marginBottom: '10px' }}>
+                    {selectedEvent.venue?.name}
+                  </p>
+
+                  {/* Tags row */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                    {/* Free badge */}
+                    {isFree(selectedEvent.price_min, selectedEvent.price_max) && (
+                      <span style={{
+                        padding: '4px 10px',
+                        background: 'rgba(34, 197, 94, 0.2)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: '#22c55e'
+                      }}>FREE</span>
+                    )}
+                    
+                    {/* Price */}
+                    {formatPrice(selectedEvent.price_min, selectedEvent.price_max) && (
+                      <span style={{
+                        padding: '4px 10px',
+                        background: 'rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: '#fff'
+                      }}>{formatPrice(selectedEvent.price_min, selectedEvent.price_max)}</span>
+                    )}
+
+                    {/* Genres */}
+                    {getCompactGenres(selectedEvent.genres) && (
+                      <span style={{
+                        padding: '4px 10px',
+                        background: 'rgba(171, 103, 247, 0.15)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: '#ab67f7'
+                      }}>{getCompactGenres(selectedEvent.genres)}</span>
+                    )}
+
+                    {/* Vibe */}
+                    {selectedEvent.vibe && (
+                      <span style={{
+                        padding: '4px 10px',
+                        background: 'rgba(255,255,255,0.08)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: '#888'
+                      }}>{selectedEvent.vibe}</span>
+                    )}
                   </div>
                 </div>
-              ))
-            )}
+
+                {/* Right: Thumbnail (if image) */}
+                {selectedEvent.image_url && (
+                  <div style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    flexShrink: 0
+                  }}>
+                    <img 
+                      src={selectedEvent.image_url} 
+                      alt=""
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* View details button */}
+              <button
+                onClick={openDetail}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  background: 'linear-gradient(135deg, #ab67f7 0%, #d7b3ff 100%)',
+                  border: 'none',
+                  borderRadius: '14px',
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  color: 'white',
+                  cursor: 'pointer',
+                  marginTop: '8px'
+                }}
+              >
+                VIEW DETAILS
+              </button>
+
+              {/* Navigation hints */}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                marginTop: '16px',
+                color: '#555',
+                fontSize: '12px'
+              }}>
+                <span style={{ opacity: selectedEventIndex > 0 ? 1 : 0.3 }}>← Swipe for previous</span>
+                <span style={{ opacity: selectedEventIndex < filteredEvents.length - 1 ? 1 : 0.3 }}>Swipe for next →</span>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Event detail modal */}
-        {selectedEvent && (
+        {/* Full Detail Modal */}
+        {viewMode === 'detail' && selectedEvent && (
           <div 
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'rgba(0,0,0,0.6)',
-              zIndex: 20,
+              background: 'rgba(0,0,0,0.7)',
+              zIndex: 25,
               display: 'flex',
-              alignItems: 'flex-end'
+              alignItems: 'flex-end',
+              animation: 'fadeIn 0.2s ease'
             }}
-            onClick={() => setSelectedEvent(null)}
+            onClick={() => setViewMode('preview')}
           >
             <div 
               style={{
                 width: '100%',
+                maxHeight: '90vh',
                 background: '#141416',
                 borderRadius: '24px 24px 0 0',
-                padding: '12px 20px 40px',
-                borderTop: '1px solid rgba(255,255,255,0.1)',
-                maxHeight: '85vh',
-                overflowY: 'auto'
+                padding: '16px 20px 40px',
+                overflowY: 'auto',
+                animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
               }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={e => e.stopPropagation()}
             >
               {/* Handle */}
               <div 
-                onClick={() => setSelectedEvent(null)}
+                onClick={() => setViewMode('preview')}
                 style={{ 
-                  width: '36px', 
-                  height: '4px', 
+                  width: '36px', height: '4px', 
                   background: '#444', 
                   borderRadius: '2px', 
-                  margin: '0 auto 12px',
+                  margin: '0 auto 16px',
                   cursor: 'pointer'
                 }} 
               />
 
-              {/* Event image */}
+              {/* Image */}
               {selectedEvent.image_url ? (
                 <div style={{
                   width: '100%',
                   aspectRatio: '16/9',
-                  borderRadius: '14px',
-                  marginBottom: '16px',
+                  borderRadius: '16px',
                   overflow: 'hidden',
-                  background: '#1a1a2e'
+                  marginBottom: '20px'
                 }}>
                   <img 
                     src={selectedEvent.image_url} 
                     alt={selectedEvent.title}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
                 </div>
               ) : (
                 <div style={{
                   width: '100%',
                   aspectRatio: '16/9',
-                  background: 'linear-gradient(135deg, #2a2a3e 0%, #1a1a2e 100%)',
-                  borderRadius: '14px',
-                  marginBottom: '16px',
+                  background: 'linear-gradient(135deg, #2a2a3e, #1a1a2e)',
+                  borderRadius: '16px',
+                  marginBottom: '20px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#444',
-                  fontSize: '12px'
-                }}>
-                  No image
-                </div>
+                  color: '#444'
+                }}>No image</div>
               )}
 
-              {/* Date & time */}
+              {/* Date/time */}
               <p style={{ 
-                fontSize: '11px', 
+                fontSize: '12px', 
                 color: '#ab67f7', 
                 fontWeight: 700, 
                 textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                marginBottom: '6px' 
+                marginBottom: '8px'
               }}>
                 {getDateLabel(selectedEvent.start_time)} · {formatTime(selectedEvent.start_time)}
                 {selectedEvent.end_time && ` – ${formatTime(selectedEvent.end_time)}`}
               </p>
 
               {/* Title */}
-              <h2 style={{ 
-                fontSize: '24px', 
-                fontWeight: 800, 
-                marginBottom: '4px',
-                lineHeight: 1.2
-              }}>
+              <h2 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px', lineHeight: 1.2 }}>
                 {selectedEvent.title}
               </h2>
 
-              {/* Venue with Instagram */}
-              <p style={{ fontSize: '14px', color: '#888', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span>{selectedEvent.venue?.name}</span>
+              {/* Venue + Instagram */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '16px', color: '#888' }}>{selectedEvent.venue?.name}</span>
                 {selectedEvent.venue?.instagram_url && (
                   <a 
                     href={selectedEvent.venue.instagram_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ 
-                      opacity: 0.7, 
-                      fontSize: '16px',
-                      textDecoration: 'none',
-                      display: 'flex',
-                      alignItems: 'center'
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    📸
-                  </a>
+                    style={{ fontSize: '18px', opacity: 0.7 }}
+                    onClick={e => e.stopPropagation()}
+                  >📸</a>
                 )}
-              </p>
+              </div>
 
               {/* Tags */}
-              {(selectedEvent.genres || selectedEvent.vibe) && (
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                  {selectedEvent.genres?.split(',').map((genre, i) => (
-                    <span key={i} style={{ 
-                      padding: '6px 12px', 
-                      background: 'rgba(171, 103, 247, 0.15)', 
-                      borderRadius: '10px', 
-                      fontSize: '12px', 
-                      color: '#ab67f7' 
-                    }}>
-                      {genre.trim()}
-                    </span>
-                  ))}
-                  {selectedEvent.vibe && (
-                    <span style={{ 
-                      padding: '6px 12px', 
-                      background: 'rgba(255,255,255,0.08)', 
-                      borderRadius: '10px', 
-                      fontSize: '12px', 
-                      color: '#888' 
-                    }}>
-                      {selectedEvent.vibe}
-                    </span>
-                  )}
-                </div>
-              )}
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                {isFree(selectedEvent.price_min, selectedEvent.price_max) && (
+                  <span style={{
+                    padding: '8px 16px',
+                    background: 'rgba(34, 197, 94, 0.2)',
+                    borderRadius: '12px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: '#22c55e'
+                  }}>FREE</span>
+                )}
+                {selectedEvent.genres?.split(',').map((g, i) => (
+                  <span key={i} style={{
+                    padding: '8px 16px',
+                    background: 'rgba(171, 103, 247, 0.15)',
+                    borderRadius: '12px',
+                    fontSize: '14px',
+                    color: '#ab67f7'
+                  }}>{g.trim()}</span>
+                ))}
+                {selectedEvent.vibe && (
+                  <span style={{
+                    padding: '8px 16px',
+                    background: 'rgba(255,255,255,0.08)',
+                    borderRadius: '12px',
+                    fontSize: '14px',
+                    color: '#888'
+                  }}>{selectedEvent.vibe}</span>
+                )}
+              </div>
 
               {/* Price */}
-              <p style={{ fontSize: '18px', fontWeight: 700, marginBottom: '20px' }}>
-                {formatPrice(selectedEvent.price_min, selectedEvent.price_max)}
-              </p>
+              {!isFree(selectedEvent.price_min, selectedEvent.price_max) && (
+                <p style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px' }}>
+                  {formatPrice(selectedEvent.price_min, selectedEvent.price_max)}
+                </p>
+              )}
 
               {/* Buttons */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {selectedEvent.event_url && (
                   <a 
-                    href={selectedEvent.event_url} 
-                    target="_blank" 
+                    href={selectedEvent.event_url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     style={{
                       display: 'block',
+                      padding: '18px',
                       background: 'linear-gradient(135deg, #ab67f7 0%, #d7b3ff 100%)',
-                      color: 'white',
-                      padding: '16px',
-                      borderRadius: '14px',
+                      borderRadius: '16px',
                       textAlign: 'center',
                       fontWeight: 700,
-                      fontSize: '15px',
+                      fontSize: '16px',
+                      color: 'white',
                       textDecoration: 'none'
                     }}
-                  >
-                    GET TICKETS
-                  </a>
+                  >GET TICKETS</a>
                 )}
-                
                 {selectedEvent.venue && (
                   <a 
                     href={getGoogleMapsUrl(selectedEvent.venue)}
-                    target="_blank" 
+                    target="_blank"
                     rel="noopener noreferrer"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '8px',
+                      padding: '14px',
                       color: '#888',
-                      fontSize: '14px',
-                      padding: '10px',
+                      fontSize: '15px',
                       textDecoration: 'none'
                     }}
                   >
@@ -770,42 +916,180 @@ export default function Home() {
               <div style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
-                marginTop: '20px',
-                paddingTop: '16px',
+                marginTop: '24px',
+                paddingTop: '20px',
                 borderTop: '1px solid rgba(255,255,255,0.05)'
               }}>
                 <button 
-                  onClick={goToPrevEvent}
+                  onClick={goToPrev}
                   disabled={selectedEventIndex === 0}
                   style={{ 
-                    background: 'none', 
-                    border: 'none', 
-                    color: selectedEventIndex === 0 ? '#333' : '#666',
-                    fontSize: '13px',
-                    cursor: selectedEventIndex === 0 ? 'default' : 'pointer',
-                    padding: '8px 0'
+                    background: 'none', border: 'none', 
+                    color: selectedEventIndex === 0 ? '#333' : '#888',
+                    fontSize: '14px', cursor: 'pointer', padding: '8px'
                   }}
-                >
-                  ← Previous
-                </button>
+                >← Previous</button>
+                <span style={{ color: '#555', fontSize: '14px' }}>
+                  {selectedEventIndex + 1} / {filteredEvents.length}
+                </span>
                 <button 
-                  onClick={goToNextEvent}
-                  disabled={selectedEventIndex === events.length - 1}
+                  onClick={goToNext}
+                  disabled={selectedEventIndex === filteredEvents.length - 1}
                   style={{ 
-                    background: 'none', 
-                    border: 'none', 
-                    color: selectedEventIndex === events.length - 1 ? '#333' : '#666',
-                    fontSize: '13px',
-                    cursor: selectedEventIndex === events.length - 1 ? 'default' : 'pointer',
-                    padding: '8px 0'
+                    background: 'none', border: 'none', 
+                    color: selectedEventIndex === filteredEvents.length - 1 ? '#333' : '#888',
+                    fontSize: '14px', cursor: 'pointer', padding: '8px'
                   }}
-                >
-                  Next →
-                </button>
+                >Next →</button>
               </div>
             </div>
           </div>
         )}
+
+        {/* List View */}
+        {viewMode === 'list' && (
+          <div style={{
+            position: 'absolute',
+            bottom: 0, left: 0, right: 0,
+            background: '#141416',
+            borderRadius: '24px 24px 0 0',
+            padding: '16px 20px 34px',
+            maxHeight: '60vh',
+            overflowY: 'auto',
+            zIndex: 15,
+            animation: 'slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          }}>
+            {/* Handle */}
+            <div 
+              onClick={() => setViewMode('map')}
+              style={{ 
+                width: '36px', height: '4px', 
+                background: '#444', 
+                borderRadius: '2px', 
+                margin: '0 auto 20px',
+                cursor: 'pointer'
+              }} 
+            />
+
+            {Object.keys(groupedEvents).length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#555', padding: '30px' }}>
+                No events {getFilterLabel()}
+              </p>
+            ) : (
+              Object.entries(groupedEvents).map(([label, evts]) => (
+                <div key={label} style={{ marginBottom: '24px' }}>
+                  <h3 style={{ 
+                    fontSize: '13px', 
+                    fontWeight: 700, 
+                    color: label === 'Tonight' ? '#ab67f7' : '#555',
+                    textTransform: 'uppercase',
+                    marginBottom: '12px'
+                  }}>{label}</h3>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {evts.map((event) => (
+                      <div
+                        key={event.id}
+                        onClick={() => {
+                          const idx = filteredEvents.findIndex(e => e.id === event.id)
+                          setSelectedEventIndex(idx)
+                          setViewMode('preview')
+                          flyToEvent(event)
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '14px',
+                          padding: '14px',
+                          background: '#1e1e24',
+                          borderRadius: '14px',
+                          cursor: 'pointer',
+                          transition: 'transform 0.2s ease'
+                        }}
+                      >
+                        <span style={{ 
+                          fontSize: '13px', 
+                          color: '#ab67f7', 
+                          fontWeight: 700, 
+                          minWidth: '50px',
+                          paddingTop: '2px'
+                        }}>{formatTime(event.start_time)}</span>
+                        
+                        <div style={{ flex: 1 }}>
+                          <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'flex-start',
+                            marginBottom: '4px'
+                          }}>
+                            <span style={{ fontSize: '15px', fontWeight: 600 }}>{event.title}</span>
+                            {isFree(event.price_min, event.price_max) ? (
+                              <span style={{ 
+                                fontSize: '11px', 
+                                fontWeight: 700, 
+                                color: '#22c55e',
+                                background: 'rgba(34, 197, 94, 0.2)',
+                                padding: '3px 8px',
+                                borderRadius: '6px'
+                              }}>FREE</span>
+                            ) : formatPrice(event.price_min, event.price_max) && (
+                              <span style={{ 
+                                fontSize: '12px', 
+                                fontWeight: 600, 
+                                color: '#888'
+                              }}>{formatPrice(event.price_min, event.price_max)}</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#666', marginBottom: '6px' }}>
+                            {event.venue?.name}
+                          </div>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            {getCompactGenres(event.genres) && (
+                              <span style={{
+                                fontSize: '11px',
+                                color: '#ab67f7',
+                                background: 'rgba(171,103,247,0.1)',
+                                padding: '3px 8px',
+                                borderRadius: '6px'
+                              }}>{getCompactGenres(event.genres)}</span>
+                            )}
+                            {event.vibe && (
+                              <span style={{
+                                fontSize: '11px',
+                                color: '#666',
+                                background: 'rgba(255,255,255,0.05)',
+                                padding: '3px 8px',
+                                borderRadius: '6px'
+                              }}>{event.vibe}</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <span style={{ color: '#444', fontSize: '18px', paddingTop: '2px' }}>›</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* CSS Animations */}
+        <style jsx global>{`
+          @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+          }
+          @keyframes slideDown {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+          }
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+        `}</style>
       </main>
     </div>
   )
