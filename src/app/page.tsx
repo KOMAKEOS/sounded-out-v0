@@ -45,9 +45,8 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [clusterEvents, setClusterEvents] = useState<Event[]>([])
   
-  // Card animation state
-  const [cardState, setCardState] = useState<'visible' | 'exiting-left' | 'exiting-right' | 'entering-left' | 'entering-right'>('visible')
-  const [nextIndex, setNextIndex] = useState<number | null>(null)
+  // Card animation state - simplified
+  const [isAnimating, setIsAnimating] = useState(false)
   
   // Touch/drag state
   const [dragX, setDragX] = useState(0)
@@ -110,6 +109,16 @@ export default function Home() {
   const isFree = (min: number|null, max: number|null) => min === 0 || (!min && !max)
   const getGenres = (g: string|null) => g ? g.split(',').map(x => x.trim()).slice(0,2).join(' · ') : null
   const mapsUrl = (v: Venue) => `https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}`
+  
+  // FIX: Ensure URL is absolute
+  const getTicketUrl = (url: string | null) => {
+    if (!url) return null
+    // If URL doesn't start with http, add https://
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return `https://${url}`
+    }
+    return url
+  }
 
   // Load events
   useEffect(() => {
@@ -118,7 +127,7 @@ export default function Home() {
       .then(({ data }: { data: Event[] | null }) => { if (data) setEvents(data); setLoading(false) })
   }, [])
 
-  // Init map - STATIC markers that don't move
+  // Init map
   useEffect(() => {
     if (!mapContainer.current || map.current) return
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
@@ -132,7 +141,12 @@ export default function Home() {
       pitchWithRotate: false,
       dragRotate: false,
       touchPitch: false,
-      renderWorldCopies: false
+      renderWorldCopies: false,
+      // FIX: Ensure drag pan is enabled
+      dragPan: true,
+      scrollZoom: true,
+      doubleClickZoom: true,
+      touchZoomRotate: true
     })
     map.current = m
     return () => m.remove()
@@ -213,7 +227,7 @@ export default function Home() {
       markersRef.current.set(ids, { marker, el })
     })
 
-    // Fit bounds - but not too zoomed in
+    // Fit bounds
     if (filtered.length > 0) {
       const bounds = new mapboxgl.LngLatBounds()
       filtered.forEach(e => { if (e.venue) bounds.extend([e.venue.lng, e.venue.lat]) })
@@ -226,38 +240,31 @@ export default function Home() {
     }
   }, [filtered, highlightMarker])
 
-  // Navigation with proper animation sequencing
+  // FIX: Simplified navigation that doesn't dismiss the card
   const navigate = useCallback((dir: 'prev' | 'next') => {
-    if (cardState !== 'visible') return
+    if (isAnimating) return
     const newIdx = dir === 'next' ? currentIndex + 1 : currentIndex - 1
     if (newIdx < 0 || newIdx >= filtered.length) return
 
-    // Step 1: Exit current card
-    setCardState(dir === 'next' ? 'exiting-left' : 'exiting-right')
-    setNextIndex(newIdx)
+    setIsAnimating(true)
+    
+    // Just update the index - keep viewMode the same!
+    setCurrentIndex(newIdx)
+    highlightMarker(filtered[newIdx].id)
+    
+    if (filtered[newIdx].venue) {
+      map.current?.flyTo({ 
+        center: [filtered[newIdx].venue!.lng, filtered[newIdx].venue!.lat], 
+        zoom: 16, 
+        duration: 400 
+      })
+    }
 
-    // Step 2: After exit animation, update index and enter new card
-    setTimeout(() => {
-      setCurrentIndex(newIdx)
-      setCardState(dir === 'next' ? 'entering-right' : 'entering-left')
-      highlightMarker(filtered[newIdx].id)
-      if (filtered[newIdx].venue) {
-        map.current?.flyTo({ 
-          center: [filtered[newIdx].venue!.lng, filtered[newIdx].venue!.lat], 
-          zoom: 16, 
-          duration: 400 
-        })
-      }
-    }, 250)
+    // Reset animation lock
+    setTimeout(() => setIsAnimating(false), 300)
+  }, [isAnimating, currentIndex, filtered, highlightMarker])
 
-    // Step 3: Card fully visible
-    setTimeout(() => {
-      setCardState('visible')
-      setNextIndex(null)
-    }, 450)
-  }, [cardState, currentIndex, filtered, highlightMarker])
-
-  // Touch handlers
+  // Touch handlers - FIX: prevent text selection
   const onTouchStart = (e: React.TouchEvent) => {
     setStartX(e.touches[0].clientX)
     setStartY(e.touches[0].clientY)
@@ -273,7 +280,8 @@ export default function Home() {
     if (Math.abs(dx) > Math.abs(dy) + 10) {
       setDragX(dx * 0.6)
       setDragY(0)
-    } else if (dy > 10 && viewMode === 'detail') {
+      e.preventDefault() // Prevent text selection
+    } else if (dy > 10) {
       setDragY(dy * 0.5)
       setDragX(0)
     }
@@ -283,19 +291,67 @@ export default function Home() {
     setIsDragging(false)
     
     // Horizontal swipe
-    if (Math.abs(dragX) > 80) {
+    if (Math.abs(dragX) > 60) {
       if (dragX < 0) navigate('next')
       else navigate('prev')
     }
     
     // Vertical swipe down to dismiss
-    if (dragY > 100) {
+    if (dragY > 80) {
       if (viewMode === 'detail') setViewMode('preview')
       else if (viewMode === 'preview') { setViewMode('map'); highlightMarker(null) }
     }
     
     setDragX(0)
     setDragY(0)
+  }
+
+  // Mouse handlers for desktop swipe
+  const onMouseDown = (e: React.MouseEvent) => {
+    setStartX(e.clientX)
+    setStartY(e.clientY)
+    setIsDragging(true)
+    e.preventDefault() // Prevent text selection
+  }
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return
+    const dx = e.clientX - startX
+    const dy = e.clientY - startY
+    
+    if (Math.abs(dx) > Math.abs(dy) + 10) {
+      setDragX(dx * 0.6)
+      setDragY(0)
+    } else if (dy > 10) {
+      setDragY(dy * 0.5)
+      setDragX(0)
+    }
+  }
+
+  const onMouseUp = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    
+    if (Math.abs(dragX) > 60) {
+      if (dragX < 0) navigate('next')
+      else navigate('prev')
+    }
+    
+    if (dragY > 80) {
+      if (viewMode === 'detail') setViewMode('preview')
+      else if (viewMode === 'preview') { setViewMode('map'); highlightMarker(null) }
+    }
+    
+    setDragX(0)
+    setDragY(0)
+  }
+
+  const onMouseLeave = () => {
+    if (isDragging) {
+      setIsDragging(false)
+      setDragX(0)
+      setDragY(0)
+    }
   }
 
   // Keyboard nav
@@ -311,17 +367,17 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handler)
   }, [viewMode, navigate, highlightMarker])
 
-  // Card transform based on state
+  // Card transform based on drag
   const getCardTransform = () => {
     if (isDragging && dragX !== 0) {
-      return { transform: `translateX(${dragX}px) rotate(${dragX * 0.03}deg)`, opacity: 1 - Math.abs(dragX) / 500, transition: 'none' }
+      return { 
+        transform: `translateX(${dragX}px) rotate(${dragX * 0.02}deg)`, 
+        transition: 'none' 
+      }
     }
-    switch (cardState) {
-      case 'exiting-left': return { transform: 'translateX(-110%) rotate(-8deg)', opacity: 0, transition: 'all 0.25s ease-out' }
-      case 'exiting-right': return { transform: 'translateX(110%) rotate(8deg)', opacity: 0, transition: 'all 0.25s ease-out' }
-      case 'entering-left': return { transform: 'translateX(-30px)', opacity: 0.5, transition: 'all 0.2s ease-out' }
-      case 'entering-right': return { transform: 'translateX(30px)', opacity: 0.5, transition: 'all 0.2s ease-out' }
-      default: return { transform: 'translateX(0) rotate(0)', opacity: 1, transition: 'all 0.2s ease-out' }
+    return { 
+      transform: 'translateX(0) rotate(0)', 
+      transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)' 
     }
   }
 
@@ -350,22 +406,45 @@ export default function Home() {
   const maxVisibleItems = 3.5
   const listContentHeight = Math.min(Object.values(grouped).flat().length, maxVisibleItems) * listItemHeight + 80
 
+  // Shared style for preventing text selection on swipeable elements
+  const noSelectStyle: React.CSSProperties = {
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
+    MozUserSelect: 'none',
+    msUserSelect: 'none',
+    touchAction: 'pan-y pinch-zoom'
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0b', display: 'flex', justifyContent: 'center' }}>
       <main style={{ height: '100vh', width: '100%', maxWidth: '480px', position: 'relative', overflow: 'hidden' }}>
         
-        {/* Map */}
-        <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
+        {/* Map - always interactive when no overlay */}
+        <div 
+          ref={mapContainer} 
+          style={{ 
+            position: 'absolute', 
+            inset: 0,
+            // FIX: Map is always there, pointer events controlled by overlay
+          }} 
+        />
 
-        {/* Click anywhere to close when in preview/detail */}
+        {/* FIX: Click-to-close overlay - only when preview/cluster is open */}
         {(viewMode === 'preview' || viewMode === 'cluster') && (
           <div 
             onClick={closeOverlay}
-            style={{ position: 'absolute', inset: 0, zIndex: 10 }}
+            style={{ 
+              position: 'absolute', 
+              inset: 0, 
+              zIndex: 10,
+              // FIX: transparent background so map is visible, but captures clicks
+              background: 'transparent',
+              cursor: 'pointer'
+            }}
           />
         )}
 
-        {/* Header - reduced top padding */}
+        {/* Header */}
         <header style={{
           position: 'absolute', top: 0, left: 0, right: 0,
           padding: '44px 20px 16px',
@@ -433,7 +512,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* List View - dynamic height */}
+        {/* List View */}
         {viewMode === 'list' && (
           <div style={{
             position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -522,24 +601,44 @@ export default function Home() {
           </div>
         )}
 
-        {/* Preview Card */}
+        {/* Preview Card - FIX: Added noSelectStyle and mouse handlers */}
         {viewMode === 'preview' && current && (
           <div
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseLeave}
             onClick={(e) => e.stopPropagation()}
             style={{
               position: 'absolute', bottom: 0, left: 0, right: 0,
               background: '#141416', borderRadius: '24px 24px 0 0',
               padding: '12px 20px 30px', zIndex: 30,
+              ...noSelectStyle,
               ...getCardTransform()
             }}
           >
-            <div onClick={closeOverlay} style={{ width: '40px', height: '5px', background: '#555', borderRadius: '3px', margin: '0 auto 14px', cursor: 'pointer' }} />
+            {/* FIX: Larger, more obvious close handle */}
+            <div 
+              onClick={closeOverlay} 
+              style={{ 
+                width: '100%', 
+                padding: '8px 0', 
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <div style={{ width: '48px', height: '5px', background: '#666', borderRadius: '3px' }} />
+              <span style={{ fontSize: '10px', color: '#555' }}>Tap to close</span>
+            </div>
 
             {/* Progress dots */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '14px', marginTop: '8px' }}>
               {filtered.slice(0, 8).map((_, i) => (
                 <div key={i} style={{
                   width: i === currentIndex ? '18px' : '6px', height: '6px', borderRadius: '3px',
@@ -550,7 +649,7 @@ export default function Home() {
               {filtered.length > 8 && <span style={{ fontSize: '10px', color: '#444' }}>+{filtered.length - 8}</span>}
             </div>
 
-            <div style={{ display: 'flex', gap: '14px' }}>
+            <div style={{ display: 'flex', gap: '14px', ...noSelectStyle }}>
               <div style={{ flex: 1 }}>
                 <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, marginBottom: '6px' }}>
                   {formatTime(current.start_time)} · {getDateLabel(current.start_time)}
@@ -571,7 +670,7 @@ export default function Home() {
               </div>
               {current.image_url && (
                 <div style={{ width: '75px', height: '75px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0 }}>
-                  <img src={current.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={current.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} draggable={false} />
                 </div>
               )}
             </div>
@@ -585,35 +684,39 @@ export default function Home() {
             {/* Navigation - OBVIOUS purple arrows */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px' }}>
               <button 
-                onClick={() => navigate('prev')} 
+                onClick={(e) => { e.stopPropagation(); navigate('prev') }} 
                 disabled={currentIndex === 0}
                 style={{
-                  background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.15)',
-                  border: 'none', borderRadius: '12px', padding: '10px 16px',
+                  background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.2)',
+                  border: currentIndex === 0 ? 'none' : '1px solid rgba(171,103,247,0.3)',
+                  borderRadius: '12px', padding: '12px 18px',
                   color: currentIndex === 0 ? '#333' : '#ab67f7',
                   fontSize: '14px', fontWeight: 600, cursor: currentIndex === 0 ? 'default' : 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '6px'
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  ...noSelectStyle
                 }}
               >
                 <span style={{ fontSize: '18px' }}>←</span> Prev
               </button>
               <span style={{ fontSize: '13px', color: '#555' }}>{currentIndex + 1} / {filtered.length}</span>
               <button 
-                onClick={() => navigate('next')} 
+                onClick={(e) => { e.stopPropagation(); navigate('next') }} 
                 disabled={currentIndex === filtered.length - 1}
                 style={{
-                  background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.15)',
-                  border: 'none', borderRadius: '12px', padding: '10px 16px',
+                  background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.2)',
+                  border: currentIndex === filtered.length - 1 ? 'none' : '1px solid rgba(171,103,247,0.3)',
+                  borderRadius: '12px', padding: '12px 18px',
                   color: currentIndex === filtered.length - 1 ? '#333' : '#ab67f7',
                   fontSize: '14px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '6px'
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  ...noSelectStyle
                 }}
               >
                 Next <span style={{ fontSize: '18px' }}>→</span>
               </button>
             </div>
             
-            <p style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '10px' }}>Swipe left or right to browse</p>
+            <p style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '10px' }}>← Swipe or drag to browse →</p>
           </div>
         )}
 
@@ -632,18 +735,37 @@ export default function Home() {
               onTouchStart={onTouchStart}
               onTouchMove={onTouchMove}
               onTouchEnd={onTouchEnd}
+              onMouseDown={onMouseDown}
+              onMouseMove={onMouseMove}
+              onMouseUp={onMouseUp}
+              onMouseLeave={onMouseLeave}
               style={{
                 width: '100%', maxHeight: '88vh', background: '#141416', borderRadius: '24px 24px 0 0',
                 padding: '12px 20px 36px', overflowY: 'auto',
+                ...noSelectStyle,
                 ...getDetailTransform()
               }}
             >
-              <div onClick={() => setViewMode('preview')} style={{ width: '40px', height: '5px', background: '#555', borderRadius: '3px', margin: '0 auto 14px', cursor: 'pointer' }} />
-              <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '14px' }}>Swipe down to close · Swipe left/right to browse</p>
+              {/* FIX: Larger close handle */}
+              <div 
+                onClick={() => setViewMode('preview')} 
+                style={{ 
+                  width: '100%', 
+                  padding: '8px 0 14px', 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <div style={{ width: '48px', height: '5px', background: '#666', borderRadius: '3px' }} />
+                <span style={{ fontSize: '10px', color: '#555' }}>Swipe down or tap to close</span>
+              </div>
 
               {current.image_url ? (
                 <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: '16px', overflow: 'hidden', marginBottom: '18px' }}>
-                  <img src={current.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={current.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} draggable={false} />
                 </div>
               ) : (
                 <div style={{ width: '100%', aspectRatio: '16/9', background: 'linear-gradient(135deg, #252530, #1a1a22)', borderRadius: '16px', marginBottom: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333' }}>No image</div>
@@ -654,7 +776,7 @@ export default function Home() {
                 {current.end_time && ` – ${formatTime(current.end_time)}`}
               </p>
 
-              <h2 style={{ fontSize: '26px', fontWeight: 800, marginBottom: '8px', lineHeight: 1.2 }}>{current.title}</h2>
+              <h2 style={{ fontSize: '26px', fontWeight: 800, marginBottom: '8px', lineHeight: 1.2, ...noSelectStyle }}>{current.title}</h2>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                 <span style={{ fontSize: '15px', color: '#888' }}>{current.venue?.name}</span>
@@ -680,8 +802,9 @@ export default function Home() {
               )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {current.event_url && (
-                  <a href={current.event_url} target="_blank" rel="noopener noreferrer" style={{
+                {/* FIX: Use getTicketUrl to ensure absolute URL */}
+                {getTicketUrl(current.event_url) && (
+                  <a href={getTicketUrl(current.event_url)!} target="_blank" rel="noopener noreferrer" style={{
                     display: 'block', padding: '16px', background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
                     borderRadius: '14px', textAlign: 'center', fontWeight: 700, fontSize: '15px', color: 'white', textDecoration: 'none'
                   }}>GET TICKETS</a>
@@ -697,36 +820,54 @@ export default function Home() {
               {/* Navigation */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <button 
-                  onClick={() => navigate('prev')} 
+                  onClick={(e) => { e.stopPropagation(); navigate('prev') }} 
                   disabled={currentIndex === 0}
                   style={{
-                    background: currentIndex === 0 ? 'transparent' : 'rgba(171,103,247,0.15)',
-                    border: 'none', borderRadius: '10px', padding: '10px 14px',
+                    background: currentIndex === 0 ? 'transparent' : 'rgba(171,103,247,0.2)',
+                    border: currentIndex === 0 ? 'none' : '1px solid rgba(171,103,247,0.3)',
+                    borderRadius: '10px', padding: '10px 14px',
                     color: currentIndex === 0 ? '#333' : '#ab67f7',
-                    fontSize: '14px', fontWeight: 600, cursor: currentIndex === 0 ? 'default' : 'pointer'
+                    fontSize: '14px', fontWeight: 600, cursor: currentIndex === 0 ? 'default' : 'pointer',
+                    ...noSelectStyle
                   }}
                 >← Prev</button>
                 <span style={{ fontSize: '13px', color: '#444' }}>{currentIndex + 1} / {filtered.length}</span>
                 <button 
-                  onClick={() => navigate('next')} 
+                  onClick={(e) => { e.stopPropagation(); navigate('next') }} 
                   disabled={currentIndex === filtered.length - 1}
                   style={{
-                    background: currentIndex === filtered.length - 1 ? 'transparent' : 'rgba(171,103,247,0.15)',
-                    border: 'none', borderRadius: '10px', padding: '10px 14px',
+                    background: currentIndex === filtered.length - 1 ? 'transparent' : 'rgba(171,103,247,0.2)',
+                    border: currentIndex === filtered.length - 1 ? 'none' : '1px solid rgba(171,103,247,0.3)',
+                    borderRadius: '10px', padding: '10px 14px',
                     color: currentIndex === filtered.length - 1 ? '#333' : '#ab67f7',
-                    fontSize: '14px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer'
+                    fontSize: '14px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
+                    ...noSelectStyle
                   }}
                 >Next →</button>
               </div>
+              
+              <p style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '10px' }}>← Swipe to browse →</p>
             </div>
           </div>
         )}
 
         <style jsx global>{`
           @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-          * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-          body { overscroll-behavior: none; }
-          .mapboxgl-canvas { outline: none; }
+          * { 
+            -webkit-tap-highlight-color: transparent; 
+            box-sizing: border-box; 
+          }
+          body { 
+            overscroll-behavior: none; 
+          }
+          .mapboxgl-canvas { 
+            outline: none; 
+          }
+          /* FIX: Ensure map controls don't interfere */
+          .mapboxgl-ctrl-bottom-left,
+          .mapboxgl-ctrl-bottom-right {
+            display: none;
+          }
         `}</style>
       </main>
     </div>
