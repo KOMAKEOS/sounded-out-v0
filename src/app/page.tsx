@@ -4,10 +4,6 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import mapboxgl from 'mapbox-gl'
 import { supabase } from '../lib/supabase'
 
-// Apple's default easing curve
-const APPLE_EASE = 'cubic-bezier(0.25, 0.1, 0.25, 1)'
-const ANIMATION_DURATION = 400
-
 type Venue = {
   id: string
   name: string
@@ -33,439 +29,382 @@ type Event = {
   venue?: Venue
 }
 
-type DateFilter = 'tonight' | 'tomorrow' | 'weekend' | 'all' | string
-type ViewMode = 'map' | 'preview' | 'detail' | 'list' | 'cluster-select'
+type DateFilter = 'tonight' | 'tomorrow' | 'weekend' | string
+type ViewMode = 'map' | 'preview' | 'detail' | 'list' | 'cluster'
 
 export default function Home() {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
-  const markersRef = useRef<{ marker: mapboxgl.Marker; element: HTMLDivElement; eventIds: string[] }[]>([])
+  const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; el: HTMLDivElement }>>(new Map())
   
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [dateFilter, setDateFilter] = useState<DateFilter>('tonight')
   const [showDatePicker, setShowDatePicker] = useState(false)
-  
   const [viewMode, setViewMode] = useState<ViewMode>('map')
-  const [selectedEventIndex, setSelectedEventIndex] = useState(0)
+  const [currentIndex, setCurrentIndex] = useState(0)
   const [clusterEvents, setClusterEvents] = useState<Event[]>([])
   
-  // Swipe state
-  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [touchStartX, setTouchStartX] = useState(0)
-  const [touchStartY, setTouchStartY] = useState(0)
-  const [dragOffsetX, setDragOffsetX] = useState(0)
-  const [dragOffsetY, setDragOffsetY] = useState(0)
+  // Card animation state
+  const [cardState, setCardState] = useState<'visible' | 'exiting-left' | 'exiting-right' | 'entering-left' | 'entering-right'>('visible')
+  const [nextIndex, setNextIndex] = useState<number | null>(null)
+  
+  // Touch/drag state
+  const [dragX, setDragX] = useState(0)
+  const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [startX, setStartX] = useState(0)
+  const [startY, setStartY] = useState(0)
 
   // Date helpers
-  const getDateString = (date: Date) => date.toDateString()
-  const isTonight = (dateStr: string) => getDateString(new Date(dateStr)) === getDateString(new Date())
-  const isTomorrow = (dateStr: string) => {
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    return getDateString(new Date(dateStr)) === getDateString(tomorrow)
+  const getDateStr = (d: Date) => d.toDateString()
+  const isTonight = (s: string) => getDateStr(new Date(s)) === getDateStr(new Date())
+  const isTomorrow = (s: string) => {
+    const t = new Date(); t.setDate(t.getDate() + 1)
+    return getDateStr(new Date(s)) === getDateStr(t)
   }
-  const isWeekend = (dateStr: string) => {
-    const eventDate = new Date(dateStr)
-    const today = new Date()
-    const dayOfWeek = today.getDay()
-    const daysUntilFriday = (5 - dayOfWeek + 7) % 7
-    const friday = new Date(today)
-    friday.setDate(today.getDate() + (daysUntilFriday === 0 && dayOfWeek !== 5 ? 7 : daysUntilFriday))
-    friday.setHours(0, 0, 0, 0)
-    if (dayOfWeek >= 5) friday.setDate(today.getDate())
-    const sunday = new Date(friday)
-    sunday.setDate(friday.getDate() + (dayOfWeek === 0 ? 0 : 7 - friday.getDay()))
-    sunday.setHours(23, 59, 59, 999)
-    return eventDate >= friday && eventDate <= sunday
+  const isWeekend = (s: string) => {
+    const d = new Date(s), now = new Date(), day = now.getDay()
+    const fri = new Date(now); fri.setDate(now.getDate() + ((5 - day + 7) % 7 || 7))
+    if (day >= 5) fri.setDate(now.getDate())
+    fri.setHours(0,0,0,0)
+    const sun = new Date(fri); sun.setDate(fri.getDate() + (7 - fri.getDay())); sun.setHours(23,59,59)
+    return d >= fri && d <= sun
   }
-  const getDateLabel = (dateStr: string) => {
-    if (isTonight(dateStr)) return 'Tonight'
-    if (isTomorrow(dateStr)) return 'Tomorrow'
-    return new Date(dateStr).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+  const getDateLabel = (s: string) => {
+    if (isTonight(s)) return 'Tonight'
+    if (isTomorrow(s)) return 'Tomorrow'
+    return new Date(s).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   }
-  const getNext7Days = () => {
-    const days = []
-    for (let i = 0; i < 7; i++) {
-      const date = new Date()
-      date.setDate(date.getDate() + i)
-      days.push({ dateString: getDateString(date), dayName: date.toLocaleDateString('en-GB', { weekday: 'short' }), dayNum: date.getDate() })
-    }
-    return days
-  }
+  const getNext7Days = () => Array.from({length: 7}, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() + i)
+    return { str: getDateStr(d), name: d.toLocaleDateString('en-GB', { weekday: 'short' }), num: d.getDate() }
+  })
 
-  // Filter events
-  const filteredEvents = useMemo(() => {
+  // Filter
+  const filtered = useMemo(() => {
     switch (dateFilter) {
       case 'tonight': return events.filter(e => isTonight(e.start_time))
       case 'tomorrow': return events.filter(e => isTomorrow(e.start_time))
       case 'weekend': return events.filter(e => isWeekend(e.start_time))
-      case 'all': return events
-      default: return events.filter(e => getDateString(new Date(e.start_time)) === dateFilter)
+      default: return events.filter(e => getDateStr(new Date(e.start_time)) === dateFilter)
     }
   }, [events, dateFilter])
 
-  const selectedEvent = filteredEvents[selectedEventIndex] || null
+  const current = filtered[currentIndex] || null
+  const grouped = useMemo(() => {
+    const g: Record<string, Event[]> = {}
+    filtered.forEach(e => { const l = getDateLabel(e.start_time); if (!g[l]) g[l] = []; g[l].push(e) })
+    return g
+  }, [filtered])
 
-  const groupedEvents = useMemo(() => {
-    const groups: { [key: string]: Event[] } = {}
-    filteredEvents.forEach(event => {
-      const label = getDateLabel(event.start_time)
-      if (!groups[label]) groups[label] = []
-      groups[label].push(event)
-    })
-    return groups
-  }, [filteredEvents])
+  const filterLabel = dateFilter === 'tonight' ? 'tonight' : dateFilter === 'tomorrow' ? 'tomorrow' : dateFilter === 'weekend' ? 'this weekend' : new Date(dateFilter).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
 
-  const getFilterLabel = () => {
-    switch (dateFilter) {
-      case 'tonight': return 'tonight'
-      case 'tomorrow': return 'tomorrow'
-      case 'weekend': return 'this weekend'
-      default: return new Date(dateFilter).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
-    }
-  }
-
-  // Format helpers
-  const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  const formatPrice = (min: number | null, max: number | null) => {
+  // Helpers
+  const formatTime = (s: string) => new Date(s).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  const formatPrice = (min: number|null, max: number|null) => {
     if (min === 0 || (!min && !max)) return null
     if (min && max && min !== max) return `£${min}–${max}`
     return `£${min || max}`
   }
-  const isFree = (min: number | null, max: number | null) => min === 0 || (!min && !max)
-  const getCompactGenres = (genres: string | null) => genres ? genres.split(',').map(g => g.trim()).slice(0, 2).join(' · ') : null
-  const getGoogleMapsUrl = (venue: Venue) => `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`
-
-  // Calculate spread
-  const calculateSpread = (events: Event[]) => {
-    if (events.length <= 1) return 0
-    const venues = events.filter(e => e.venue).map(e => e.venue!)
-    if (venues.length <= 1) return 0
-    let maxDist = 0
-    for (let i = 0; i < venues.length; i++) {
-      for (let j = i + 1; j < venues.length; j++) {
-        const d = Math.sqrt(Math.pow((venues[j].lat - venues[i].lat) * 111000, 2) + Math.pow((venues[j].lng - venues[i].lng) * 111000 * Math.cos(venues[i].lat * Math.PI / 180), 2))
-        maxDist = Math.max(maxDist, d)
-      }
-    }
-    return maxDist
-  }
+  const isFree = (min: number|null, max: number|null) => min === 0 || (!min && !max)
+  const getGenres = (g: string|null) => g ? g.split(',').map(x => x.trim()).slice(0,2).join(' · ') : null
+  const mapsUrl = (v: Venue) => `https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}`
 
   // Load events
   useEffect(() => {
-    async function load() {
-      const { data, error } = await supabase.from('events').select('*, venue:venues(*)').eq('status', 'published').gte('start_time', new Date().toISOString().split('T')[0]).order('start_time', { ascending: true })
-      if (!error) setEvents(data as Event[])
-      setLoading(false)
-    }
-    load()
+    supabase.from('events').select('*, venue:venues(*)').eq('status', 'published')
+      .gte('start_time', new Date().toISOString().split('T')[0]).order('start_time')
+      .then(({ data }) => { if (data) setEvents(data as Event[]); setLoading(false) })
   }, [])
 
-  // Initialize map with stable settings
+  // Init map - STATIC markers that don't move
   useEffect(() => {
     if (!mapContainer.current || map.current) return
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
-    map.current = new mapboxgl.Map({
+    const m = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [-1.6131, 54.9695],
-      zoom: 15,
+      zoom: 14,
       pitch: 0,
       bearing: 0,
       pitchWithRotate: false,
       dragRotate: false,
-      touchPitch: false
+      touchPitch: false,
+      renderWorldCopies: false
     })
-    return () => { map.current?.remove() }
+    map.current = m
+    return () => m.remove()
   }, [])
 
-  // Smooth fly to event
-  const flyToEvent = useCallback((event: Event, zoom = 16) => {
-    if (!map.current || !event.venue) return
-    map.current.flyTo({
-      center: [event.venue.lng, event.venue.lat],
-      zoom,
-      duration: ANIMATION_DURATION * 2,
-      essential: true
-    })
-  }, [])
-
-  // Fit all markers in view
-  const fitAllMarkers = useCallback(() => {
-    if (!map.current || filteredEvents.length === 0) return
-    const bounds = new mapboxgl.LngLatBounds()
-    filteredEvents.forEach(e => { if (e.venue) bounds.extend([e.venue.lng, e.venue.lat]) })
-    map.current.fitBounds(bounds, { padding: { top: 150, bottom: 300, left: 40, right: 40 }, duration: ANIMATION_DURATION * 2 })
-  }, [filteredEvents])
-
-  // Update selected marker visuals
-  const updateMarkerSelection = useCallback((selectedId: string | null) => {
-    markersRef.current.forEach(({ element, eventIds }) => {
-      const isSelected = selectedId && eventIds.includes(selectedId)
-      element.style.transform = isSelected ? 'scale(1.3)' : 'scale(1)'
-      element.style.zIndex = isSelected ? '100' : '1'
-      element.style.filter = isSelected ? 'drop-shadow(0 0 12px rgba(171, 103, 247, 0.9))' : ''
+  // Update marker selection visual
+  const highlightMarker = useCallback((eventId: string | null) => {
+    markersRef.current.forEach((data, id) => {
+      const selected = eventId && id.includes(eventId)
+      data.el.style.transform = selected ? 'scale(1.4)' : 'scale(1)'
+      data.el.style.zIndex = selected ? '1000' : '1'
+      data.el.style.filter = selected ? 'drop-shadow(0 0 16px #ab67f7) drop-shadow(0 0 8px #ab67f7)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
     })
   }, [])
 
-  // Update markers
+  // Update markers when filter changes
   useEffect(() => {
     if (!map.current) return
-    markersRef.current.forEach(m => m.marker.remove())
-    markersRef.current = []
-    if (filteredEvents.length === 0) {
-      map.current.flyTo({ center: [-1.6131, 54.9695], zoom: 15, duration: ANIMATION_DURATION * 2 })
+    
+    // Clear old markers
+    markersRef.current.forEach(d => d.marker.remove())
+    markersRef.current.clear()
+    
+    if (filtered.length === 0) {
+      map.current.flyTo({ center: [-1.6131, 54.9695], zoom: 14, duration: 600 })
       return
     }
 
-    // Group by venue
-    const venueGroups: { [key: string]: Event[] } = {}
-    filteredEvents.forEach(event => {
-      if (event.venue) {
-        const key = `${event.venue.lat.toFixed(5)},${event.venue.lng.toFixed(5)}`
-        if (!venueGroups[key]) venueGroups[key] = []
-        venueGroups[key].push(event)
+    // Group by venue location
+    const byVenue: Record<string, Event[]> = {}
+    filtered.forEach(e => {
+      if (e.venue) {
+        const k = `${e.venue.lat.toFixed(6)},${e.venue.lng.toFixed(6)}`
+        if (!byVenue[k]) byVenue[k] = []
+        byVenue[k].push(e)
       }
     })
 
-    Object.values(venueGroups).forEach(eventsAtVenue => {
-      const venue = eventsAtVenue[0].venue!
-      const count = eventsAtVenue.length
-      const eventIds = eventsAtVenue.map(e => e.id)
+    // Create markers
+    Object.entries(byVenue).forEach(([key, evs]) => {
+      const v = evs[0].venue!
+      const count = evs.length
+      const ids = evs.map(e => e.id).join(',')
 
       const el = document.createElement('div')
       el.style.cursor = 'pointer'
-      el.style.transition = `transform ${ANIMATION_DURATION}ms ${APPLE_EASE}, filter ${ANIMATION_DURATION}ms ${APPLE_EASE}`
+      el.style.transition = 'transform 0.3s ease, filter 0.3s ease'
+      el.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
 
       if (count > 1) {
         el.style.width = '44px'
         el.style.height = '44px'
-        el.innerHTML = `<div style="width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(171,103,247,0.4);">${count}</div>`
+        el.innerHTML = `<div style="width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;">${count}</div>`
       } else {
         el.style.width = '32px'
         el.style.height = '42px'
-        el.innerHTML = `<svg viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#g)"/><circle cx="12" cy="12" r="5" fill="white"/><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg>`
+        el.innerHTML = `<svg viewBox="0 0 24 36"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g)"/><circle cx="12" cy="12" r="5" fill="white"/><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg>`
       }
 
-      el.onclick = () => {
+      el.onclick = (e) => {
+        e.stopPropagation()
         if (count > 1) {
-          setClusterEvents(eventsAtVenue)
-          setViewMode('cluster-select')
-          map.current?.flyTo({ center: [venue.lng, venue.lat], zoom: 17, duration: ANIMATION_DURATION * 2 })
+          setClusterEvents(evs)
+          setViewMode('cluster')
         } else {
-          const idx = filteredEvents.findIndex(e => e.id === eventsAtVenue[0].id)
-          setSelectedEventIndex(idx)
+          const idx = filtered.findIndex(x => x.id === evs[0].id)
+          setCurrentIndex(idx)
           setViewMode('preview')
-          updateMarkerSelection(eventsAtVenue[0].id)
-          flyToEvent(eventsAtVenue[0])
+          highlightMarker(evs[0].id)
         }
+        map.current?.flyTo({ center: [v.lng, v.lat], zoom: 16, duration: 600 })
       }
 
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([venue.lng, venue.lat])
+        .setLngLat([v.lng, v.lat])
         .addTo(map.current!)
       
-      markersRef.current.push({ marker, element: el, eventIds })
+      markersRef.current.set(ids, { marker, el })
     })
 
-    // Smart zoom on load
-    if (viewMode === 'map') {
-      const spread = calculateSpread(filteredEvents)
-      if (filteredEvents.length === 1 || spread < 500) {
-        const first = filteredEvents.find(e => e.venue)
-        if (first?.venue) map.current.flyTo({ center: [first.venue.lng, first.venue.lat], zoom: 16, duration: ANIMATION_DURATION * 2 })
-      } else {
-        fitAllMarkers()
-      }
+    // Fit bounds - but not too zoomed in
+    if (filtered.length > 0) {
+      const bounds = new mapboxgl.LngLatBounds()
+      filtered.forEach(e => { if (e.venue) bounds.extend([e.venue.lng, e.venue.lat]) })
+      map.current.fitBounds(bounds, { 
+        padding: { top: 180, bottom: 150, left: 40, right: 40 }, 
+        maxZoom: 15,
+        minZoom: 13,
+        duration: 600 
+      })
     }
-  }, [filteredEvents, flyToEvent, fitAllMarkers, updateMarkerSelection, viewMode])
+  }, [filtered, highlightMarker])
 
-  // Navigate with animation
-  const navigateTo = useCallback((direction: 'prev' | 'next') => {
-    if (isTransitioning) return
-    const newIndex = direction === 'next' ? selectedEventIndex + 1 : selectedEventIndex - 1
-    if (newIndex < 0 || newIndex >= filteredEvents.length) return
-    
-    setIsTransitioning(true)
-    setSwipeDirection(direction === 'next' ? 'left' : 'right')
-    
+  // Navigation with proper animation sequencing
+  const navigate = useCallback((dir: 'prev' | 'next') => {
+    if (cardState !== 'visible') return
+    const newIdx = dir === 'next' ? currentIndex + 1 : currentIndex - 1
+    if (newIdx < 0 || newIdx >= filtered.length) return
+
+    // Step 1: Exit current card
+    setCardState(dir === 'next' ? 'exiting-left' : 'exiting-right')
+    setNextIndex(newIdx)
+
+    // Step 2: After exit animation, update index and enter new card
     setTimeout(() => {
-      setSelectedEventIndex(newIndex)
-      updateMarkerSelection(filteredEvents[newIndex].id)
-      flyToEvent(filteredEvents[newIndex])
-      setSwipeDirection(direction === 'next' ? 'right' : 'left')
-      
-      setTimeout(() => {
-        setSwipeDirection(null)
-        setIsTransitioning(false)
-      }, 50)
-    }, ANIMATION_DURATION / 2)
-  }, [selectedEventIndex, filteredEvents, isTransitioning, flyToEvent, updateMarkerSelection])
+      setCurrentIndex(newIdx)
+      setCardState(dir === 'next' ? 'entering-right' : 'entering-left')
+      highlightMarker(filtered[newIdx].id)
+      if (filtered[newIdx].venue) {
+        map.current?.flyTo({ 
+          center: [filtered[newIdx].venue!.lng, filtered[newIdx].venue!.lat], 
+          zoom: 16, 
+          duration: 400 
+        })
+      }
+    }, 250)
+
+    // Step 3: Card fully visible
+    setTimeout(() => {
+      setCardState('visible')
+      setNextIndex(null)
+    }, 450)
+  }, [cardState, currentIndex, filtered, highlightMarker])
 
   // Touch handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartX(e.touches[0].clientX)
-    setTouchStartY(e.touches[0].clientY)
+  const onTouchStart = (e: React.TouchEvent) => {
+    setStartX(e.touches[0].clientX)
+    setStartY(e.touches[0].clientY)
     setIsDragging(true)
   }
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const onTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return
-    const deltaX = e.touches[0].clientX - touchStartX
-    const deltaY = e.touches[0].clientY - touchStartY
+    const dx = e.touches[0].clientX - startX
+    const dy = e.touches[0].clientY - startY
     
-    // Determine if horizontal or vertical swipe
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      setDragOffsetX(deltaX * 0.5)
-      setDragOffsetY(0)
-    } else if (viewMode === 'detail' && deltaY > 0) {
-      setDragOffsetY(deltaY * 0.5)
-      setDragOffsetX(0)
+    // Horizontal swipe priority
+    if (Math.abs(dx) > Math.abs(dy) + 10) {
+      setDragX(dx * 0.6)
+      setDragY(0)
+    } else if (dy > 10 && viewMode === 'detail') {
+      setDragY(dy * 0.5)
+      setDragX(0)
     }
   }
 
-  const handleTouchEnd = () => {
+  const onTouchEnd = () => {
     setIsDragging(false)
     
-    // Horizontal swipe threshold
-    if (Math.abs(dragOffsetX) > 60) {
-      if (dragOffsetX < 0 && selectedEventIndex < filteredEvents.length - 1) {
-        navigateTo('next')
-      } else if (dragOffsetX > 0 && selectedEventIndex > 0) {
-        navigateTo('prev')
-      }
+    // Horizontal swipe
+    if (Math.abs(dragX) > 80) {
+      if (dragX < 0) navigate('next')
+      else navigate('prev')
     }
     
-    // Vertical swipe (dismiss detail)
-    if (dragOffsetY > 100 && viewMode === 'detail') {
-      setViewMode('preview')
+    // Vertical swipe down to dismiss
+    if (dragY > 100) {
+      if (viewMode === 'detail') setViewMode('preview')
+      else if (viewMode === 'preview') { setViewMode('map'); highlightMarker(null) }
     }
     
-    setDragOffsetX(0)
-    setDragOffsetY(0)
+    setDragX(0)
+    setDragY(0)
   }
 
-  // Keyboard navigation
+  // Keyboard nav
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handler = (e: KeyboardEvent) => {
       if (viewMode === 'preview' || viewMode === 'detail') {
-        if (e.key === 'ArrowLeft') navigateTo('prev')
-        if (e.key === 'ArrowRight') navigateTo('next')
-        if (e.key === 'Escape') setViewMode('map')
+        if (e.key === 'ArrowLeft') navigate('prev')
+        if (e.key === 'ArrowRight') navigate('next')
+        if (e.key === 'Escape') { setViewMode('map'); highlightMarker(null) }
       }
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [viewMode, navigateTo])
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [viewMode, navigate, highlightMarker])
 
-  const handleFilterChange = (filter: DateFilter) => {
-    setDateFilter(filter)
-    setShowDatePicker(false)
+  // Card transform based on state
+  const getCardTransform = () => {
+    if (isDragging && dragX !== 0) {
+      return { transform: `translateX(${dragX}px) rotate(${dragX * 0.03}deg)`, opacity: 1 - Math.abs(dragX) / 500, transition: 'none' }
+    }
+    switch (cardState) {
+      case 'exiting-left': return { transform: 'translateX(-110%) rotate(-8deg)', opacity: 0, transition: 'all 0.25s ease-out' }
+      case 'exiting-right': return { transform: 'translateX(110%) rotate(8deg)', opacity: 0, transition: 'all 0.25s ease-out' }
+      case 'entering-left': return { transform: 'translateX(-30px)', opacity: 0.5, transition: 'all 0.2s ease-out' }
+      case 'entering-right': return { transform: 'translateX(30px)', opacity: 0.5, transition: 'all 0.2s ease-out' }
+      default: return { transform: 'translateX(0) rotate(0)', opacity: 1, transition: 'all 0.2s ease-out' }
+    }
+  }
+
+  const getDetailTransform = () => {
+    if (isDragging && dragY > 0) {
+      return { transform: `translateY(${dragY}px)`, opacity: 1 - dragY / 400, transition: 'none' }
+    }
+    return { transform: 'translateY(0)', opacity: 1, transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)' }
+  }
+
+  const closeOverlay = () => {
     setViewMode('map')
-    setSelectedEventIndex(0)
+    highlightMarker(null)
   }
 
-  const openList = () => {
-    setViewMode('list')
-    fitAllMarkers()
-  }
-
-  const selectEvent = (event: Event) => {
-    const idx = filteredEvents.findIndex(e => e.id === event.id)
-    setSelectedEventIndex(idx)
+  const selectEvent = (e: Event) => {
+    const idx = filtered.findIndex(x => x.id === e.id)
+    setCurrentIndex(idx)
     setViewMode('preview')
-    updateMarkerSelection(event.id)
-    flyToEvent(event)
+    highlightMarker(e.id)
+    if (e.venue) map.current?.flyTo({ center: [e.venue.lng, e.venue.lat], zoom: 16, duration: 600 })
   }
 
-  // Card animation styles
-  const getCardStyle = () => {
-    let transform = 'translateX(0)'
-    let opacity = 1
-    
-    if (isDragging && dragOffsetX !== 0) {
-      transform = `translateX(${dragOffsetX}px) rotate(${dragOffsetX * 0.02}deg)`
-      opacity = 1 - Math.abs(dragOffsetX) / 400
-    } else if (swipeDirection === 'left') {
-      transform = 'translateX(-120%) rotate(-5deg)'
-      opacity = 0
-    } else if (swipeDirection === 'right') {
-      transform = 'translateX(120%) rotate(5deg)'
-      opacity = 0
-    }
-    
-    return {
-      transform,
-      opacity,
-      transition: isDragging ? 'none' : `all ${ANIMATION_DURATION}ms ${APPLE_EASE}`
-    }
-  }
-
-  const getDetailStyle = () => {
-    if (isDragging && dragOffsetY > 0) {
-      return {
-        transform: `translateY(${dragOffsetY}px)`,
-        opacity: 1 - dragOffsetY / 400,
-        transition: 'none'
-      }
-    }
-    return {
-      transform: 'translateY(0)',
-      opacity: 1,
-      transition: `all ${ANIMATION_DURATION}ms ${APPLE_EASE}`
-    }
-  }
+  // Calculate list height based on items (max 3.5 visible)
+  const listItemHeight = 85
+  const maxVisibleItems = 3.5
+  const listContentHeight = Math.min(Object.values(grouped).flat().length, maxVisibleItems) * listItemHeight + 80
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0b', display: 'flex', justifyContent: 'center' }}>
-      <main style={{ height: '100vh', width: '100%', maxWidth: '480px', position: 'relative', overflow: 'hidden', background: '#0a0a0b' }}>
+      <main style={{ height: '100vh', width: '100%', maxWidth: '480px', position: 'relative', overflow: 'hidden' }}>
         
         {/* Map */}
         <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
 
-        {/* Header */}
+        {/* Click anywhere to close when in preview/detail */}
+        {(viewMode === 'preview' || viewMode === 'cluster') && (
+          <div 
+            onClick={closeOverlay}
+            style={{ position: 'absolute', inset: 0, zIndex: 10 }}
+          />
+        )}
+
+        {/* Header - reduced top padding */}
         <header style={{
           position: 'absolute', top: 0, left: 0, right: 0,
-          padding: '50px 20px 20px',
-          background: 'linear-gradient(to bottom, rgba(10,10,11,0.98) 0%, rgba(10,10,11,0.85) 70%, transparent 100%)',
-          zIndex: 10,
-          opacity: viewMode === 'detail' ? 0.3 : 1,
-          transition: `opacity ${ANIMATION_DURATION}ms ${APPLE_EASE}`
+          padding: '44px 20px 16px',
+          background: 'linear-gradient(to bottom, rgba(10,10,11,0.98) 0%, rgba(10,10,11,0.9) 60%, transparent 100%)',
+          zIndex: viewMode === 'detail' ? 5 : 20,
+          opacity: viewMode === 'detail' ? 0.4 : 1,
+          transition: 'opacity 0.3s ease',
+          pointerEvents: viewMode === 'detail' ? 'none' : 'auto'
         }}>
           <h1 style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.5px' }}>SOUNDED OUT</h1>
-          <p style={{ fontSize: '12px', color: '#888', marginTop: '2px', marginBottom: '14px' }}>Newcastle</p>
+          <p style={{ fontSize: '12px', color: '#888', marginTop: '2px', marginBottom: '12px' }}>Newcastle</p>
           
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {(['tonight', 'tomorrow', 'weekend'] as const).map(f => (
-              <button key={f} onClick={() => handleFilterChange(f)} style={{
+              <button key={f} onClick={() => { setDateFilter(f); setCurrentIndex(0); setViewMode('map') }} style={{
                 padding: '8px 14px', borderRadius: '20px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
                 background: dateFilter === f ? '#ab67f7' : 'rgba(255,255,255,0.1)',
                 color: dateFilter === f ? 'white' : '#888',
-                transition: `all ${ANIMATION_DURATION}ms ${APPLE_EASE}`
+                transition: 'all 0.2s ease'
               }}>{f.charAt(0).toUpperCase() + f.slice(1)}</button>
             ))}
             <button onClick={() => setShowDatePicker(!showDatePicker)} style={{
               padding: '8px 12px', borderRadius: '20px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-              background: 'rgba(255,255,255,0.1)', color: '#ab67f7', transition: `all ${ANIMATION_DURATION}ms ${APPLE_EASE}`
-            }}>{showDatePicker ? 'Less ▲' : 'More ▼'}</button>
+              background: 'rgba(255,255,255,0.1)', color: '#ab67f7'
+            }}>{showDatePicker ? '✕' : 'More'}</button>
           </div>
 
           {showDatePicker && (
-            <div style={{ marginTop: '12px', padding: '16px', background: '#1e1e24', borderRadius: '16px' }}>
+            <div style={{ marginTop: '12px', padding: '14px', background: '#1a1a1f', borderRadius: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                {getNext7Days().map(day => (
-                  <button key={day.dateString} onClick={() => handleFilterChange(day.dateString)} style={{
+                {getNext7Days().map(d => (
+                  <button key={d.str} onClick={() => { setDateFilter(d.str); setShowDatePicker(false); setCurrentIndex(0); setViewMode('map') }} style={{
                     width: '40px', padding: '8px 4px', borderRadius: '12px', border: 'none', cursor: 'pointer',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                    background: dateFilter === day.dateString ? '#ab67f7' : 'transparent',
-                    color: dateFilter === day.dateString ? 'white' : '#888',
-                    transition: `all ${ANIMATION_DURATION}ms ${APPLE_EASE}`
+                    background: dateFilter === d.str ? '#ab67f7' : 'transparent',
+                    color: dateFilter === d.str ? 'white' : '#888'
                   }}>
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase' }}>{day.dayName}</span>
-                    <span style={{ fontSize: '16px', fontWeight: 600 }}>{day.dayNum}</span>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase' }}>{d.name}</span>
+                    <span style={{ fontSize: '16px', fontWeight: 600 }}>{d.num}</span>
                   </button>
                 ))}
               </div>
@@ -473,281 +412,321 @@ export default function Home() {
           )}
         </header>
 
-        {/* Bottom Bar - Default */}
+        {/* Bottom Bar */}
         {viewMode === 'map' && (
-          <div onClick={openList} style={{
+          <div onClick={() => setViewMode('list')} style={{
             position: 'absolute', bottom: 0, left: 0, right: 0,
-            padding: '30px 20px 34px',
-            background: 'linear-gradient(to top, rgba(10,10,11,1) 0%, rgba(10,10,11,0.95) 70%, transparent 100%)',
-            zIndex: 10, cursor: 'pointer'
+            padding: '24px 20px 30px',
+            background: 'linear-gradient(to top, rgba(10,10,11,1) 0%, rgba(10,10,11,0.95) 60%, transparent 100%)',
+            zIndex: 15, cursor: 'pointer'
           }}>
             <div style={{
-              background: '#1e1e24', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '16px 20px',
+              background: '#1a1a1f', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '16px 20px',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between'
             }}>
-              <span style={{ fontSize: '15px', fontWeight: 500 }}>
-                <span style={{ color: '#ab67f7', fontWeight: 700 }}>{loading ? '...' : filteredEvents.length}</span>
-                {' '}{filteredEvents.length === 1 ? 'event' : 'events'} {getFilterLabel()}
+              <span style={{ fontSize: '15px' }}>
+                <span style={{ color: '#ab67f7', fontWeight: 700 }}>{loading ? '...' : filtered.length}</span>
+                {' '}{filtered.length === 1 ? 'event' : 'events'} {filterLabel}
               </span>
-              <span style={{ color: '#ab67f7', fontSize: '18px' }}>↑</span>
+              <span style={{ color: '#ab67f7', fontSize: '20px' }}>↑</span>
             </div>
           </div>
         )}
 
-        {/* Preview Card */}
-        {viewMode === 'preview' && selectedEvent && (
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 15 }}>
-            <div onClick={() => { setViewMode('map'); updateMarkerSelection(null) }} style={{ height: '60px' }} />
-            
-            <div
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              style={{
-                background: '#141416', borderRadius: '24px 24px 0 0', padding: '16px 20px 34px',
-                borderTop: '1px solid rgba(255,255,255,0.1)',
-                ...getCardStyle()
-              }}
-            >
-              <div onClick={() => { setViewMode('map'); updateMarkerSelection(null) }} style={{ width: '36px', height: '4px', background: '#444', borderRadius: '2px', margin: '0 auto 16px', cursor: 'pointer' }} />
-
-              {/* Dots */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '16px' }}>
-                {filteredEvents.slice(0, 10).map((_, i) => (
-                  <div key={i} style={{
-                    width: i === selectedEventIndex ? '20px' : '6px', height: '6px', borderRadius: '3px',
-                    background: i === selectedEventIndex ? '#ab67f7' : 'rgba(255,255,255,0.2)',
-                    transition: `all ${ANIMATION_DURATION}ms ${APPLE_EASE}`
-                  }} />
-                ))}
-                {filteredEvents.length > 10 && <span style={{ fontSize: '10px', color: '#555' }}>+{filteredEvents.length - 10}</span>}
-              </div>
-
-              <div style={{ display: 'flex', gap: '16px' }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, marginBottom: '6px' }}>
-                    {formatTime(selectedEvent.start_time)} · {getDateLabel(selectedEvent.start_time)}
-                  </p>
-                  <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '6px', lineHeight: 1.2 }}>{selectedEvent.title}</h3>
-                  <p style={{ fontSize: '14px', color: '#888', marginBottom: '10px' }}>{selectedEvent.venue?.name}</p>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {isFree(selectedEvent.price_min, selectedEvent.price_max) && (
-                      <span style={{ padding: '4px 10px', background: 'rgba(34,197,94,0.2)', borderRadius: '8px', fontSize: '12px', fontWeight: 700, color: '#22c55e' }}>FREE</span>
-                    )}
-                    {formatPrice(selectedEvent.price_min, selectedEvent.price_max) && (
-                      <span style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#fff' }}>{formatPrice(selectedEvent.price_min, selectedEvent.price_max)}</span>
-                    )}
-                    {getCompactGenres(selectedEvent.genres) && (
-                      <span style={{ padding: '4px 10px', background: 'rgba(171,103,247,0.15)', borderRadius: '8px', fontSize: '12px', color: '#ab67f7' }}>{getCompactGenres(selectedEvent.genres)}</span>
-                    )}
-                  </div>
-                </div>
-                {selectedEvent.image_url && (
-                  <div style={{ width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0 }}>
-                    <img src={selectedEvent.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                )}
-              </div>
-
-              <button onClick={() => setViewMode('detail')} style={{
-                width: '100%', padding: '14px', marginTop: '16px',
-                background: 'linear-gradient(135deg, #ab67f7 0%, #d7b3ff 100%)',
-                border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: 'pointer'
-              }}>VIEW DETAILS</button>
-
-              {/* Desktop navigation */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
-                <button onClick={() => navigateTo('prev')} disabled={selectedEventIndex === 0} style={{
-                  background: 'none', border: 'none', color: selectedEventIndex === 0 ? '#333' : '#666',
-                  fontSize: '13px', cursor: 'pointer', padding: '8px'
-                }}>← Previous</button>
-                <span style={{ color: '#444', fontSize: '12px', alignSelf: 'center' }}>{selectedEventIndex + 1} / {filteredEvents.length}</span>
-                <button onClick={() => navigateTo('next')} disabled={selectedEventIndex === filteredEvents.length - 1} style={{
-                  background: 'none', border: 'none', color: selectedEventIndex === filteredEvents.length - 1 ? '#333' : '#666',
-                  fontSize: '13px', cursor: 'pointer', padding: '8px'
-                }}>Next →</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Detail Modal */}
-        {viewMode === 'detail' && selectedEvent && (
-          <div onClick={() => setViewMode('preview')} style={{
-            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 25,
-            display: 'flex', alignItems: 'flex-end'
+        {/* List View - dynamic height */}
+        {viewMode === 'list' && (
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            background: '#141416', borderRadius: '24px 24px 0 0',
+            zIndex: 25, display: 'flex', flexDirection: 'column',
+            maxHeight: `${listContentHeight}px`,
+            transition: 'max-height 0.3s ease'
           }}>
-            <div
-              onClick={e => e.stopPropagation()}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              style={{
-                width: '100%', maxHeight: '90vh', background: '#141416', borderRadius: '24px 24px 0 0',
-                padding: '16px 20px 40px', overflowY: 'auto',
-                ...getDetailStyle()
-              }}
-            >
-              <div onClick={() => setViewMode('preview')} style={{ width: '36px', height: '4px', background: '#444', borderRadius: '2px', margin: '0 auto 16px', cursor: 'pointer' }} />
-
-              {selectedEvent.image_url ? (
-                <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: '16px', overflow: 'hidden', marginBottom: '20px' }}>
-                  <img src={selectedEvent.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {/* Sticky header with close affordance */}
+            <div style={{
+              padding: '12px 20px 14px', 
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              background: '#141416', 
+              borderRadius: '24px 24px 0 0',
+              flexShrink: 0,
+              cursor: 'pointer'
+            }} onClick={() => setViewMode('map')}>
+              <div style={{ width: '40px', height: '5px', background: '#555', borderRadius: '3px', margin: '0 auto 14px' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ab67f7', textTransform: 'uppercase' }}>
+                  {Object.keys(grouped)[0] || filterLabel}
+                </h3>
+                <span style={{ fontSize: '12px', color: '#666' }}>Tap to close</span>
+              </div>
+            </div>
+            
+            {/* Scrollable content */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 30px' }}>
+              {Object.entries(grouped).map(([label, evs], gi) => (
+                <div key={label} style={{ marginTop: gi > 0 ? '20px' : '0' }}>
+                  {gi > 0 && <h4 style={{ fontSize: '12px', fontWeight: 700, color: '#555', textTransform: 'uppercase', marginBottom: '10px' }}>{label}</h4>}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {evs.map(e => (
+                      <div key={e.id} onClick={() => selectEvent(e)} style={{
+                        display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px',
+                        background: '#1e1e24', borderRadius: '14px', cursor: 'pointer'
+                      }}>
+                        <span style={{ fontSize: '13px', color: '#ab67f7', fontWeight: 700, minWidth: '48px' }}>{formatTime(e.start_time)}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</div>
+                          <div style={{ fontSize: '12px', color: '#666' }}>{e.venue?.name}</div>
+                        </div>
+                        {isFree(e.price_min, e.price_max) ? (
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#22c55e', background: 'rgba(34,197,94,0.15)', padding: '4px 8px', borderRadius: '6px' }}>FREE</span>
+                        ) : formatPrice(e.price_min, e.price_max) && (
+                          <span style={{ fontSize: '12px', color: '#888', fontWeight: 600 }}>{formatPrice(e.price_min, e.price_max)}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <div style={{ width: '100%', aspectRatio: '16/9', background: 'linear-gradient(135deg, #2a2a3e, #1a1a2e)', borderRadius: '16px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444' }}>No image</div>
-              )}
-
-              <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>
-                {getDateLabel(selectedEvent.start_time)} · {formatTime(selectedEvent.start_time)}
-                {selectedEvent.end_time && ` – ${formatTime(selectedEvent.end_time)}`}
-              </p>
-
-              <h2 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px', lineHeight: 1.2 }}>{selectedEvent.title}</h2>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                <span style={{ fontSize: '16px', color: '#888' }}>{selectedEvent.venue?.name}</span>
-                {selectedEvent.venue?.instagram_url && (
-                  <a href={selectedEvent.venue.instagram_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '18px', opacity: 0.7 }}>📸</a>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
-                {isFree(selectedEvent.price_min, selectedEvent.price_max) && (
-                  <span style={{ padding: '8px 16px', background: 'rgba(34,197,94,0.2)', borderRadius: '12px', fontSize: '14px', fontWeight: 700, color: '#22c55e' }}>FREE</span>
-                )}
-                {selectedEvent.genres?.split(',').map((g, i) => (
-                  <span key={i} style={{ padding: '8px 16px', background: 'rgba(171,103,247,0.15)', borderRadius: '12px', fontSize: '14px', color: '#ab67f7' }}>{g.trim()}</span>
-                ))}
-                {selectedEvent.vibe && (
-                  <span style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.08)', borderRadius: '12px', fontSize: '14px', color: '#888' }}>{selectedEvent.vibe}</span>
-                )}
-              </div>
-
-              {!isFree(selectedEvent.price_min, selectedEvent.price_max) && formatPrice(selectedEvent.price_min, selectedEvent.price_max) && (
-                <p style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px' }}>{formatPrice(selectedEvent.price_min, selectedEvent.price_max)}</p>
-              )}
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {selectedEvent.event_url && (
-                  <a href={selectedEvent.event_url} target="_blank" rel="noopener noreferrer" style={{
-                    display: 'block', padding: '18px', background: 'linear-gradient(135deg, #ab67f7 0%, #d7b3ff 100%)',
-                    borderRadius: '16px', textAlign: 'center', fontWeight: 700, fontSize: '16px', color: 'white', textDecoration: 'none'
-                  }}>GET TICKETS</a>
-                )}
-                {selectedEvent.venue && (
-                  <a href={getGoogleMapsUrl(selectedEvent.venue)} target="_blank" rel="noopener noreferrer" style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', color: '#888', fontSize: '15px', textDecoration: 'none'
-                  }}>📍 Take me there</a>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                <button onClick={() => navigateTo('prev')} disabled={selectedEventIndex === 0} style={{ background: 'none', border: 'none', color: selectedEventIndex === 0 ? '#333' : '#888', fontSize: '14px', cursor: 'pointer', padding: '8px' }}>← Previous</button>
-                <span style={{ color: '#555', fontSize: '14px' }}>{selectedEventIndex + 1} / {filteredEvents.length}</span>
-                <button onClick={() => navigateTo('next')} disabled={selectedEventIndex === filteredEvents.length - 1} style={{ background: 'none', border: 'none', color: selectedEventIndex === filteredEvents.length - 1 ? '#333' : '#888', fontSize: '14px', cursor: 'pointer', padding: '8px' }}>Next →</button>
-              </div>
+              ))}
+              {filtered.length === 0 && <p style={{ textAlign: 'center', color: '#555', padding: '24px' }}>No events {filterLabel}</p>}
             </div>
           </div>
         )}
 
         {/* Cluster Selection */}
-        {viewMode === 'cluster-select' && (
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 15 }}>
-            <div onClick={() => setViewMode('map')} style={{ height: '60px' }} />
-            <div style={{ background: '#141416', borderRadius: '24px 24px 0 0', padding: '16px 20px 34px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              <div onClick={() => setViewMode('map')} style={{ width: '36px', height: '4px', background: '#444', borderRadius: '2px', margin: '0 auto 16px', cursor: 'pointer' }} />
-              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: '#ab67f7' }}>{clusterEvents.length} events at this venue</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {clusterEvents.map(event => (
-                  <div key={event.id} onClick={() => selectEvent(event)} style={{
-                    display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: '#1e1e24', borderRadius: '14px', cursor: 'pointer'
-                  }}>
-                    <span style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, minWidth: '50px' }}>{formatTime(event.start_time)}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>{event.title}</div>
-                      <div style={{ fontSize: '12px', color: '#666' }}>{getCompactGenres(event.genres)}</div>
-                    </div>
-                    {isFree(event.price_min, event.price_max) ? (
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#22c55e', background: 'rgba(34,197,94,0.2)', padding: '4px 8px', borderRadius: '6px' }}>FREE</span>
-                    ) : formatPrice(event.price_min, event.price_max) && (
-                      <span style={{ fontSize: '12px', color: '#888' }}>{formatPrice(event.price_min, event.price_max)}</span>
-                    )}
+        {viewMode === 'cluster' && (
+          <div onClick={(e) => e.stopPropagation()} style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            background: '#141416', borderRadius: '24px 24px 0 0',
+            padding: '12px 20px 30px', zIndex: 30
+          }}>
+            <div onClick={closeOverlay} style={{ width: '40px', height: '5px', background: '#555', borderRadius: '3px', margin: '0 auto 16px', cursor: 'pointer' }} />
+            <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#ab67f7', marginBottom: '14px' }}>{clusterEvents.length} events here</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {clusterEvents.map(e => (
+                <div key={e.id} onClick={() => { selectEvent(e); setViewMode('preview') }} style={{
+                  display: 'flex', alignItems: 'center', gap: '12px', padding: '14px',
+                  background: '#1e1e24', borderRadius: '14px', cursor: 'pointer'
+                }}>
+                  <span style={{ fontSize: '13px', color: '#ab67f7', fontWeight: 700, minWidth: '48px' }}>{formatTime(e.start_time)}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '2px' }}>{e.title}</div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>{getGenres(e.genres)}</div>
                   </div>
+                  {isFree(e.price_min, e.price_max) ? (
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#22c55e', background: 'rgba(34,197,94,0.15)', padding: '4px 8px', borderRadius: '6px' }}>FREE</span>
+                  ) : formatPrice(e.price_min, e.price_max) && (
+                    <span style={{ fontSize: '12px', color: '#888' }}>{formatPrice(e.price_min, e.price_max)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Preview Card */}
+        {viewMode === 'preview' && current && (
+          <div
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              background: '#141416', borderRadius: '24px 24px 0 0',
+              padding: '12px 20px 30px', zIndex: 30,
+              ...getCardTransform()
+            }}
+          >
+            <div onClick={closeOverlay} style={{ width: '40px', height: '5px', background: '#555', borderRadius: '3px', margin: '0 auto 14px', cursor: 'pointer' }} />
+
+            {/* Progress dots */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '14px' }}>
+              {filtered.slice(0, 8).map((_, i) => (
+                <div key={i} style={{
+                  width: i === currentIndex ? '18px' : '6px', height: '6px', borderRadius: '3px',
+                  background: i === currentIndex ? '#ab67f7' : 'rgba(255,255,255,0.15)',
+                  transition: 'all 0.2s ease'
+                }} />
+              ))}
+              {filtered.length > 8 && <span style={{ fontSize: '10px', color: '#444' }}>+{filtered.length - 8}</span>}
+            </div>
+
+            <div style={{ display: 'flex', gap: '14px' }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, marginBottom: '6px' }}>
+                  {formatTime(current.start_time)} · {getDateLabel(current.start_time)}
+                </p>
+                <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '6px', lineHeight: 1.2 }}>{current.title}</h3>
+                <p style={{ fontSize: '14px', color: '#888', marginBottom: '10px' }}>{current.venue?.name}</p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {isFree(current.price_min, current.price_max) && (
+                    <span style={{ padding: '5px 10px', background: 'rgba(34,197,94,0.15)', borderRadius: '8px', fontSize: '12px', fontWeight: 700, color: '#22c55e' }}>FREE</span>
+                  )}
+                  {formatPrice(current.price_min, current.price_max) && (
+                    <span style={{ padding: '5px 10px', background: 'rgba(255,255,255,0.08)', borderRadius: '8px', fontSize: '12px', fontWeight: 600 }}>{formatPrice(current.price_min, current.price_max)}</span>
+                  )}
+                  {getGenres(current.genres) && (
+                    <span style={{ padding: '5px 10px', background: 'rgba(171,103,247,0.12)', borderRadius: '8px', fontSize: '12px', color: '#ab67f7' }}>{getGenres(current.genres)}</span>
+                  )}
+                </div>
+              </div>
+              {current.image_url && (
+                <div style={{ width: '75px', height: '75px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0 }}>
+                  <img src={current.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              )}
+            </div>
+
+            <button onClick={() => setViewMode('detail')} style={{
+              width: '100%', padding: '14px', marginTop: '16px',
+              background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+              border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: 'pointer'
+            }}>VIEW DETAILS</button>
+
+            {/* Navigation - OBVIOUS purple arrows */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px' }}>
+              <button 
+                onClick={() => navigate('prev')} 
+                disabled={currentIndex === 0}
+                style={{
+                  background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.15)',
+                  border: 'none', borderRadius: '12px', padding: '10px 16px',
+                  color: currentIndex === 0 ? '#333' : '#ab67f7',
+                  fontSize: '14px', fontWeight: 600, cursor: currentIndex === 0 ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                <span style={{ fontSize: '18px' }}>←</span> Prev
+              </button>
+              <span style={{ fontSize: '13px', color: '#555' }}>{currentIndex + 1} / {filtered.length}</span>
+              <button 
+                onClick={() => navigate('next')} 
+                disabled={currentIndex === filtered.length - 1}
+                style={{
+                  background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.15)',
+                  border: 'none', borderRadius: '12px', padding: '10px 16px',
+                  color: currentIndex === filtered.length - 1 ? '#333' : '#ab67f7',
+                  fontSize: '14px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                Next <span style={{ fontSize: '18px' }}>→</span>
+              </button>
+            </div>
+            
+            <p style={{ textAlign: 'center', fontSize: '11px', color: '#444', marginTop: '10px' }}>Swipe left or right to browse</p>
+          </div>
+        )}
+
+        {/* Detail Modal */}
+        {viewMode === 'detail' && current && (
+          <div 
+            onClick={() => setViewMode('preview')} 
+            style={{
+              position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 40,
+              display: 'flex', alignItems: 'flex-end',
+              animation: 'fadeIn 0.25s ease'
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+              style={{
+                width: '100%', maxHeight: '88vh', background: '#141416', borderRadius: '24px 24px 0 0',
+                padding: '12px 20px 36px', overflowY: 'auto',
+                ...getDetailTransform()
+              }}
+            >
+              <div onClick={() => setViewMode('preview')} style={{ width: '40px', height: '5px', background: '#555', borderRadius: '3px', margin: '0 auto 14px', cursor: 'pointer' }} />
+              <p style={{ textAlign: 'center', fontSize: '11px', color: '#555', marginBottom: '14px' }}>Swipe down to close · Swipe left/right to browse</p>
+
+              {current.image_url ? (
+                <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: '16px', overflow: 'hidden', marginBottom: '18px' }}>
+                  <img src={current.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              ) : (
+                <div style={{ width: '100%', aspectRatio: '16/9', background: 'linear-gradient(135deg, #252530, #1a1a22)', borderRadius: '16px', marginBottom: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#333' }}>No image</div>
+              )}
+
+              <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>
+                {getDateLabel(current.start_time)} · {formatTime(current.start_time)}
+                {current.end_time && ` – ${formatTime(current.end_time)}`}
+              </p>
+
+              <h2 style={{ fontSize: '26px', fontWeight: 800, marginBottom: '8px', lineHeight: 1.2 }}>{current.title}</h2>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '15px', color: '#888' }}>{current.venue?.name}</span>
+                {current.venue?.instagram_url && (
+                  <a href={current.venue.instagram_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '16px' }}>📸</a>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
+                {isFree(current.price_min, current.price_max) && (
+                  <span style={{ padding: '8px 14px', background: 'rgba(34,197,94,0.15)', borderRadius: '10px', fontSize: '14px', fontWeight: 700, color: '#22c55e' }}>FREE</span>
+                )}
+                {current.genres?.split(',').map((g, i) => (
+                  <span key={i} style={{ padding: '8px 14px', background: 'rgba(171,103,247,0.12)', borderRadius: '10px', fontSize: '14px', color: '#ab67f7' }}>{g.trim()}</span>
                 ))}
+                {current.vibe && (
+                  <span style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.06)', borderRadius: '10px', fontSize: '14px', color: '#666' }}>{current.vibe}</span>
+                )}
+              </div>
+
+              {!isFree(current.price_min, current.price_max) && formatPrice(current.price_min, current.price_max) && (
+                <p style={{ fontSize: '22px', fontWeight: 700, marginBottom: '20px' }}>{formatPrice(current.price_min, current.price_max)}</p>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {current.event_url && (
+                  <a href={current.event_url} target="_blank" rel="noopener noreferrer" style={{
+                    display: 'block', padding: '16px', background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                    borderRadius: '14px', textAlign: 'center', fontWeight: 700, fontSize: '15px', color: 'white', textDecoration: 'none'
+                  }}>GET TICKETS</a>
+                )}
+                {current.venue && (
+                  <a href={mapsUrl(current.venue)} target="_blank" rel="noopener noreferrer" style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    padding: '12px', color: '#888', fontSize: '14px', textDecoration: 'none'
+                  }}>📍 Take me there</a>
+                )}
+              </div>
+
+              {/* Navigation */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <button 
+                  onClick={() => navigate('prev')} 
+                  disabled={currentIndex === 0}
+                  style={{
+                    background: currentIndex === 0 ? 'transparent' : 'rgba(171,103,247,0.15)',
+                    border: 'none', borderRadius: '10px', padding: '10px 14px',
+                    color: currentIndex === 0 ? '#333' : '#ab67f7',
+                    fontSize: '14px', fontWeight: 600, cursor: currentIndex === 0 ? 'default' : 'pointer'
+                  }}
+                >← Prev</button>
+                <span style={{ fontSize: '13px', color: '#444' }}>{currentIndex + 1} / {filtered.length}</span>
+                <button 
+                  onClick={() => navigate('next')} 
+                  disabled={currentIndex === filtered.length - 1}
+                  style={{
+                    background: currentIndex === filtered.length - 1 ? 'transparent' : 'rgba(171,103,247,0.15)',
+                    border: 'none', borderRadius: '10px', padding: '10px 14px',
+                    color: currentIndex === filtered.length - 1 ? '#333' : '#ab67f7',
+                    fontSize: '14px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer'
+                  }}
+                >Next →</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* List View */}
-        {viewMode === 'list' && (
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            background: '#141416', borderRadius: '24px 24px 0 0',
-            height: 'calc(100vh - 200px)', maxHeight: '500px',
-            zIndex: 15, display: 'flex', flexDirection: 'column'
-          }}>
-            {/* Sticky header */}
-            <div style={{
-              padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)',
-              background: '#141416', borderRadius: '24px 24px 0 0', flexShrink: 0
-            }}>
-              <div onClick={() => setViewMode('map')} style={{ width: '36px', height: '4px', background: '#444', borderRadius: '2px', margin: '0 auto 16px', cursor: 'pointer' }} />
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#ab67f7', textTransform: 'uppercase' }}>
-                {Object.keys(groupedEvents)[0] || getFilterLabel()}
-              </h3>
-            </div>
-            
-            {/* Scrollable content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 34px' }}>
-              {Object.keys(groupedEvents).length === 0 ? (
-                <p style={{ textAlign: 'center', color: '#555', padding: '30px' }}>No events {getFilterLabel()}</p>
-              ) : (
-                Object.entries(groupedEvents).map(([label, evts], groupIdx) => (
-                  <div key={label} style={{ marginTop: groupIdx > 0 ? '24px' : '16px' }}>
-                    {groupIdx > 0 && (
-                      <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#555', textTransform: 'uppercase', marginBottom: '12px' }}>{label}</h4>
-                    )}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {evts.map(event => (
-                        <div key={event.id} onClick={() => selectEvent(event)} style={{
-                          display: 'flex', alignItems: 'flex-start', gap: '14px', padding: '14px', background: '#1e1e24', borderRadius: '14px', cursor: 'pointer'
-                        }}>
-                          <span style={{ fontSize: '13px', color: '#ab67f7', fontWeight: 700, minWidth: '50px', paddingTop: '2px' }}>{formatTime(event.start_time)}</span>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                              <span style={{ fontSize: '15px', fontWeight: 600 }}>{event.title}</span>
-                              {isFree(event.price_min, event.price_max) ? (
-                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#22c55e', background: 'rgba(34,197,94,0.2)', padding: '3px 8px', borderRadius: '6px' }}>FREE</span>
-                              ) : formatPrice(event.price_min, event.price_max) && (
-                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#888' }}>{formatPrice(event.price_min, event.price_max)}</span>
-                              )}
-                            </div>
-                            <div style={{ fontSize: '13px', color: '#666', marginBottom: '6px' }}>{event.venue?.name}</div>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              {getCompactGenres(event.genres) && (
-                                <span style={{ fontSize: '11px', color: '#ab67f7', background: 'rgba(171,103,247,0.1)', padding: '3px 8px', borderRadius: '6px' }}>{getCompactGenres(event.genres)}</span>
-                              )}
-                              {event.vibe && (
-                                <span style={{ fontSize: '11px', color: '#666', background: 'rgba(255,255,255,0.05)', padding: '3px 8px', borderRadius: '6px' }}>{event.vibe}</span>
-                              )}
-                            </div>
-                          </div>
-                          <span style={{ color: '#444', fontSize: '18px', paddingTop: '2px' }}>›</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
         <style jsx global>{`
-          * { -webkit-tap-highlight-color: transparent; }
+          @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+          * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
           body { overscroll-behavior: none; }
+          .mapboxgl-canvas { outline: none; }
         `}</style>
       </main>
     </div>
