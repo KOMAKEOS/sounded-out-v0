@@ -115,7 +115,7 @@ export default function Home() {
   useEffect(() => {
     supabase.from('events').select('*, venue:venues(*)').eq('status', 'published')
       .gte('start_time', new Date().toISOString().split('T')[0]).order('start_time')
-      .then(({ data }) => { if (data) setEvents(data as Event[]); setLoading(false) })
+      .then(({ data }: { data: Event[] | null }) => { if (data) setEvents(data); setLoading(false) })
   }, [])
 
   // Init map - STATIC markers that don't move
