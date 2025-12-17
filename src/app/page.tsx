@@ -29,6 +29,8 @@ type Event = {
   venue?: Venue
 }
 
+type DateFilter = 'tonight' | 'tomorrow' | 'weekend' | 'all' | string // string for specific dates
+
 export default function Home() {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
@@ -36,21 +38,43 @@ export default function Home() {
   const [events, setEvents] = useState<Event[]>([])
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [showList, setShowList] = useState(false)
+  const [showDatePicker, setShowDatePicker] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selectedEventIndex, setSelectedEventIndex] = useState(0)
+  const [dateFilter, setDateFilter] = useState<DateFilter>('tonight')
 
   // Date helpers
+  const getDateString = (date: Date) => date.toDateString()
+  
   const isTonight = (dateStr: string) => {
-    const eventDate = new Date(dateStr).toDateString()
-    const today = new Date().toDateString()
-    return eventDate === today
+    return getDateString(new Date(dateStr)) === getDateString(new Date())
   }
 
   const isTomorrow = (dateStr: string) => {
-    const eventDate = new Date(dateStr).toDateString()
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
-    return eventDate === tomorrow.toDateString()
+    return getDateString(new Date(dateStr)) === getDateString(tomorrow)
+  }
+
+  const isWeekend = (dateStr: string) => {
+    const eventDate = new Date(dateStr)
+    const today = new Date()
+    
+    // Find this weekend's Friday, Saturday, Sunday
+    const dayOfWeek = today.getDay()
+    const friday = new Date(today)
+    friday.setDate(today.getDate() + (5 - dayOfWeek + 7) % 7)
+    if (dayOfWeek >= 5) friday.setDate(today.getDate()) // Already weekend
+    
+    const sunday = new Date(friday)
+    sunday.setDate(friday.getDate() + 2)
+    sunday.setHours(23, 59, 59)
+    
+    return eventDate >= friday && eventDate <= sunday
+  }
+
+  const isSpecificDate = (dateStr: string, targetDate: string) => {
+    return getDateString(new Date(dateStr)) === targetDate
   }
 
   const getDateLabel = (dateStr: string) => {
@@ -59,21 +83,62 @@ export default function Home() {
     return new Date(dateStr).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   }
 
-  // Filter events for tonight only (for pins and count)
-  const tonightEvents = useMemo(() => {
-    return events.filter(e => isTonight(e.start_time))
-  }, [events])
+  // Get next 7 days for date picker
+  const getNext7Days = () => {
+    const days = []
+    for (let i = 0; i < 7; i++) {
+      const date = new Date()
+      date.setDate(date.getDate() + i)
+      days.push({
+        dateString: getDateString(date),
+        dayName: date.toLocaleDateString('en-GB', { weekday: 'short' }),
+        dayNum: date.getDate(),
+        isToday: i === 0
+      })
+    }
+    return days
+  }
 
-  // Group events by date for the list
+  // Filter events based on selected date filter
+  const filteredEvents = useMemo(() => {
+    switch (dateFilter) {
+      case 'tonight':
+        return events.filter(e => isTonight(e.start_time))
+      case 'tomorrow':
+        return events.filter(e => isTomorrow(e.start_time))
+      case 'weekend':
+        return events.filter(e => isWeekend(e.start_time))
+      case 'all':
+        return events
+      default:
+        // Specific date string
+        return events.filter(e => isSpecificDate(e.start_time, dateFilter))
+    }
+  }, [events, dateFilter])
+
+  // Group filtered events by date for the list
   const groupedEvents = useMemo(() => {
     const groups: { [key: string]: Event[] } = {}
-    events.forEach(event => {
+    filteredEvents.forEach(event => {
       const label = getDateLabel(event.start_time)
       if (!groups[label]) groups[label] = []
       groups[label].push(event)
     })
     return groups
-  }, [events])
+  }, [filteredEvents])
+
+  // Get filter label for bottom bar
+  const getFilterLabel = () => {
+    switch (dateFilter) {
+      case 'tonight': return 'tonight'
+      case 'tomorrow': return 'tomorrow'
+      case 'weekend': return 'this weekend'
+      case 'all': return 'upcoming'
+      default: 
+        const date = new Date(dateFilter)
+        return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
+    }
+  }
 
   // Load events from Supabase
   useEffect(() => {
@@ -95,7 +160,7 @@ export default function Home() {
     loadEvents()
   }, [])
 
-  // Initialize map
+  // Initialize map - centered on Newcastle city center (Grainger Town)
   useEffect(() => {
     if (!mapContainer.current || map.current) return
 
@@ -104,8 +169,8 @@ export default function Home() {
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-1.6178, 54.9783],
-      zoom: 14
+      center: [-1.6131, 54.9695], // Newcastle city center - Grey's Monument area
+      zoom: 15
     })
 
     return () => {
@@ -113,15 +178,17 @@ export default function Home() {
     }
   }, [])
 
-  // Add markers - ONLY tonight's events
+  // Add markers for filtered events
   useEffect(() => {
-    if (!map.current || tonightEvents.length === 0) return
+    if (!map.current) return
 
     // Clear existing markers
     markersRef.current.forEach(marker => marker.remove())
     markersRef.current = []
 
-    tonightEvents.forEach((event, index) => {
+    if (filteredEvents.length === 0) return
+
+    filteredEvents.forEach((event, index) => {
       if (!event.venue) return
 
       const el = document.createElement('div')
@@ -147,10 +214,11 @@ export default function Home() {
         setSelectedEventIndex(eventIndex)
         setSelectedEvent(event)
         setShowList(false)
+        setShowDatePicker(false)
         if (map.current && event.venue) {
           map.current.flyTo({
             center: [event.venue.lng, event.venue.lat],
-            zoom: 15,
+            zoom: 16,
             duration: 800
           })
         }
@@ -162,7 +230,18 @@ export default function Home() {
       
       markersRef.current.push(marker)
     })
-  }, [tonightEvents, events])
+
+    // Fit map to show all pins if there are multiple
+    if (filteredEvents.length > 1) {
+      const bounds = new mapboxgl.LngLatBounds()
+      filteredEvents.forEach(event => {
+        if (event.venue) {
+          bounds.extend([event.venue.lng, event.venue.lat])
+        }
+      })
+      map.current.fitBounds(bounds, { padding: 80, maxZoom: 15 })
+    }
+  }, [filteredEvents, events])
 
   // Navigation between events
   const goToPrevEvent = () => {
@@ -173,7 +252,7 @@ export default function Home() {
       if (map.current && events[newIndex].venue) {
         map.current.flyTo({
           center: [events[newIndex].venue!.lng, events[newIndex].venue!.lat],
-          zoom: 15,
+          zoom: 16,
           duration: 500
         })
       }
@@ -188,7 +267,7 @@ export default function Home() {
       if (map.current && events[newIndex].venue) {
         map.current.flyTo({
           center: [events[newIndex].venue!.lng, events[newIndex].venue!.lat],
-          zoom: 15,
+          zoom: 16,
           duration: 500
         })
       }
@@ -214,15 +293,18 @@ export default function Home() {
     return `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`
   }
 
+  const handleFilterChange = (filter: DateFilter) => {
+    setDateFilter(filter)
+    setShowDatePicker(false)
+  }
+
   return (
-    // Outer container - centers content on desktop
     <div style={{ 
       minHeight: '100vh', 
       background: '#0a0a0b',
       display: 'flex',
       justifyContent: 'center'
     }}>
-      {/* App container - max width for desktop, full width for mobile */}
       <main style={{ 
         height: '100vh', 
         width: '100%',
@@ -234,27 +316,127 @@ export default function Home() {
         {/* Full screen map */}
         <div ref={mapContainer} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
 
-        {/* Floating header */}
+        {/* Floating header with filters */}
         <header style={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
-          padding: '50px 20px 24px',
-          background: 'linear-gradient(to bottom, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0.8) 60%, transparent 100%)',
-          zIndex: 10,
-          pointerEvents: 'none'
+          padding: '50px 20px 20px',
+          background: 'linear-gradient(to bottom, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0.85) 70%, transparent 100%)',
+          zIndex: 10
         }}>
           <h1 style={{ 
             fontFamily: 'system-ui, -apple-system, sans-serif', 
             fontSize: '22px', 
             fontWeight: 800,
-            letterSpacing: '-0.5px',
-            pointerEvents: 'auto'
+            letterSpacing: '-0.5px'
           }}>
             SOUNDED OUT
           </h1>
-          <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Newcastle</p>
+          <p style={{ fontSize: '12px', color: '#888', marginTop: '2px', marginBottom: '14px' }}>Newcastle</p>
+          
+          {/* Date filter pills */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => handleFilterChange('tonight')}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '20px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: dateFilter === 'tonight' ? '#ab67f7' : 'rgba(255,255,255,0.1)',
+                color: dateFilter === 'tonight' ? 'white' : '#888'
+              }}
+            >
+              Tonight
+            </button>
+            <button
+              onClick={() => handleFilterChange('tomorrow')}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '20px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: dateFilter === 'tomorrow' ? '#ab67f7' : 'rgba(255,255,255,0.1)',
+                color: dateFilter === 'tomorrow' ? 'white' : '#888'
+              }}
+            >
+              Tomorrow
+            </button>
+            <button
+              onClick={() => handleFilterChange('weekend')}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '20px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: dateFilter === 'weekend' ? '#ab67f7' : 'rgba(255,255,255,0.1)',
+                color: dateFilter === 'weekend' ? 'white' : '#888'
+              }}
+            >
+              Weekend
+            </button>
+            <button
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '20px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: (dateFilter !== 'tonight' && dateFilter !== 'tomorrow' && dateFilter !== 'weekend' && dateFilter !== 'all') 
+                  ? '#ab67f7' : 'rgba(255,255,255,0.1)',
+                color: (dateFilter !== 'tonight' && dateFilter !== 'tomorrow' && dateFilter !== 'weekend' && dateFilter !== 'all') 
+                  ? 'white' : '#ab67f7'
+              }}
+            >
+              {showDatePicker ? 'Less ▲' : 'More ▼'}
+            </button>
+          </div>
+
+          {/* Expanded date picker */}
+          {showDatePicker && (
+            <div style={{
+              marginTop: '12px',
+              padding: '16px',
+              background: '#1e1e24',
+              borderRadius: '16px',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                {getNext7Days().map((day) => (
+                  <button
+                    key={day.dateString}
+                    onClick={() => handleFilterChange(day.dateString)}
+                    style={{
+                      width: '38px',
+                      padding: '8px 4px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '2px',
+                      background: dateFilter === day.dateString ? '#ab67f7' : 'transparent',
+                      color: dateFilter === day.dateString ? 'white' : '#888'
+                    }}
+                  >
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase' }}>{day.dayName}</span>
+                    <span style={{ fontSize: '16px', fontWeight: 600 }}>{day.dayNum}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </header>
 
         {/* Bottom bar - tap to expand */}
@@ -282,15 +464,15 @@ export default function Home() {
               justifyContent: 'space-between'
             }}>
               <span style={{ fontSize: '15px', fontWeight: 500 }}>
-                <span style={{ color: '#ab67f7', fontWeight: 700 }}>{loading ? '...' : tonightEvents.length}</span>
-                {' '}{tonightEvents.length === 1 ? 'event' : 'events'} tonight
+                <span style={{ color: '#ab67f7', fontWeight: 700 }}>{loading ? '...' : filteredEvents.length}</span>
+                {' '}{filteredEvents.length === 1 ? 'event' : 'events'} {getFilterLabel()}
               </span>
               <span style={{ color: '#ab67f7', fontSize: '18px' }}>↑</span>
             </div>
           </div>
         )}
 
-        {/* Bottom sheet - event list with date headers */}
+        {/* Bottom sheet - event list (half screen, map visible) */}
         {showList && !selectedEvent && (
           <div style={{
             position: 'absolute',
@@ -301,7 +483,7 @@ export default function Home() {
             borderRadius: '24px 24px 0 0',
             padding: '12px 16px 34px',
             zIndex: 20,
-            maxHeight: '70vh',
+            maxHeight: '50vh',
             overflowY: 'auto',
             borderTop: '1px solid rgba(255,255,255,0.1)'
           }}>
@@ -313,70 +495,76 @@ export default function Home() {
                 height: '4px', 
                 background: '#444', 
                 borderRadius: '2px', 
-                margin: '0 auto 20px',
+                margin: '0 auto 16px',
                 cursor: 'pointer'
               }} 
             />
 
             {/* Event list grouped by date */}
-            {Object.entries(groupedEvents).map(([dateLabel, dateEvents]) => (
-              <div key={dateLabel} style={{ marginBottom: '20px' }}>
-                {/* Date header */}
-                <h3 style={{ 
-                  fontSize: '14px', 
-                  fontWeight: 700, 
-                  color: dateLabel === 'Tonight' ? '#ab67f7' : '#666',
-                  marginBottom: '12px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  {dateLabel}
-                </h3>
-                
-                {/* Events for this date */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {dateEvents.map((event) => {
-                    const eventIndex = events.findIndex(e => e.id === event.id)
-                    return (
-                      <div
-                        key={event.id}
-                        onClick={() => {
-                          setSelectedEventIndex(eventIndex)
-                          setSelectedEvent(event)
-                          setShowList(false)
-                          if (map.current && event.venue) {
-                            map.current.flyTo({
-                              center: [event.venue.lng, event.venue.lat],
-                              zoom: 15,
-                              duration: 800
-                            })
-                          }
-                        }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '14px',
-                          padding: '14px',
-                          background: '#1e1e24',
-                          borderRadius: '14px',
-                          cursor: 'pointer',
-                          border: '1px solid rgba(255,255,255,0.05)'
-                        }}
-                      >
-                        <span style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, minWidth: '50px' }}>
-                          {formatTime(event.start_time)}
-                        </span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '3px' }}>{event.title}</div>
-                          <div style={{ fontSize: '12px', color: '#888' }}>{event.venue?.name}</div>
+            {Object.keys(groupedEvents).length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#666', padding: '20px' }}>
+                No events {getFilterLabel()}
+              </p>
+            ) : (
+              Object.entries(groupedEvents).map(([dateLabel, dateEvents]) => (
+                <div key={dateLabel} style={{ marginBottom: '16px' }}>
+                  {/* Date header */}
+                  <h3 style={{ 
+                    fontSize: '13px', 
+                    fontWeight: 700, 
+                    color: dateLabel === 'Tonight' ? '#ab67f7' : '#666',
+                    marginBottom: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    {dateLabel}
+                  </h3>
+                  
+                  {/* Events for this date */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {dateEvents.map((event) => {
+                      const eventIndex = events.findIndex(e => e.id === event.id)
+                      return (
+                        <div
+                          key={event.id}
+                          onClick={() => {
+                            setSelectedEventIndex(eventIndex)
+                            setSelectedEvent(event)
+                            setShowList(false)
+                            if (map.current && event.venue) {
+                              map.current.flyTo({
+                                center: [event.venue.lng, event.venue.lat],
+                                zoom: 16,
+                                duration: 800
+                              })
+                            }
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px',
+                            background: '#1e1e24',
+                            borderRadius: '12px',
+                            cursor: 'pointer',
+                            border: '1px solid rgba(255,255,255,0.05)'
+                          }}
+                        >
+                          <span style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, minWidth: '46px' }}>
+                            {formatTime(event.start_time)}
+                          </span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>{event.title}</div>
+                            <div style={{ fontSize: '12px', color: '#888' }}>{event.venue?.name}</div>
+                          </div>
+                          <span style={{ color: '#555', fontSize: '16px' }}>›</span>
                         </div>
-                        <span style={{ color: '#555', fontSize: '18px' }}>›</span>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         )}
 
@@ -418,7 +606,7 @@ export default function Home() {
                 }} 
               />
 
-              {/* Event image - proper aspect ratio */}
+              {/* Event image */}
               {selectedEvent.image_url ? (
                 <div style={{
                   width: '100%',
