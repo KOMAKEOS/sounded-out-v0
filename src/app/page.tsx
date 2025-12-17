@@ -336,22 +336,31 @@ export default function Home() {
 
       el.onclick = (e) => {
         e.stopPropagation()
-        highlightMarker(evs[0].id)
+        e.preventDefault()
         
+        // Open sheet FIRST (before any map animation)
         if (count > 1) {
           setClusterEvents(evs)
-          setTimeout(() => openSheet('cluster'), 40)
+          setViewMode('cluster')
         } else {
           const idx = filtered.findIndex(x => x.id === evs[0].id)
           setCurrentIndex(idx)
-          setTimeout(() => openSheet('preview'), 40)
+          setViewMode('preview')
         }
         
-        map.current?.flyTo({ 
+        // Make sheet visible after state is set
+        requestAnimationFrame(() => {
+          setSheetVisible(true)
+          highlightMarker(evs[0].id)
+        })
+        
+        // Gentle pan to center the marker (no aggressive zoom change)
+        const currentZoom = map.current?.getZoom() || 14
+        map.current?.easeTo({ 
           center: [v.lng, v.lat], 
-          zoom: 16, 
-          duration: 450,
-          easing: (t) => 1 - Math.pow(1 - t, 3)
+          zoom: Math.max(currentZoom, 14.5), // Don't zoom out, only zoom in slightly if needed
+          duration: 300,
+          easing: (t) => 1 - Math.pow(1 - t, 2) // Gentle ease-out
         })
       }
 
@@ -408,11 +417,12 @@ export default function Home() {
     highlightMarker(filtered[newIdx].id)
     
     if (filtered[newIdx].venue) {
-      map.current?.flyTo({ 
+      const currentZoom = map.current?.getZoom() || 14
+      map.current?.easeTo({ 
         center: [filtered[newIdx].venue!.lng, filtered[newIdx].venue!.lat], 
-        zoom: 16, 
-        duration: fromVelocity ? 280 : 380,
-        easing: (t) => 1 - Math.pow(1 - t, 3)
+        zoom: Math.max(currentZoom, 14.5),
+        duration: fromVelocity ? 200 : 300,
+        easing: (t) => 1 - Math.pow(1 - t, 2)
       })
     }
 
@@ -630,11 +640,12 @@ export default function Home() {
     highlightMarker(e.id)
     openSheet('preview')
     if (e.venue) {
-      map.current?.flyTo({ 
+      const currentZoom = map.current?.getZoom() || 14
+      map.current?.easeTo({ 
         center: [e.venue.lng, e.venue.lat], 
-        zoom: 16, 
-        duration: 450,
-        easing: (t) => 1 - Math.pow(1 - t, 3)
+        zoom: Math.max(currentZoom, 14.5),
+        duration: 300,
+        easing: (t) => 1 - Math.pow(1 - t, 2)
       })
     }
   }
