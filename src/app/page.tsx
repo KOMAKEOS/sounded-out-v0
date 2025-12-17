@@ -11,6 +11,7 @@ type Venue = {
   lat: number
   lng: number
   venue_type: string
+  instagram_url: string | null
 }
 
 type Event = {
@@ -20,7 +21,9 @@ type Event = {
   start_time: string
   end_time: string | null
   genres: string | null
+  vibe: string | null
   event_url: string | null
+  image_url: string | null
   price_min: number | null
   price_max: number | null
   venue?: Venue
@@ -29,10 +32,14 @@ type Event = {
 export default function Home() {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
+  const markersRef = useRef<mapboxgl.Marker[]>([])
   const [events, setEvents] = useState<Event[]>([])
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+  const [showList, setShowList] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [selectedEventIndex, setSelectedEventIndex] = useState(0)
 
+  // Load events from Supabase
   useEffect(() => {
     async function loadEvents() {
       const { data, error } = await supabase
@@ -52,6 +59,7 @@ export default function Home() {
     loadEvents()
   }, [])
 
+  // Initialize map
   useEffect(() => {
     if (!mapContainer.current || map.current) return
 
@@ -61,45 +69,110 @@ export default function Home() {
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center: [-1.6178, 54.9783],
-      zoom: 13
+      zoom: 14
     })
+
+    map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right')
 
     return () => {
       if (map.current) map.current.remove()
     }
   }, [])
 
+  // Add markers when events load
   useEffect(() => {
     if (!map.current || events.length === 0) return
 
-    events.forEach((event) => {
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.remove())
+    markersRef.current = []
+
+    // Check if event is today
+    const isTonight = (dateStr: string) => {
+      const eventDate = new Date(dateStr).toDateString()
+      const today = new Date().toDateString()
+      return eventDate === today
+    }
+
+    events.forEach((event, index) => {
       if (!event.venue) return
 
-     const el = document.createElement('div')
+      const el = document.createElement('div')
+      el.style.cursor = 'pointer'
       el.style.width = '32px'
       el.style.height = '42px'
-      el.style.cursor = 'pointer'
-      el.innerHTML = `<svg viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="#ab67f7"/>
-        <circle cx="12" cy="12" r="5" fill="white"/>
-      </svg>`
+      
+      const tonight = isTonight(event.start_time)
+      const opacity = tonight ? '1' : '0.4'
+      const glowFilter = tonight ? 'drop-shadow(0 3px 8px rgba(171, 103, 247, 0.6))' : 'none'
+      
+      el.innerHTML = `
+        <svg viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: ${glowFilter}; opacity: ${opacity};">
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24c0-6.627-5.373-12-12-12z" fill="url(#grad${index})"/>
+          <circle cx="12" cy="12" r="5" fill="white"/>
+          <defs>
+            <linearGradient id="grad${index}" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#ab67f7"/>
+              <stop offset="100%" style="stop-color:#d7b3ff"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      `
 
       el.onclick = () => {
+        const eventIndex = events.findIndex(e => e.id === event.id)
+        setSelectedEventIndex(eventIndex)
         setSelectedEvent(event)
+        setShowList(false)
         if (map.current && event.venue) {
           map.current.flyTo({
             center: [event.venue.lng, event.venue.lat],
-            zoom: 15
+            zoom: 15,
+            duration: 800
           })
         }
       }
 
-      new mapboxgl.Marker(el)
+      const marker = new mapboxgl.Marker(el)
         .setLngLat([event.venue.lng, event.venue.lat])
         .addTo(map.current as mapboxgl.Map)
+      
+      markersRef.current.push(marker)
     })
   }, [events])
 
+  // Navigation between events
+  const goToPrevEvent = () => {
+    if (selectedEventIndex > 0) {
+      const newIndex = selectedEventIndex - 1
+      setSelectedEventIndex(newIndex)
+      setSelectedEvent(events[newIndex])
+      if (map.current && events[newIndex].venue) {
+        map.current.flyTo({
+          center: [events[newIndex].venue!.lng, events[newIndex].venue!.lat],
+          zoom: 15,
+          duration: 500
+        })
+      }
+    }
+  }
+
+  const goToNextEvent = () => {
+    if (selectedEventIndex < events.length - 1) {
+      const newIndex = selectedEventIndex + 1
+      setSelectedEventIndex(newIndex)
+      setSelectedEvent(events[newIndex])
+      if (map.current && events[newIndex].venue) {
+        map.current.flyTo({
+          center: [events[newIndex].venue!.lng, events[newIndex].venue!.lat],
+          zoom: 15,
+          duration: 500
+        })
+      }
+    }
+  }
+
+  // Format helpers
   const formatTime = (dateStr: string) => {
     return new Date(dateStr).toLocaleTimeString('en-GB', {
       hour: '2-digit',
@@ -110,153 +183,389 @@ export default function Home() {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
     const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
     if (date.toDateString() === today.toDateString()) return 'Tonight'
+    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow'
     return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   }
 
   const formatPrice = (min: number | null, max: number | null) => {
     if (!min && !max) return 'Free / TBC'
-    if (min && max && min !== max) return '£' + min + '–£' + max
-    return '£' + (min || max)
+    if (min === 0 && !max) return 'Free'
+    if (min && max && min !== max) return `£${min} – £${max}`
+    return `£${min || max}`
   }
 
-  const mainStyle: React.CSSProperties = { height: '100vh', width: '100vw', position: 'relative' }
-  const mapStyle: React.CSSProperties = { height: '100%', width: '100%' }
-  const headerStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    padding: '16px 20px',
-    background: 'linear-gradient(to bottom, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0) 100%)',
-    zIndex: 10
+  const getGoogleMapsUrl = (venue: Venue) => {
+    return `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`
   }
-  const bottomStyle: React.CSSProperties = {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    background: 'linear-gradient(to top, rgba(10,10,11,0.98) 0%, rgba(10,10,11,0) 100%)',
-    padding: '60px 16px 24px',
-    zIndex: 10
-  }
-  const cardStyle: React.CSSProperties = {
-    flexShrink: 0,
-    width: '200px',
-    padding: '14px',
-    background: '#141416',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '12px',
-    textAlign: 'left',
-    cursor: 'pointer',
-    color: 'white'
-  }
-  const overlayStyle: React.CSSProperties = {
-    position: 'absolute',
-    inset: 0,
-    background: 'rgba(0,0,0,0.7)',
-    zIndex: 20,
-    display: 'flex',
-    alignItems: 'flex-end',
-    justifyContent: 'center'
-  }
-  const modalStyle: React.CSSProperties = {
-    width: '100%',
-    maxWidth: '480px',
-    background: '#141416',
-    borderRadius: '20px 20px 0 0',
-    padding: '24px'
-  }
-  const buttonStyle: React.CSSProperties = {
-    display: 'block',
-    width: '100%',
-    padding: '16px',
-    background: 'linear-gradient(135deg, #ab67f7 0%, #d7b3ff 100%)',
-    borderRadius: '12px',
-    fontSize: '16px',
-    fontWeight: 700,
-    color: 'white',
-    textAlign: 'center',
-    textDecoration: 'none'
+
+  const getTonightCount = () => {
+    const today = new Date().toDateString()
+    return events.filter(e => new Date(e.start_time).toDateString() === today).length
   }
 
   return (
-    <main style={mainStyle}>
-      <div ref={mapContainer} style={mapStyle}></div>
+    <main style={{ height: '100vh', width: '100vw', position: 'relative', overflow: 'hidden', background: '#0a0a0b' }}>
+      {/* Full screen map */}
+      <div ref={mapContainer} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
 
-      <header style={headerStyle}>
-        <h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: '24px', fontWeight: 800 }}>SOUNDED OUT</h1>
-        <p style={{ fontSize: '12px', color: '#a0a0a5', marginTop: '2px' }}>Newcastle</p>
+      {/* Floating header */}
+      <header style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        padding: '50px 20px 20px',
+        background: 'linear-gradient(to bottom, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0.7) 70%, transparent 100%)',
+        zIndex: 10,
+        pointerEvents: 'none'
+      }}>
+        <h1 style={{ 
+          fontFamily: 'system-ui, -apple-system, sans-serif', 
+          fontSize: '22px', 
+          fontWeight: 800,
+          letterSpacing: '-0.5px',
+          pointerEvents: 'auto'
+        }}>
+          SOUNDED OUT
+        </h1>
+        <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Newcastle</p>
       </header>
 
-      <div style={bottomStyle}>
-        {loading ? (
-          <p style={{ color: '#a0a0a5', fontSize: '14px', textAlign: 'center' }}>Loading...</p>
-        ) : events.length === 0 ? (
-          <p style={{ color: '#a0a0a5', fontSize: '14px', textAlign: 'center' }}>No events found</p>
-        ) : (
-          <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '8px' }}>
-            {events.map((event) => (
-              <button
+      {/* Bottom bar - tap to expand */}
+      {!showList && !selectedEvent && (
+        <div 
+          onClick={() => setShowList(true)}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: '30px 20px 34px',
+            background: 'linear-gradient(to top, rgba(10,10,11,1) 0%, rgba(10,10,11,0.95) 70%, transparent 100%)',
+            zIndex: 10,
+            cursor: 'pointer'
+          }}
+        >
+          <div style={{
+            background: '#1e1e24',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '16px',
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <span style={{ fontSize: '15px', fontWeight: 500 }}>
+              <span style={{ color: '#ab67f7', fontWeight: 700 }}>{loading ? '...' : getTonightCount()}</span>
+              {' '}events tonight
+            </span>
+            <span style={{ color: '#ab67f7', fontSize: '18px' }}>↑</span>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom sheet - event list */}
+      {showList && !selectedEvent && (
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: '#141416',
+          borderRadius: '24px 24px 0 0',
+          padding: '12px 16px 34px',
+          zIndex: 20,
+          maxHeight: '60vh',
+          overflowY: 'auto',
+          borderTop: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {/* Handle */}
+          <div 
+            onClick={() => setShowList(false)}
+            style={{ 
+              width: '36px', 
+              height: '4px', 
+              background: '#444', 
+              borderRadius: '2px', 
+              margin: '0 auto 16px',
+              cursor: 'pointer'
+            }} 
+          />
+          
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <span style={{ fontSize: '18px', fontWeight: 700 }}>Tonight</span>
+          </div>
+
+          {/* Event list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {events.map((event, index) => (
+              <div
                 key={event.id}
                 onClick={() => {
+                  setSelectedEventIndex(index)
                   setSelectedEvent(event)
+                  setShowList(false)
                   if (map.current && event.venue) {
-                    map.current.flyTo({ center: [event.venue.lng, event.venue.lat], zoom: 15 })
+                    map.current.flyTo({
+                      center: [event.venue.lng, event.venue.lat],
+                      zoom: 15,
+                      duration: 800
+                    })
                   }
                 }}
-                style={cardStyle}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                  padding: '14px',
+                  background: '#1e1e24',
+                  borderRadius: '14px',
+                  cursor: 'pointer',
+                  border: '1px solid rgba(255,255,255,0.05)'
+                }}
               >
-                <p style={{ fontSize: '10px', color: '#ab67f7', fontWeight: 700, marginBottom: '6px' }}>
-                  {formatDate(event.start_time)} - {formatTime(event.start_time)}
-                </p>
-                <p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>{event.title}</p>
-                <p style={{ fontSize: '12px', color: '#a0a0a5' }}>{event.venue?.name || 'Venue TBC'}</p>
-              </button>
+                <span style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, minWidth: '50px' }}>
+                  {formatTime(event.start_time)}
+                </span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '3px' }}>{event.title}</div>
+                  <div style={{ fontSize: '12px', color: '#888' }}>{event.venue?.name}</div>
+                </div>
+                <span style={{ color: '#555', fontSize: '18px' }}>›</span>
+              </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {selectedEvent ? (
-        <div style={overlayStyle} onClick={() => setSelectedEvent(null)}>
-          <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
-            <div style={{ width: '40px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', margin: '0 auto 20px' }}></div>
+      {/* Event detail modal */}
+      {selectedEvent && (
+        <div 
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            zIndex: 20,
+            display: 'flex',
+            alignItems: 'flex-end'
+          }}
+          onClick={() => setSelectedEvent(null)}
+        >
+          <div 
+            style={{
+              width: '100%',
+              background: '#141416',
+              borderRadius: '24px 24px 0 0',
+              padding: '12px 20px 40px',
+              borderTop: '1px solid rgba(255,255,255,0.1)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Handle */}
+            <div 
+              onClick={() => setSelectedEvent(null)}
+              style={{ 
+                width: '36px', 
+                height: '4px', 
+                background: '#444', 
+                borderRadius: '2px', 
+                margin: '0 auto 12px',
+                cursor: 'pointer'
+              }} 
+            />
 
-            <p style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 700, marginBottom: '8px' }}>
-              {formatDate(selectedEvent.start_time)} - {formatTime(selectedEvent.start_time)}
+            {/* Event image */}
+            {selectedEvent.image_url ? (
+              <img 
+                src={selectedEvent.image_url} 
+                alt={selectedEvent.title}
+                style={{
+                  width: '100%',
+                  height: '140px',
+                  objectFit: 'cover',
+                  borderRadius: '14px',
+                  marginBottom: '16px'
+                }}
+              />
+            ) : (
+              <div style={{
+                width: '100%',
+                height: '100px',
+                background: 'linear-gradient(135deg, #2a2a3e 0%, #1a1a2e 100%)',
+                borderRadius: '14px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#444',
+                fontSize: '12px'
+              }}>
+                No image
+              </div>
+            )}
+
+            {/* Date & time */}
+            <p style={{ 
+              fontSize: '11px', 
+              color: '#ab67f7', 
+              fontWeight: 700, 
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              marginBottom: '6px' 
+            }}>
+              {formatDate(selectedEvent.start_time)} · {formatTime(selectedEvent.start_time)}
+              {selectedEvent.end_time && ` – ${formatTime(selectedEvent.end_time)}`}
             </p>
 
-            <h2 style={{ fontSize: '28px', fontFamily: 'Syne, sans-serif', fontWeight: 800, marginBottom: '8px' }}>
+            {/* Title */}
+            <h2 style={{ 
+              fontSize: '24px', 
+              fontWeight: 800, 
+              marginBottom: '4px',
+              lineHeight: 1.2
+            }}>
               {selectedEvent.title}
             </h2>
 
-            <p style={{ fontSize: '16px', color: '#a0a0a5', marginBottom: '16px' }}>
+            {/* Venue with Instagram */}
+            <p style={{ fontSize: '14px', color: '#888', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               {selectedEvent.venue?.name}
+              {selectedEvent.venue?.instagram_url && (
+                <a 
+                  href={selectedEvent.venue.instagram_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ opacity: 0.6, fontSize: '16px' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  📸
+                </a>
+              )}
             </p>
 
-            {selectedEvent.genres ? (
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
-                {selectedEvent.genres.split(',').map((genre, i) => (
-                  <span key={i} style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.08)', borderRadius: '20px', fontSize: '12px', color: '#a0a0a5' }}>
+            {/* Tags */}
+            {(selectedEvent.genres || selectedEvent.vibe) && (
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                {selectedEvent.genres?.split(',').map((genre, i) => (
+                  <span key={i} style={{ 
+                    padding: '5px 10px', 
+                    background: 'rgba(171, 103, 247, 0.15)', 
+                    borderRadius: '10px', 
+                    fontSize: '11px', 
+                    color: '#ab67f7' 
+                  }}>
                     {genre.trim()}
                   </span>
                 ))}
+                {selectedEvent.vibe && (
+                  <span style={{ 
+                    padding: '5px 10px', 
+                    background: 'rgba(255,255,255,0.08)', 
+                    borderRadius: '10px', 
+                    fontSize: '11px', 
+                    color: '#888' 
+                  }}>
+                    {selectedEvent.vibe}
+                  </span>
+                )}
               </div>
-            ) : null}
+            )}
 
-            <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '24px' }}>
+            {/* Price */}
+            <p style={{ fontSize: '17px', fontWeight: 700, marginBottom: '16px' }}>
               {formatPrice(selectedEvent.price_min, selectedEvent.price_max)}
             </p>
 
-            {selectedEvent.event_url ? (
-              <a href={selectedEvent.event_url} target="_blank" rel="noopener noreferrer" style={buttonStyle}>
-                GET TICKETS
-              </a>
-            ) : null}
+            {/* Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {selectedEvent.event_url && (
+                <a 
+                  href={selectedEvent.event_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'block',
+                    background: 'linear-gradient(135deg, #ab67f7 0%, #d7b3ff 100%)',
+                    color: 'white',
+                    padding: '16px',
+                    borderRadius: '14px',
+                    textAlign: 'center',
+                    fontWeight: 700,
+                    fontSize: '15px',
+                    textDecoration: 'none'
+                  }}
+                >
+                  GET TICKETS
+                </a>
+              )}
+              
+              {selectedEvent.venue && (
+                <a 
+                  href={getGoogleMapsUrl(selectedEvent.venue)}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    color: '#888',
+                    fontSize: '13px',
+                    padding: '8px',
+                    textDecoration: 'none'
+                  }}
+                >
+                  <span>📍</span>
+                  <span>Take me there</span>
+                </a>
+              )}
+            </div>
+
+            {/* Navigation */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              marginTop: '16px',
+              paddingTop: '12px',
+              borderTop: '1px solid rgba(255,255,255,0.05)'
+            }}>
+              <button 
+                onClick={goToPrevEvent}
+                disabled={selectedEventIndex === 0}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: selectedEventIndex === 0 ? '#333' : '#666',
+                  fontSize: '12px',
+                  cursor: selectedEventIndex === 0 ? 'default' : 'pointer',
+                  padding: '8px'
+                }}
+              >
+                ← Previous
+              </button>
+              <button 
+                onClick={goToNextEvent}
+                disabled={selectedEventIndex === events.length - 1}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: selectedEventIndex === events.length - 1 ? '#333' : '#666',
+                  fontSize: '12px',
+                  cursor: selectedEventIndex === events.length - 1 ? 'default' : 'pointer',
+                  padding: '8px'
+                }}
+              >
+                Next →
+              </button>
+            </div>
           </div>
         </div>
-      ) : null}
+      )}
     </main>
   )
 }
