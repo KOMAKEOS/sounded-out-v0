@@ -78,7 +78,7 @@ type ViewMode = 'map' | 'preview' | 'detail' | 'list' | 'cluster'
 export default function Home() {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
-  const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; el: HTMLDivElement }>>(new Map())
+  const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; el: HTMLDivElement; inner: HTMLDivElement }>>(new Map())
   
   // Core state
   const [events, setEvents] = useState<Event[]>([])
@@ -256,13 +256,16 @@ export default function Home() {
   const highlightMarker = useCallback((eventId: string | null) => {
     markersRef.current.forEach((data, id) => {
       const selected = eventId && id.includes(eventId)
-      data.el.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
-      data.el.style.transform = selected ? 'scale(1.25)' : 'scale(1)'
-      // FIX: Keep z-index low so markers don't appear over detail modal
+      // Apply transforms to INNER element only (not the Mapbox-controlled outer element)
+      if (data.inner) {
+        data.inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
+        data.inner.style.transform = selected ? 'scale(1.25)' : 'scale(1)'
+        data.inner.style.filter = selected 
+          ? 'drop-shadow(0 6px 10px rgba(0,0,0,0.5))' 
+          : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+      }
+      // Z-index can still be on outer element
       data.el.style.zIndex = selected ? '5' : '1'
-      data.el.style.filter = selected 
-        ? 'drop-shadow(0 6px 10px rgba(0,0,0,0.5))' 
-        : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
     })
   }, [])
 
@@ -302,36 +305,42 @@ export default function Home() {
       const count = evs.length
       const ids = evs.map(e => e.id).join(',')
 
+      // Outer container - DO NOT apply transforms here (Mapbox uses transforms for positioning)
       const el = document.createElement('div')
       el.style.cursor = 'pointer'
-      el.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
-      el.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-      el.style.willChange = 'transform, filter'
       el.style.zIndex = '1'
+      
+      // Inner wrapper - this is where we apply scale transforms safely
+      const inner = document.createElement('div')
+      inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
+      inner.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+      inner.style.transformOrigin = 'center bottom' // Scale from the pin point
 
       if (count > 1) {
         el.style.width = '44px'
         el.style.height = '44px'
-        el.innerHTML = `<div style="width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}</div>`
+        inner.innerHTML = `<div style="width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}</div>`
       } else {
         el.style.width = '32px'
         el.style.height = '42px'
-        el.innerHTML = `<svg viewBox="0 0 24 36"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="5" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg>`
+        inner.innerHTML = `<svg viewBox="0 0 24 36" width="32" height="42"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="5" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg>`
       }
+      
+      el.appendChild(inner)
 
-      // Press feedback
+      // Press feedback - apply to INNER element only
       el.onpointerdown = (e) => { 
         e.stopPropagation()
-        el.style.transform = 'scale(1.15)' 
-        el.style.transition = 'transform 60ms ease-out'
+        inner.style.transform = 'scale(1.15)' 
+        inner.style.transition = 'transform 60ms ease-out'
       }
       el.onpointerup = () => { 
-        el.style.transform = 'scale(1)'
-        el.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
+        inner.style.transform = 'scale(1)'
+        inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
       }
       el.onpointerleave = () => { 
-        el.style.transform = 'scale(1)'
-        el.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
+        inner.style.transform = 'scale(1)'
+        inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
       }
 
       el.onclick = (e) => {
@@ -358,9 +367,9 @@ export default function Home() {
         const currentZoom = map.current?.getZoom() || 14
         map.current?.easeTo({ 
           center: [v.lng, v.lat], 
-          zoom: Math.max(currentZoom, 14.5), // Don't zoom out, only zoom in slightly if needed
+          zoom: Math.max(currentZoom, 14.5),
           duration: 300,
-          easing: (t) => 1 - Math.pow(1 - t, 2) // Gentle ease-out
+          easing: (t) => 1 - Math.pow(1 - t, 2)
         })
       }
 
@@ -368,7 +377,7 @@ export default function Home() {
         .setLngLat([v.lng, v.lat])
         .addTo(map.current!)
       
-      markersRef.current.set(ids, { marker, el })
+      markersRef.current.set(ids, { marker, el, inner })
     })
 
     // Fit bounds
