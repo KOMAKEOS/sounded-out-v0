@@ -1042,7 +1042,7 @@ export default function Home() {
               marginBottom: '12px',
               lineHeight: 1.3,
             }}>
-              Find the best nights out<br />near you — instantly
+              Find the best nights out<br />near you, instantly
             </h2>
             <p style={{ 
               fontSize: '14px', 
