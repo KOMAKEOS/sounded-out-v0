@@ -68,8 +68,9 @@ type Event = {
   price_min: number | null
   price_max: number | null
   venue?: Venue
-  so_pick?: boolean  // NEW: SO Pick editorial badge
-  sold_out?: boolean // NEW: Sold out status
+  so_pick?: boolean  // SO Pick editorial badge
+  sold_out?: boolean // Sold out status
+  description?: string | null // Event description/more info
 }
 
 type DateFilter = 'tonight' | 'tomorrow' | 'weekend' | string
@@ -91,12 +92,21 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>('map')
   const [currentIndex, setCurrentIndex] = useState(0)
   const [clusterEvents, setClusterEvents] = useState<Event[]>([])
-  const [visibleDayLabel, setVisibleDayLabel] = useState<string>('') // NEW: Track visible day for sticky header
+  const [visibleDayLabel, setVisibleDayLabel] = useState<string>('') // Track visible day for sticky header
   
   // Animation state
   const [isAnimating, setIsAnimating] = useState(false)
   const [sheetVisible, setSheetVisible] = useState(false)
   const [mapReady, setMapReady] = useState(false)
+  
+  // Detail view state
+  const [showAllGenres, setShowAllGenres] = useState(false)
+  const [showDescription, setShowDescription] = useState(false)
+  
+  // User location state
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [showUserLocation, setShowUserLocation] = useState(false)
+  const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
   
   // Refs for scroll tracking
   const listScrollRef = useRef<HTMLDivElement>(null)
@@ -271,6 +281,67 @@ export default function Home() {
     map.current = m
     return () => m.remove()
   }, [])
+
+  // ============================================================================
+  // USER LOCATION
+  // ============================================================================
+  const toggleUserLocation = useCallback(() => {
+    if (showUserLocation) {
+      // Turn off
+      setShowUserLocation(false)
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove()
+        userMarkerRef.current = null
+      }
+    } else {
+      // Turn on - request location
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords
+            setUserLocation({ lat: latitude, lng: longitude })
+            setShowUserLocation(true)
+          },
+          (error) => {
+            console.log('Location error:', error)
+            alert('Unable to get your location. Please enable location services.')
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        )
+      } else {
+        alert('Geolocation is not supported by your browser.')
+      }
+    }
+  }, [showUserLocation])
+
+  // Update user marker when location changes
+  useEffect(() => {
+    if (!map.current || !mapReady || !showUserLocation || !userLocation) return
+    
+    // Remove existing marker
+    if (userMarkerRef.current) {
+      userMarkerRef.current.remove()
+    }
+    
+    // Create user location marker
+    const el = document.createElement('div')
+    el.innerHTML = `
+      <div style="position: relative;">
+        <div style="width: 20px; height: 20px; background: #4285F4; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+        <div style="position: absolute; top: -4px; left: -4px; width: 28px; height: 28px; background: rgba(66,133,244,0.2); border-radius: 50%; animation: pulse 2s infinite;"></div>
+      </div>
+    `
+    
+    userMarkerRef.current = new mapboxgl.Marker({ element: el })
+      .setLngLat([userLocation.lng, userLocation.lat])
+      .addTo(map.current)
+    
+    return () => {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove()
+      }
+    }
+  }, [userLocation, showUserLocation, mapReady])
 
   // ============================================================================
   // MARKER HIGHLIGHT - FIX: Lower z-index so markers don't overlap modals
@@ -688,6 +759,8 @@ export default function Home() {
   const selectEvent = (e: Event) => {
     const idx = filtered.findIndex(x => x.id === e.id)
     setCurrentIndex(idx)
+    setShowAllGenres(false) // Reset expanded genres
+    setShowDescription(false) // Reset description dropdown
     highlightMarker(e.id)
     openSheet('preview')
     if (e.venue) {
@@ -754,8 +827,38 @@ export default function Home() {
           transition: `opacity ${SPRING.iosDuration}ms ${SPRING.ios}`,
           pointerEvents: viewMode === 'detail' ? 'none' : 'auto'
         }}>
-          <h1 style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.5px' }}>SOUNDED OUT</h1>
-          <p style={{ fontSize: '12px', color: '#888', marginTop: '2px', marginBottom: '12px' }}>Newcastle</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              {/* Logo image instead of text */}
+              <img 
+                src="/logo.svg" 
+                alt="Sounded Out" 
+                style={{ height: '26px', width: 'auto', marginBottom: '2px' }}
+              />
+              <p style={{ fontSize: '12px', color: '#888', marginTop: '2px', marginBottom: '12px' }}>Newcastle</p>
+            </div>
+            {/* User location toggle */}
+            <button
+              onClick={toggleUserLocation}
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                border: 'none',
+                background: showUserLocation ? '#4285F4' : 'rgba(255,255,255,0.1)',
+                color: showUserLocation ? 'white' : '#888',
+                fontSize: '16px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: `all ${SPRING.iosDuration}ms ${SPRING.ios}`,
+              }}
+              title={showUserLocation ? 'Hide my location' : 'Show my location'}
+            >
+              📍
+            </button>
+          </div>
           
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {(['tonight', 'tomorrow', 'weekend'] as const).map(f => (
@@ -965,16 +1068,15 @@ export default function Home() {
                         onClick={() => selectEvent(e)} 
                         style={{
                           display: 'flex', 
-                          alignItems: 'center', 
+                          alignItems: 'flex-start', 
                           gap: '12px', 
                           padding: '12px 14px',
-                          background: e.sold_out ? '#1a1a1d' : '#1e1e24', 
+                          background: '#1e1e24', 
                           borderRadius: '14px', 
-                          cursor: e.sold_out ? 'default' : 'pointer',
-                          opacity: e.sold_out ? 0.6 : 1,
+                          cursor: 'pointer',
                           transition: `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`,
                         }}
-                        onPointerDown={(ev) => !e.sold_out && (ev.currentTarget.style.transform = 'scale(0.98)')}
+                        onPointerDown={(ev) => (ev.currentTarget.style.transform = 'scale(0.98)')}
                         onPointerUp={(ev) => (ev.currentTarget.style.transform = 'scale(1)')}
                         onPointerLeave={(ev) => (ev.currentTarget.style.transform = 'scale(1)')}
                       >
@@ -982,7 +1084,8 @@ export default function Home() {
                           fontSize: '13px', 
                           color: '#ab67f7', 
                           fontWeight: 700, 
-                          minWidth: '48px' 
+                          minWidth: '48px',
+                          paddingTop: '2px',
                         }}>
                           {formatTime(e.start_time)}
                         </span>
@@ -993,13 +1096,13 @@ export default function Home() {
                             gap: '6px',
                             marginBottom: '3px',
                           }}>
-                            {/* SO PICK badge */}
+                            {/* SO PICK badge - BLACK & WHITE */}
                             {e.so_pick && (
                               <span style={{
                                 fontSize: '9px',
                                 fontWeight: 800,
-                                color: '#ab67f7',
-                                background: 'rgba(171,103,247,0.2)',
+                                color: '#000',
+                                background: '#fff',
                                 padding: '2px 5px',
                                 borderRadius: '4px',
                                 letterSpacing: '0.5px',
@@ -1017,35 +1120,50 @@ export default function Home() {
                               {e.title}
                             </span>
                           </div>
-                          <div style={{ fontSize: '12px', color: '#666' }}>{e.venue?.name}</div>
+                          <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>{e.venue?.name}</div>
+                          {/* Genre/vibe indicator for differentiation */}
+                          {(e.genres || e.vibe) && (
+                            <div style={{ 
+                              fontSize: '11px', 
+                              color: '#555',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}>
+                              {e.genres?.split(',').slice(0, 2).map(g => g.trim()).join(' · ') || e.vibe}
+                            </div>
+                          )}
                         </div>
-                        {e.sold_out ? (
-                          <span style={{ 
-                            fontSize: '11px', 
-                            fontWeight: 700, 
-                            color: '#666', 
-                            background: 'rgba(255,255,255,0.1)', 
-                            padding: '4px 8px', 
-                            borderRadius: '6px' 
-                          }}>
-                            SOLD OUT
-                          </span>
-                        ) : isFree(e.price_min, e.price_max) ? (
-                          <span style={{ 
-                            fontSize: '11px', 
-                            fontWeight: 700, 
-                            color: '#22c55e', 
-                            background: 'rgba(34,197,94,0.15)', 
-                            padding: '4px 8px', 
-                            borderRadius: '6px' 
-                          }}>
-                            FREE
-                          </span>
-                        ) : formatPrice(e.price_min, e.price_max) && (
-                          <span style={{ fontSize: '12px', color: '#888', fontWeight: 600 }}>
-                            {formatPrice(e.price_min, e.price_max)}
-                          </span>
-                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                          {e.sold_out && (
+                            <span style={{ 
+                              fontSize: '10px', 
+                              fontWeight: 700, 
+                              color: '#f87171', 
+                              background: 'rgba(248,113,113,0.15)', 
+                              padding: '3px 6px', 
+                              borderRadius: '4px' 
+                            }}>
+                              SOLD OUT
+                            </span>
+                          )}
+                          {isFree(e.price_min, e.price_max) ? (
+                            <span style={{ 
+                              fontSize: '11px', 
+                              fontWeight: 700, 
+                              color: '#22c55e', 
+                              background: 'rgba(34,197,94,0.15)', 
+                              padding: '4px 8px', 
+                              borderRadius: '6px' 
+                            }}>
+                              FREE
+                            </span>
+                          ) : formatPrice(e.price_min, e.price_max) && (
+                            <span style={{ fontSize: '12px', color: '#888', fontWeight: 600 }}>
+                              {formatPrice(e.price_min, e.price_max)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1236,8 +1354,8 @@ export default function Home() {
                     <span style={{
                       fontSize: '9px',
                       fontWeight: 800,
-                      color: '#ab67f7',
-                      background: 'rgba(171,103,247,0.2)',
+                      color: '#000',
+                      background: '#fff',
                       padding: '3px 6px',
                       borderRadius: '4px',
                       letterSpacing: '0.5px',
@@ -1495,8 +1613,8 @@ export default function Home() {
                   <span style={{
                     fontSize: '11px',
                     fontWeight: 800,
-                    color: '#ab67f7',
-                    background: 'rgba(171,103,247,0.2)',
+                    color: '#000',
+                    background: '#fff',
                     padding: '4px 8px',
                     borderRadius: '6px',
                     letterSpacing: '0.5px',
@@ -1555,82 +1673,135 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Tags */}
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
-                {current.sold_out && (
-                  <span style={{ 
-                    padding: '8px 14px', 
-                    background: 'rgba(255,255,255,0.1)', 
-                    borderRadius: '10px', 
-                    fontSize: '14px', 
-                    fontWeight: 700, 
-                    color: '#666' 
-                  }}>
-                    SOLD OUT
-                  </span>
-                )}
-                {isFree(current.price_min, current.price_max) && (
-                  <span style={{ 
-                    padding: '8px 14px', 
-                    background: 'rgba(34,197,94,0.15)', 
-                    borderRadius: '10px', 
-                    fontSize: '14px', 
-                    fontWeight: 700, 
-                    color: '#22c55e' 
-                  }}>
-                    FREE
-                  </span>
-                )}
-                {current.genres?.split(',').map((g, i) => (
-                  <span 
-                    key={i} 
-                    style={{ 
+              {/* Tags - Collapsible genres */}
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {current.sold_out && (
+                    <span style={{ 
                       padding: '8px 14px', 
-                      background: 'rgba(171,103,247,0.12)', 
+                      background: 'rgba(248,113,113,0.15)', 
                       borderRadius: '10px', 
                       fontSize: '14px', 
-                      color: '#ab67f7' 
-                    }}
-                  >
-                    {g.trim()}
-                  </span>
-                ))}
-                {current.vibe && (
-                  <span style={{ 
-                    padding: '8px 14px', 
-                    background: 'rgba(255,255,255,0.06)', 
-                    borderRadius: '10px', 
-                    fontSize: '14px', 
-                    color: '#666' 
-                  }}>
-                    {current.vibe}
-                  </span>
-                )}
+                      fontWeight: 700, 
+                      color: '#f87171' 
+                    }}>
+                      SOLD OUT
+                    </span>
+                  )}
+                  {isFree(current.price_min, current.price_max) && (
+                    <span style={{ 
+                      padding: '8px 14px', 
+                      background: 'rgba(34,197,94,0.15)', 
+                      borderRadius: '10px', 
+                      fontSize: '14px', 
+                      fontWeight: 700, 
+                      color: '#22c55e' 
+                    }}>
+                      FREE
+                    </span>
+                  )}
+                  {/* Show first 4 genres, then +X more */}
+                  {current.genres?.split(',').slice(0, showAllGenres ? undefined : 4).map((g, i) => (
+                    <span 
+                      key={i} 
+                      style={{ 
+                        padding: '8px 14px', 
+                        background: 'rgba(171,103,247,0.12)', 
+                        borderRadius: '10px', 
+                        fontSize: '14px', 
+                        color: '#ab67f7' 
+                      }}
+                    >
+                      {g.trim()}
+                    </span>
+                  ))}
+                  {/* Show +X more button if more than 4 genres */}
+                  {current.genres && current.genres.split(',').length > 4 && !showAllGenres && (
+                    <button
+                      onClick={() => setShowAllGenres(true)}
+                      style={{
+                        padding: '8px 14px',
+                        background: 'rgba(255,255,255,0.08)',
+                        borderRadius: '10px',
+                        fontSize: '14px',
+                        color: '#888',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      +{current.genres.split(',').length - 4} more
+                    </button>
+                  )}
+                  {current.vibe && (
+                    <span style={{ 
+                      padding: '8px 14px', 
+                      background: 'rgba(255,255,255,0.06)', 
+                      borderRadius: '10px', 
+                      fontSize: '14px', 
+                      color: '#666' 
+                    }}>
+                      {current.vibe}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Price */}
               {!isFree(current.price_min, current.price_max) && formatPrice(current.price_min, current.price_max) && (
-                <p style={{ fontSize: '22px', fontWeight: 700, marginBottom: '20px' }}>
+                <p style={{ fontSize: '22px', fontWeight: 700, marginBottom: '16px' }}>
                   {formatPrice(current.price_min, current.price_max)}
                 </p>
               )}
 
-              {/* Actions */}
+              {/* Description dropdown - More Info */}
+              {current.description && (
+                <div style={{ marginBottom: '16px' }}>
+                  <button
+                    onClick={() => setShowDescription(!showDescription)}
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '12px',
+                      color: '#888',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span>More Info</span>
+                    <span style={{ 
+                      transform: showDescription ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 200ms ease',
+                    }}>
+                      ▼
+                    </span>
+                  </button>
+                  {showDescription && (
+                    <div style={{
+                      padding: '14px 16px',
+                      background: 'rgba(255,255,255,0.03)',
+                      borderRadius: '0 0 12px 12px',
+                      marginTop: '-1px',
+                      borderLeft: '1px solid rgba(255,255,255,0.1)',
+                      borderRight: '1px solid rgba(255,255,255,0.1)',
+                      borderBottom: '1px solid rgba(255,255,255,0.1)',
+                    }}>
+                      <p style={{ fontSize: '14px', color: '#999', lineHeight: 1.6 }}>
+                        {current.description}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Actions - Sold out events can still view page */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {current.sold_out ? (
-                  <div style={{
-                    display: 'block', 
-                    padding: '16px', 
-                    background: 'rgba(255,255,255,0.1)',
-                    borderRadius: '14px', 
-                    textAlign: 'center', 
-                    fontWeight: 700, 
-                    fontSize: '15px', 
-                    color: '#666', 
-                  }}>
-                    SOLD OUT
-                  </div>
-                ) : getTicketUrl(current.event_url) ? (
+                {getTicketUrl(current.event_url) && (
                   <a 
                     href={getTicketUrl(current.event_url)!} 
                     target="_blank" 
@@ -1638,18 +1809,24 @@ export default function Home() {
                     style={{
                       display: 'block', 
                       padding: '16px', 
-                      background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                      background: current.sold_out 
+                        ? 'rgba(255,255,255,0.1)' 
+                        : 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
                       borderRadius: '14px', 
                       textAlign: 'center', 
                       fontWeight: 700, 
                       fontSize: '15px', 
-                      color: 'white', 
+                      color: current.sold_out ? '#888' : 'white', 
                       textDecoration: 'none',
                     }}
                   >
-                    {isFree(current.price_min, current.price_max) ? 'VIEW PAGE' : 'GET TICKETS'}
+                    {current.sold_out 
+                      ? 'VIEW PAGE (SOLD OUT)' 
+                      : isFree(current.price_min, current.price_max) 
+                        ? 'VIEW PAGE' 
+                        : 'GET TICKETS'}
                   </a>
-                ) : null}
+                )}
                 {current.venue && (
                   <a 
                     href={mapsUrl(current.venue)} 
@@ -1725,6 +1902,11 @@ export default function Home() {
           @keyframes slideDown {
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.5); opacity: 0.2; }
+            100% { transform: scale(1); opacity: 0.6; }
           }
           * { 
             -webkit-tap-highlight-color: transparent; 
