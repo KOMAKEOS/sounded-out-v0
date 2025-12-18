@@ -286,26 +286,32 @@ export default function Home() {
     return () => m.remove()
   }, [])
 
-  // Intro animation sequence
+  // Intro animation sequence - FAST: 1 second total
   useEffect(() => {
     if (!showIntro || !mapReady || !map.current) return
     
-    // Phase 1: Show logo (already showing)
-    // After 1.2s, start the zoom animation
+    // Check if returning user (skip intro)
+    const hasSeenIntro = localStorage.getItem('so_intro_seen')
+    if (hasSeenIntro) {
+      setShowIntro(false)
+      map.current?.jumpTo({ center: [-1.6131, 54.9695], zoom: 14 })
+      map.current?.dragPan.enable()
+      map.current?.scrollZoom.enable()
+      map.current?.doubleClickZoom.enable()
+      map.current?.touchZoomRotate.enable()
+      return
+    }
+    
+    // Phase 1: Show logo briefly (300ms)
     const zoomTimer = setTimeout(() => {
       setIntroPhase('zoom')
       
-      // Smooth fly to Newcastle
+      // Fast fly to Newcastle (600ms)
       map.current?.flyTo({
         center: [-1.6131, 54.9695],
         zoom: 14,
-        duration: 2500,
-        easing: (t) => {
-          // Custom easing: slow start, fast middle, slow end (Apple-style)
-          return t < 0.5 
-            ? 4 * t * t * t 
-            : 1 - Math.pow(-2 * t + 2, 3) / 2
-        },
+        duration: 600,
+        easing: (t) => 1 - Math.pow(1 - t, 3), // Ease out cubic
         essential: true,
       })
       
@@ -317,18 +323,19 @@ export default function Home() {
           map.current.doubleClickZoom.enable()
           map.current.touchZoomRotate.enable()
         }
-      }, 2500)
-    }, 1200)
+      }, 600)
+    }, 300)
     
-    // Phase 2: Fade out intro overlay after zoom completes
+    // Phase 2: Fade out intro overlay
     const fadeTimer = setTimeout(() => {
       setIntroPhase('done')
-    }, 3200)
+      localStorage.setItem('so_intro_seen', 'true')
+    }, 800)
     
     // Phase 3: Remove intro completely
     const removeTimer = setTimeout(() => {
       setShowIntro(false)
-    }, 3700)
+    }, 1000)
     
     return () => {
       clearTimeout(zoomTimer)
@@ -452,6 +459,7 @@ export default function Home() {
       const v = evs[0].venue!
       const count = evs.length
       const ids = evs.map(e => e.id).join(',')
+      const hasCurated = evs.some(e => e.so_pick) // Check if any event is curated
 
       // Outer container - DO NOT apply transforms here (Mapbox uses transforms for positioning)
       const el = document.createElement('div')
@@ -461,17 +469,25 @@ export default function Home() {
       // Inner wrapper - this is where we apply scale transforms safely
       const inner = document.createElement('div')
       inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
-      inner.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
       inner.style.transformOrigin = 'center bottom' // Scale from the pin point
+      
+      // Add halo glow for curated events
+      if (hasCurated) {
+        inner.style.filter = 'drop-shadow(0 0 8px rgba(251, 191, 36, 0.6)) drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+      } else {
+        inner.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+      }
 
       if (count > 1) {
         el.style.width = '44px'
         el.style.height = '44px'
-        inner.innerHTML = `<div style="width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}</div>`
+        // Add golden border for clusters with curated events
+        const borderColor = hasCurated ? '#fbbf24' : 'white'
+        inner.innerHTML = `<div style="width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid ${borderColor};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}</div>`
       } else {
         el.style.width = '32px'
         el.style.height = '42px'
-        inner.innerHTML = `<svg viewBox="0 0 24 36" width="32" height="42"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="5" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg>`
+        inner.innerHTML = `<svg viewBox="0 0 24 36" width="32" height="42"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="5" fill="${hasCurated ? '#fbbf24' : 'white'}"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg>`
       }
       
       el.appendChild(inner)
@@ -1224,18 +1240,14 @@ export default function Home() {
                             gap: '6px',
                             marginBottom: '3px',
                           }}>
-                            {/* SO PICK badge - BLACK & WHITE */}
+                            {/* SO PICK badge - Star glyph */}
                             {e.so_pick && (
                               <span style={{
-                                fontSize: '9px',
-                                fontWeight: 800,
-                                color: '#fff',
-                                background: '#000',
-                                padding: '2px 5px',
-                                borderRadius: '4px',
-                                letterSpacing: '0.5px',
+                                fontSize: '12px',
+                                color: '#fbbf24',
+                                textShadow: '0 0 6px rgba(251, 191, 36, 0.5)',
                               }}>
-                                SO
+                                ★
                               </span>
                             )}
                             <span style={{ 
@@ -1482,17 +1494,13 @@ export default function Home() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
                   {current.so_pick && (
                     <span style={{
-                      fontSize: '9px',
-                      fontWeight: 800,
-                      color: '#fff',
-                      background: '#000',
-                      padding: '3px 6px',
-                      borderRadius: '4px',
-                      letterSpacing: '0.5px',
+                      fontSize: '16px',
+                      color: '#fbbf24',
+                      textShadow: '0 0 8px rgba(251, 191, 36, 0.5)',
                       flexShrink: 0,
-                      marginTop: '3px',
+                      marginTop: '2px',
                     }}>
-                      SO
+                      ★
                     </span>
                   )}
                   <h3 style={{ fontSize: '20px', fontWeight: 800, lineHeight: 1.2 }}>
@@ -1741,17 +1749,19 @@ export default function Home() {
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
                 {current.so_pick && (
                   <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
                     fontSize: '11px',
-                    fontWeight: 800,
-                    color: '#fff',
-                    background: '#000',
-                    padding: '4px 8px',
+                    fontWeight: 700,
+                    color: '#fbbf24',
+                    background: 'rgba(251, 191, 36, 0.15)',
+                    padding: '4px 10px',
                     borderRadius: '6px',
-                    letterSpacing: '0.5px',
                     flexShrink: 0,
                     marginTop: '4px',
                   }}>
-                    SO PICK
+                    <span style={{ fontSize: '12px' }}>★</span> CURATED
                   </span>
                 )}
                 <h2 style={{ 
@@ -1860,10 +1870,11 @@ export default function Home() {
                   {current.vibe && (
                     <span style={{ 
                       padding: '8px 14px', 
-                      background: 'rgba(255,255,255,0.06)', 
+                      background: 'rgba(56, 189, 248, 0.15)', 
                       borderRadius: '10px', 
                       fontSize: '14px', 
-                      color: '#666' 
+                      color: '#38bdf8',
+                      fontStyle: 'italic',
                     }}>
                       {current.vibe}
                     </span>
