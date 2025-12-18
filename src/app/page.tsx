@@ -52,7 +52,7 @@ type Venue = {
   lng: number
   venue_type: string
   instagram_url: string | null
-  no_phones?: boolean  // NEW: No-phone policy
+  no_phones?: boolean  // Optional venue-level fallback
 }
 
 type Event = {
@@ -71,6 +71,7 @@ type Event = {
   so_pick?: boolean  // SO Pick editorial badge
   sold_out?: boolean // Sold out status
   description?: string | null // Event description/more info
+  no_phones?: boolean // Event-level no-phones policy (takes priority)
 }
 
 type DateFilter = 'tonight' | 'tomorrow' | 'weekend' | string
@@ -98,6 +99,8 @@ export default function Home() {
   const [isAnimating, setIsAnimating] = useState(false)
   const [sheetVisible, setSheetVisible] = useState(false)
   const [mapReady, setMapReady] = useState(false)
+  const [showIntro, setShowIntro] = useState(true) // Intro loading screen
+  const [introPhase, setIntroPhase] = useState<'logo' | 'zoom' | 'done'>('logo')
   
   // Detail view state
   const [showAllGenres, setShowAllGenres] = useState(false)
@@ -249,29 +252,30 @@ export default function Home() {
   }, [])
 
   // ============================================================================
-  // MAP INITIALIZATION - FIX: No glitchy animation on load
+  // MAP INITIALIZATION - With smooth intro animation
   // ============================================================================
   useEffect(() => {
     if (!mapContainer.current || map.current) return
     
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
     
+    // Start zoomed out (globe view) for intro animation
     const m = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-1.6131, 54.9695],
-      zoom: 14,
+      center: [-1.6131, 54.9695], // Newcastle
+      zoom: showIntro ? 2 : 14, // Start zoomed out if showing intro
       pitch: 0,
       bearing: 0,
       pitchWithRotate: false,
       dragRotate: false,
       touchPitch: false,
       renderWorldCopies: false,
-      dragPan: true,
-      scrollZoom: true,
-      doubleClickZoom: true,
-      touchZoomRotate: true,
-      fadeDuration: 0, // Prevents tile fade glitch
+      dragPan: !showIntro, // Disable pan during intro
+      scrollZoom: !showIntro,
+      doubleClickZoom: !showIntro,
+      touchZoomRotate: !showIntro,
+      fadeDuration: 0,
     })
     
     m.on('load', () => {
@@ -281,6 +285,57 @@ export default function Home() {
     map.current = m
     return () => m.remove()
   }, [])
+
+  // Intro animation sequence
+  useEffect(() => {
+    if (!showIntro || !mapReady || !map.current) return
+    
+    // Phase 1: Show logo (already showing)
+    // After 1.2s, start the zoom animation
+    const zoomTimer = setTimeout(() => {
+      setIntroPhase('zoom')
+      
+      // Smooth fly to Newcastle
+      map.current?.flyTo({
+        center: [-1.6131, 54.9695],
+        zoom: 14,
+        duration: 2500,
+        easing: (t) => {
+          // Custom easing: slow start, fast middle, slow end (Apple-style)
+          return t < 0.5 
+            ? 4 * t * t * t 
+            : 1 - Math.pow(-2 * t + 2, 3) / 2
+        },
+        essential: true,
+      })
+      
+      // Re-enable map interactions after animation
+      setTimeout(() => {
+        if (map.current) {
+          map.current.dragPan.enable()
+          map.current.scrollZoom.enable()
+          map.current.doubleClickZoom.enable()
+          map.current.touchZoomRotate.enable()
+        }
+      }, 2500)
+    }, 1200)
+    
+    // Phase 2: Fade out intro overlay after zoom completes
+    const fadeTimer = setTimeout(() => {
+      setIntroPhase('done')
+    }, 3200)
+    
+    // Phase 3: Remove intro completely
+    const removeTimer = setTimeout(() => {
+      setShowIntro(false)
+    }, 3700)
+    
+    return () => {
+      clearTimeout(zoomTimer)
+      clearTimeout(fadeTimer)
+      clearTimeout(removeTimer)
+    }
+  }, [showIntro, mapReady])
 
   // ============================================================================
   // USER LOCATION
@@ -802,6 +857,79 @@ export default function Home() {
         {/* Map - z-index 1 */}
         <div ref={mapContainer} style={{ position: 'absolute', inset: 0, zIndex: 1 }} />
 
+        {/* Intro Loading Screen - z-index 100 */}
+        {showIntro && (
+          <div 
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 100,
+              background: '#0a0a0b',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: introPhase === 'done' ? 0 : 1,
+              transition: 'opacity 500ms ease-out',
+              pointerEvents: introPhase === 'done' ? 'none' : 'auto',
+            }}
+          >
+            {/* Logo animation */}
+            <div style={{
+              transform: introPhase === 'zoom' ? 'scale(0.8) translateY(-20px)' : 'scale(1)',
+              opacity: introPhase === 'zoom' ? 0.6 : 1,
+              transition: 'all 800ms cubic-bezier(0.4, 0, 0.2, 1)',
+            }}>
+              <img 
+                src="/logo.svg" 
+                alt="Sounded Out" 
+                style={{ 
+                  height: '40px', 
+                  width: 'auto',
+                  filter: 'drop-shadow(0 4px 20px rgba(171, 103, 247, 0.3))',
+                }}
+              />
+            </div>
+            
+            {/* Subtle loading indicator */}
+            <div style={{
+              marginTop: '24px',
+              opacity: introPhase === 'logo' ? 1 : 0,
+              transition: 'opacity 300ms ease',
+            }}>
+              <div style={{
+                width: '40px',
+                height: '3px',
+                background: 'rgba(171, 103, 247, 0.2)',
+                borderRadius: '2px',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  width: '50%',
+                  height: '100%',
+                  background: '#ab67f7',
+                  borderRadius: '2px',
+                  animation: 'loadingSlide 1s ease-in-out infinite',
+                }} />
+              </div>
+            </div>
+            
+            {/* Location text that fades in during zoom */}
+            <p style={{
+              marginTop: '16px',
+              fontSize: '13px',
+              color: '#666',
+              letterSpacing: '2px',
+              textTransform: 'uppercase',
+              opacity: introPhase === 'zoom' ? 1 : 0,
+              transform: introPhase === 'zoom' ? 'translateY(0)' : 'translateY(10px)',
+              transition: 'all 600ms cubic-bezier(0.4, 0, 0.2, 1)',
+            }}>
+              Newcastle
+            </p>
+          </div>
+        )}
+
         {/* Click overlay - z-index 10 */}
         {(viewMode === 'preview' || viewMode === 'cluster') && (
           <div 
@@ -1101,8 +1229,8 @@ export default function Home() {
                               <span style={{
                                 fontSize: '9px',
                                 fontWeight: 800,
-                                color: '#000',
-                                background: '#fff',
+                                color: '#fff',
+                                background: '#000',
                                 padding: '2px 5px',
                                 borderRadius: '4px',
                                 letterSpacing: '0.5px',
@@ -1189,7 +1317,8 @@ export default function Home() {
             style={{
               position: 'absolute', bottom: 0, left: 0, right: 0,
               background: '#141416', borderRadius: '24px 24px 0 0',
-              padding: '12px 20px 30px', 
+              padding: '12px 20px 40px',
+              paddingBottom: 'max(40px, env(safe-area-inset-bottom, 40px))',
               zIndex: 30,
               ...getSheetStyle(sheetVisible),
               ...getDismissTransform(),
@@ -1272,7 +1401,8 @@ export default function Home() {
             style={{
               position: 'absolute', bottom: 0, left: 0, right: 0,
               background: '#141416', borderRadius: '24px 24px 0 0',
-              padding: '12px 20px 30px', 
+              padding: '12px 20px 40px', // Increased bottom padding to prevent cutoff
+              paddingBottom: 'max(40px, env(safe-area-inset-bottom, 40px))', // Respect safe area
               zIndex: 30,
               ...noSelectStyle,
               ...getSheetStyle(sheetVisible),
@@ -1354,8 +1484,8 @@ export default function Home() {
                     <span style={{
                       fontSize: '9px',
                       fontWeight: 800,
-                      color: '#000',
-                      background: '#fff',
+                      color: '#fff',
+                      background: '#000',
                       padding: '3px 6px',
                       borderRadius: '4px',
                       letterSpacing: '0.5px',
@@ -1613,8 +1743,8 @@ export default function Home() {
                   <span style={{
                     fontSize: '11px',
                     fontWeight: 800,
-                    color: '#000',
-                    background: '#fff',
+                    color: '#fff',
+                    background: '#000',
                     padding: '4px 8px',
                     borderRadius: '6px',
                     letterSpacing: '0.5px',
@@ -1649,27 +1779,22 @@ export default function Home() {
                 )}
               </div>
               
-              {/* No-phone policy indicator */}
-              {current.venue?.no_phones && (
+              {/* No-phone policy indicator - Event level takes priority */}
+              {(current.no_phones || current.venue?.no_phones) && (
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
                   padding: '12px 14px',
-                  background: 'rgba(255,200,50,0.1)',
+                  background: 'rgba(255,200,50,0.08)',
                   borderRadius: '12px',
                   marginBottom: '16px',
-                  border: '1px solid rgba(255,200,50,0.2)',
+                  border: '1px solid rgba(255,200,50,0.15)',
                 }}>
-                  <span style={{ fontSize: '20px' }}>📵</span>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffc832', marginBottom: '2px' }}>
-                      No Phones Policy
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#888' }}>
-                      This venue requires phones to be stored or covered
-                    </div>
-                  </div>
+                  <span style={{ fontSize: '18px' }}>📵</span>
+                  <span style={{ fontSize: '13px', color: '#ffc832' }}>
+                    No phones policy — enjoy the moment
+                  </span>
                 </div>
               )}
 
@@ -1907,6 +2032,11 @@ export default function Home() {
             0% { transform: scale(1); opacity: 0.6; }
             50% { transform: scale(1.5); opacity: 0.2; }
             100% { transform: scale(1); opacity: 0.6; }
+          }
+          @keyframes loadingSlide {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
           }
           * { 
             -webkit-tap-highlight-color: transparent; 
