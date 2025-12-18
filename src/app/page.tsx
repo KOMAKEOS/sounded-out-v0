@@ -102,6 +102,21 @@ export default function Home() {
   const [showIntro, setShowIntro] = useState(true) // Intro loading screen
   const [introPhase, setIntroPhase] = useState<'logo' | 'zoom' | 'done'>('logo')
   
+  // First-load welcome overlay
+  const [showWelcome, setShowWelcome] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !localStorage.getItem('so_welcome_seen')
+    }
+    return true
+  })
+  
+  // Genre/vibe filter state
+  const [activeGenre, setActiveGenre] = useState<string | null>(null)
+  
+  // Quick filters state
+  const [showFreeOnly, setShowFreeOnly] = useState(false)
+  const [showLateOnly, setShowLateOnly] = useState(false)
+  
   // Detail view state
   const [showAllGenres, setShowAllGenres] = useState(false)
   const [showDescription, setShowDescription] = useState(false)
@@ -169,7 +184,9 @@ export default function Home() {
   // ============================================================================
   // FILTERED DATA
   // ============================================================================
-  const filtered = useMemo(() => {
+  
+  // Step 1: Filter by date
+  const dateFiltered = useMemo(() => {
     switch (dateFilter) {
       case 'tonight': return events.filter(e => isTonight(e.start_time))
       case 'tomorrow': return events.filter(e => isTomorrow(e.start_time))
@@ -177,6 +194,47 @@ export default function Home() {
       default: return events.filter(e => getDateStr(new Date(e.start_time)) === dateFilter)
     }
   }, [events, dateFilter])
+  
+  // Extract unique genres from date-filtered events
+  const availableGenres = useMemo(() => {
+    const genreSet = new Set<string>()
+    dateFiltered.forEach(e => {
+      if (e.genres) {
+        e.genres.split(',').forEach(g => genreSet.add(g.trim().toLowerCase()))
+      }
+    })
+    return Array.from(genreSet).slice(0, 8) // Max 8 genre chips
+  }, [dateFiltered])
+  
+  // Step 2: Apply genre + quick filters
+  const filtered = useMemo(() => {
+    let result = dateFiltered
+    
+    // Genre filter
+    if (activeGenre) {
+      result = result.filter(e => 
+        e.genres?.toLowerCase().includes(activeGenre.toLowerCase())
+      )
+    }
+    
+    // Free filter
+    if (showFreeOnly) {
+      result = result.filter(e => 
+        e.price_min === null || e.price_min === 0
+      )
+    }
+    
+    // Late filter (starts after 10pm or ends after 2am)
+    if (showLateOnly) {
+      result = result.filter(e => {
+        const startHour = new Date(e.start_time).getHours()
+        const endHour = e.end_time ? new Date(e.end_time).getHours() : 0
+        return startHour >= 22 || (endHour > 0 && endHour <= 6)
+      })
+    }
+    
+    return result
+  }, [dateFiltered, activeGenre, showFreeOnly, showLateOnly])
 
   const current = filtered[currentIndex] || null
   const nextEvent = filtered[currentIndex + 1] || null
@@ -471,23 +529,29 @@ export default function Home() {
       inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
       inner.style.transformOrigin = 'center bottom' // Scale from the pin point
       
-      // Add halo glow for curated events
-      if (hasCurated) {
-        inner.style.filter = 'drop-shadow(0 0 8px rgba(251, 191, 36, 0.6)) drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-      } else {
-        inner.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-      }
+      // Standard drop shadow for all pins (no gold glow)
+      inner.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
 
       if (count > 1) {
         el.style.width = '44px'
         el.style.height = '44px'
-        // Add golden border for clusters with curated events
-        const borderColor = hasCurated ? '#fbbf24' : 'white'
-        inner.innerHTML = `<div style="width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid ${borderColor};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}</div>`
+        // Cluster marker - add small SO icon if contains curated event
+        if (hasCurated) {
+          inner.innerHTML = `<div style="position:relative;width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}<img src="/so-icon.png" style="position:absolute;top:-6px;right:-6px;height:14px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));" /></div>`
+        } else {
+          inner.innerHTML = `<div style="width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}</div>`
+        }
       } else {
         el.style.width = '32px'
         el.style.height = '42px'
-        inner.innerHTML = `<svg viewBox="0 0 24 36" width="32" height="42"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="5" fill="${hasCurated ? '#fbbf24' : 'white'}"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg>`
+        // Single pin - curated pins show SO icon in center
+        if (hasCurated) {
+          // SO Core Pin: larger white disk with icon
+          inner.innerHTML = `<div style="position:relative;width:32px;height:42px;"><svg viewBox="0 0 24 36" width="32" height="42" style="position:absolute;top:0;left:0;"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="6" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg><img src="/so-icon.png" style="position:absolute;top:5px;left:50%;transform:translateX(-50%);height:10px;width:auto;" /></div>`
+        } else {
+          // Standard pin: white center dot
+          inner.innerHTML = `<svg viewBox="0 0 24 36" width="32" height="42"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="5" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg>`
+        }
       }
       
       el.appendChild(inner)
@@ -946,6 +1010,77 @@ export default function Home() {
           </div>
         )}
 
+        {/* Welcome Overlay - First-time users - z-index 90 */}
+        {showWelcome && !showIntro && (
+          <div 
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 90,
+              background: 'rgba(0,0,0,0.85)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '40px 30px',
+              animation: 'fadeIn 300ms ease-out',
+            }}
+            onClick={() => {
+              setShowWelcome(false)
+              localStorage.setItem('so_welcome_seen', 'true')
+            }}
+          >
+            <img 
+              src="/logo.svg" 
+              alt="Sounded Out" 
+              style={{ height: '32px', marginBottom: '24px' }}
+            />
+            <h2 style={{ 
+              fontSize: '24px', 
+              fontWeight: 700, 
+              textAlign: 'center',
+              marginBottom: '12px',
+              lineHeight: 1.3,
+            }}>
+              Find the best nights out<br />near you — instantly
+            </h2>
+            <p style={{ 
+              fontSize: '14px', 
+              color: '#888', 
+              textAlign: 'center',
+              marginBottom: '32px',
+            }}>
+              Tap events on the map or browse the list below
+            </p>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowWelcome(false)
+                localStorage.setItem('so_welcome_seen', 'true')
+              }}
+              style={{
+                padding: '14px 32px',
+                background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                border: 'none',
+                borderRadius: '12px',
+                fontSize: '15px',
+                fontWeight: 700,
+                color: 'white',
+                cursor: 'pointer',
+              }}
+            >
+              Let's Go
+            </button>
+            <p style={{ 
+              fontSize: '12px', 
+              color: '#555', 
+              marginTop: '16px',
+            }}>
+              Tap anywhere to dismiss
+            </p>
+          </div>
+        )}
+
         {/* Click overlay - z-index 10 */}
         {(viewMode === 'preview' || viewMode === 'cluster') && (
           <div 
@@ -1085,6 +1220,104 @@ export default function Home() {
               </div>
             </div>
           )}
+          
+          {/* Genre chips + Quick filters */}
+          {availableGenres.length > 0 && (
+            <div style={{ marginTop: '10px' }}>
+              {/* Quick filter toggles */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <button
+                  onClick={() => setShowFreeOnly(!showFreeOnly)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '16px',
+                    border: 'none',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    background: showFreeOnly ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.08)',
+                    color: showFreeOnly ? '#22c55e' : '#666',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  💷 Free
+                </button>
+                <button
+                  onClick={() => setShowLateOnly(!showLateOnly)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '16px',
+                    border: 'none',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    background: showLateOnly ? 'rgba(171,103,247,0.2)' : 'rgba(255,255,255,0.08)',
+                    color: showLateOnly ? '#ab67f7' : '#666',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  🌙 Late
+                </button>
+                {(activeGenre || showFreeOnly || showLateOnly) && (
+                  <button
+                    onClick={() => {
+                      setActiveGenre(null)
+                      setShowFreeOnly(false)
+                      setShowLateOnly(false)
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '16px',
+                      border: 'none',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: 'rgba(248,113,113,0.15)',
+                      color: '#f87171',
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              
+              {/* Genre chips - horizontal scroll */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '6px', 
+                overflowX: 'auto',
+                paddingBottom: '4px',
+                msOverflowStyle: 'none',
+                scrollbarWidth: 'none',
+              }}>
+                {availableGenres.map(genre => (
+                  <button
+                    key={genre}
+                    onClick={() => setActiveGenre(activeGenre === genre ? null : genre)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '14px',
+                      border: activeGenre === genre ? '1px solid #ab67f7' : '1px solid rgba(255,255,255,0.1)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      background: activeGenre === genre ? 'rgba(171,103,247,0.15)' : 'transparent',
+                      color: activeGenre === genre ? '#ab67f7' : '#888',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {genre}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </header>
 
         {/* Bottom Bar - z-index 15 */}
@@ -1108,12 +1341,26 @@ export default function Home() {
               alignItems: 'center', 
               justifyContent: 'space-between',
             }}>
-              <span style={{ fontSize: '15px' }}>
-                <span style={{ color: '#ab67f7', fontWeight: 700 }}>
-                  {loading ? '...' : filtered.length}
+              {filtered.length === 0 ? (
+                <span style={{ fontSize: '14px', color: '#666' }}>
+                  No events match filters — <span 
+                    onClick={(e) => { 
+                      e.stopPropagation()
+                      setActiveGenre(null)
+                      setShowFreeOnly(false)
+                      setShowLateOnly(false)
+                    }}
+                    style={{ color: '#ab67f7', cursor: 'pointer' }}
+                  >clear filters</span>
                 </span>
-                {' '}{filtered.length === 1 ? 'event' : 'events'} {filterLabel}
-              </span>
+              ) : (
+                <span style={{ fontSize: '15px' }}>
+                  <span style={{ color: '#ab67f7', fontWeight: 700 }}>
+                    {loading ? '...' : filtered.length}
+                  </span>
+                  {' '}{filtered.length === 1 ? 'event' : 'events'} {filterLabel}
+                </span>
+              )}
               <span style={{ color: '#ab67f7', fontSize: '20px' }}>↑</span>
             </div>
           </div>
@@ -1148,17 +1395,39 @@ export default function Home() {
                 touchAction: 'none', // Prevent scroll interference
               }} 
             >
-              <div 
-                onClick={closeSheet}
-                style={{ 
-                  width: '48px', 
-                  height: '5px', 
-                  background: dismissProgress > 0.5 ? '#ab67f7' : '#666', 
-                  borderRadius: '3px', 
-                  margin: '0 auto 14px',
-                  transition: 'background 150ms ease',
-                }} 
-              />
+              {/* Handle with X button */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ width: '32px' }} /> {/* Spacer */}
+                <div 
+                  onClick={closeSheet}
+                  style={{ 
+                    width: '48px', 
+                    height: '5px', 
+                    background: dismissProgress > 0.5 ? '#ab67f7' : '#666', 
+                    borderRadius: '3px', 
+                    cursor: 'pointer',
+                    transition: 'background 150ms ease',
+                  }} 
+                />
+                <button
+                  onClick={closeSheet}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: 'rgba(255,255,255,0.1)',
+                    color: '#888',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 {/* Dynamic sticky header - updates as you scroll */}
                 <h3 style={{ 
@@ -1170,7 +1439,7 @@ export default function Home() {
                 }}>
                   {visibleDayLabel || Object.keys(grouped)[0] || filterLabel}
                 </h3>
-                <span style={{ fontSize: '12px', color: '#666' }}>Pull down to close</span>
+                <span style={{ fontSize: '12px', color: '#555' }}>{filtered.length} events</span>
               </div>
             </div>
             
@@ -1240,15 +1509,18 @@ export default function Home() {
                             gap: '6px',
                             marginBottom: '3px',
                           }}>
-                            {/* SO PICK badge - Star glyph */}
+                            {/* SO PICK badge - Custom icon */}
                             {e.so_pick && (
-                              <span style={{
-                                fontSize: '12px',
-                                color: '#fbbf24',
-                                textShadow: '0 0 6px rgba(251, 191, 36, 0.5)',
-                              }}>
-                                ★
-                              </span>
+                              <img 
+                                src="/so-icon.png" 
+                                alt="Curated" 
+                                style={{
+                                  height: '14px',
+                                  width: 'auto',
+                                  flexShrink: 0,
+                                  opacity: 0.9,
+                                }}
+                              />
                             )}
                             <span style={{ 
                               fontSize: '14px', 
@@ -1336,18 +1608,39 @@ export default function Home() {
               ...getDismissTransform(),
             }}
           >
-            <div 
-              onClick={closeSheet} 
-              style={{ 
-                width: '48px', 
-                height: '5px', 
-                background: dismissProgress > 0.5 ? '#ab67f7' : '#666',
-                borderRadius: '3px', 
-                margin: '0 auto 16px', 
-                cursor: 'pointer',
-                transition: 'background 150ms ease',
-              }} 
-            />
+            {/* Sheet header with handle and X button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div style={{ width: '32px' }} /> {/* Spacer */}
+              <div 
+                onClick={closeSheet} 
+                style={{ 
+                  width: '48px', 
+                  height: '5px', 
+                  background: dismissProgress > 0.5 ? '#ab67f7' : '#666',
+                  borderRadius: '3px', 
+                  cursor: 'pointer',
+                  transition: 'background 150ms ease',
+                }} 
+              />
+              <button
+                onClick={closeSheet}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: '#888',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                ✕
+              </button>
+            </div>
             <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#ab67f7', marginBottom: '14px' }}>
               {clusterEvents.length} events here
             </h3>
@@ -1441,29 +1734,48 @@ export default function Home() {
               </div>
             )}
 
-            {/* Handle */}
-            <div 
-              onClick={closeSheet} 
-              style={{ 
-                width: '100%', 
-                padding: '8px 0', 
-                cursor: 'pointer',
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                gap: '6px'
-              }}
-            >
-              <div style={{ 
-                width: '48px', 
-                height: '5px', 
-                background: dismissProgress > 0.8 ? '#ab67f7' : '#666',
-                borderRadius: '3px',
-                transition: 'background 150ms ease',
-              }} />
-              <span style={{ fontSize: '10px', color: dismissProgress > 0.8 ? '#ab67f7' : '#555' }}>
-                {dismissProgress > 0.8 ? 'Release to close' : 'Pull down to close'}
-              </span>
+            {/* Handle with X button */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '8px 0' }}>
+              <div style={{ width: '32px' }} /> {/* Spacer */}
+              <div 
+                onClick={closeSheet} 
+                style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  gap: '6px',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ 
+                  width: '48px', 
+                  height: '5px', 
+                  background: dismissProgress > 0.8 ? '#ab67f7' : '#666',
+                  borderRadius: '3px',
+                  transition: 'background 150ms ease',
+                }} />
+                <span style={{ fontSize: '10px', color: dismissProgress > 0.8 ? '#ab67f7' : '#555' }}>
+                  {dismissProgress > 0.8 ? 'Release to close' : 'Pull down to close'}
+                </span>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); closeSheet(); }}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: '#888',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                ✕
+              </button>
             </div>
 
             {/* Progress dots */}
@@ -1493,15 +1805,17 @@ export default function Home() {
                 </p>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
                   {current.so_pick && (
-                    <span style={{
-                      fontSize: '16px',
-                      color: '#fbbf24',
-                      textShadow: '0 0 8px rgba(251, 191, 36, 0.5)',
-                      flexShrink: 0,
-                      marginTop: '2px',
-                    }}>
-                      ★
-                    </span>
+                    <img 
+                      src="/so-icon.png" 
+                      alt="Curated" 
+                      style={{
+                        height: '18px',
+                        width: 'auto',
+                        flexShrink: 0,
+                        marginTop: '3px',
+                        opacity: 0.9,
+                      }}
+                    />
                   )}
                   <h3 style={{ fontSize: '20px', fontWeight: 800, lineHeight: 1.2 }}>
                     {current.title}
@@ -1571,28 +1885,67 @@ export default function Home() {
               )}
             </div>
 
-            {/* View Details Button */}
-            <button 
-              onClick={() => setViewMode('detail')} 
-              style={{
-                width: '100%', 
-                padding: '14px', 
-                marginTop: '16px',
-                background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
-                border: 'none', 
-                borderRadius: '14px', 
-                fontSize: '15px', 
-                fontWeight: 700, 
-                color: 'white', 
-                cursor: 'pointer',
-                transition: `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`,
-              }}
-              onPointerDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
-              onPointerUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-              onPointerLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-            >
-              VIEW DETAILS
-            </button>
+            {/* Action buttons row */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+              {/* View Details Button */}
+              <button 
+                onClick={() => setViewMode('detail')} 
+                style={{
+                  flex: 1,
+                  padding: '14px', 
+                  background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                  border: 'none', 
+                  borderRadius: '14px', 
+                  fontSize: '15px', 
+                  fontWeight: 700, 
+                  color: 'white', 
+                  cursor: 'pointer',
+                  transition: `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`,
+                }}
+                onPointerDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
+                onPointerUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                onPointerLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+              >
+                VIEW DETAILS
+              </button>
+              
+              {/* Share button */}
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  const shareUrl = `${window.location.origin}?event=${current.id}`
+                  const shareData = {
+                    title: current.title,
+                    text: `${current.title} at ${current.venue?.name} - ${getDateLabel(current.start_time)}`,
+                    url: shareUrl,
+                  }
+                  try {
+                    if (navigator.share) {
+                      await navigator.share(shareData)
+                    } else {
+                      await navigator.clipboard.writeText(shareUrl)
+                      alert('Link copied!')
+                    }
+                  } catch (err) {
+                    console.log('Share failed:', err)
+                  }
+                }}
+                style={{
+                  width: '52px',
+                  padding: '14px',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: '14px',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                📤
+              </button>
+            </div>
 
             {/* Navigation */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px' }}>
@@ -1746,33 +2099,39 @@ export default function Home() {
               </p>
 
               {/* Title with SO Pick badge */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
-                {current.so_pick && (
-                  <span style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: '#fbbf24',
-                    background: 'rgba(251, 191, 36, 0.15)',
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    flexShrink: 0,
-                    marginTop: '4px',
-                  }}>
-                    <span style={{ fontSize: '12px' }}>★</span> CURATED
-                  </span>
-                )}
-                <h2 style={{ 
-                  fontSize: '26px', 
-                  fontWeight: 800, 
-                  lineHeight: 1.2, 
-                  ...noSelectStyle 
+              {/* Title */}
+              <h2 style={{ 
+                fontSize: '26px', 
+                fontWeight: 800, 
+                lineHeight: 1.2, 
+                marginBottom: '6px',
+                ...noSelectStyle 
+              }}>
+                {current.title}
+              </h2>
+              
+              {/* Curated by Sounded Out - subtle line below title */}
+              {current.so_pick && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '12px',
                 }}>
-                  {current.title}
-                </h2>
-              </div>
+                  <img 
+                    src="/so-icon.png" 
+                    alt="Curated" 
+                    style={{
+                      height: '16px',
+                      width: 'auto',
+                      opacity: 0.9,
+                    }}
+                  />
+                  <span style={{ fontSize: '12px', color: '#888' }}>
+                    Curated by Sounded Out
+                  </span>
+                </div>
+              )}
 
               {/* Venue */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
@@ -1982,6 +2341,43 @@ export default function Home() {
                     📍 Take me there
                   </a>
                 )}
+                
+                {/* Share button */}
+                <button
+                  onClick={async () => {
+                    const shareUrl = `${window.location.origin}?event=${current.id}`
+                    const shareData = {
+                      title: current.title,
+                      text: `${current.title} at ${current.venue?.name} - ${getDateLabel(current.start_time)}`,
+                      url: shareUrl,
+                    }
+                    try {
+                      if (navigator.share) {
+                        await navigator.share(shareData)
+                      } else {
+                        await navigator.clipboard.writeText(shareUrl)
+                        alert('Link copied!')
+                      }
+                    } catch (err) {
+                      console.log('Share failed:', err)
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '12px',
+                    color: '#888',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  📤 Share event
+                </button>
               </div>
 
               {/* Navigation */}
@@ -2049,6 +2445,10 @@ export default function Home() {
             50% { transform: translateX(100%); }
             100% { transform: translateX(-100%); }
           }
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
           * { 
             -webkit-tap-highlight-color: transparent; 
             box-sizing: border-box; 
@@ -2061,6 +2461,10 @@ export default function Home() {
           }
           .mapboxgl-ctrl-bottom-left,
           .mapboxgl-ctrl-bottom-right {
+            display: none;
+          }
+          /* Hide scrollbar for genre chips */
+          *::-webkit-scrollbar {
             display: none;
           }
         `}</style>
