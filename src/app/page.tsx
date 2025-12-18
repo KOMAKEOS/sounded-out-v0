@@ -52,6 +52,7 @@ type Venue = {
   lng: number
   venue_type: string
   instagram_url: string | null
+  no_phones?: boolean  // NEW: No-phone policy
 }
 
 type Event = {
@@ -67,6 +68,8 @@ type Event = {
   price_min: number | null
   price_max: number | null
   venue?: Venue
+  so_pick?: boolean  // NEW: SO Pick editorial badge
+  sold_out?: boolean // NEW: Sold out status
 }
 
 type DateFilter = 'tonight' | 'tomorrow' | 'weekend' | string
@@ -88,11 +91,16 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>('map')
   const [currentIndex, setCurrentIndex] = useState(0)
   const [clusterEvents, setClusterEvents] = useState<Event[]>([])
+  const [visibleDayLabel, setVisibleDayLabel] = useState<string>('') // NEW: Track visible day for sticky header
   
   // Animation state
   const [isAnimating, setIsAnimating] = useState(false)
   const [sheetVisible, setSheetVisible] = useState(false)
   const [mapReady, setMapReady] = useState(false)
+  
+  // Refs for scroll tracking
+  const listScrollRef = useRef<HTMLDivElement>(null)
+  const daySectionRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   
   // Gesture state
   const [dragX, setDragX] = useState(0)
@@ -161,15 +169,29 @@ export default function Home() {
   const nextEvent = filtered[currentIndex + 1] || null
   const prevEvent = filtered[currentIndex - 1] || null
   
+  // Better date label for grouping: "FRI 19 DEC"
+  const getDayGroupLabel = (s: string) => {
+    const d = new Date(s)
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()
+  }
+  
   const grouped = useMemo(() => {
     const g: Record<string, Event[]> = {}
     filtered.forEach(e => {
-      const l = getDateLabel(e.start_time)
+      const l = getDayGroupLabel(e.start_time)
       if (!g[l]) g[l] = []
       g[l].push(e)
     })
     return g
   }, [filtered])
+  
+  // Set initial visible day label when grouped changes
+  useEffect(() => {
+    const keys = Object.keys(grouped)
+    if (keys.length > 0 && !visibleDayLabel) {
+      setVisibleDayLabel(keys[0])
+    }
+  }, [grouped, visibleDayLabel])
 
   const filterLabel = dateFilter === 'tonight' ? 'tonight' 
     : dateFilter === 'tomorrow' ? 'tomorrow' 
@@ -407,11 +429,31 @@ export default function Home() {
 
   const closeSheet = useCallback(() => {
     setSheetVisible(false)
+    setVisibleDayLabel('') // Reset for next open
     setTimeout(() => {
       setViewMode('map')
       highlightMarker(null)
     }, SPRING.springBackDuration)
   }, [highlightMarker])
+
+  // Handle scroll to update visible day header
+  const handleListScroll = useCallback(() => {
+    if (!listScrollRef.current) return
+    
+    const scrollTop = listScrollRef.current.scrollTop
+    const dayLabels = Object.keys(grouped)
+    
+    // Find which day section is currently visible
+    for (let i = dayLabels.length - 1; i >= 0; i--) {
+      const section = daySectionRefs.current.get(dayLabels[i])
+      if (section && section.offsetTop <= scrollTop + 50) {
+        if (visibleDayLabel !== dayLabels[i]) {
+          setVisibleDayLabel(dayLabels[i])
+        }
+        break
+      }
+    }
+  }, [grouped, visibleDayLabel])
 
   // ============================================================================
   // NAVIGATION
@@ -704,7 +746,8 @@ export default function Home() {
         {/* Header - z-index 20 */}
         <header style={{
           position: 'absolute', top: 0, left: 0, right: 0,
-          padding: '44px 20px 16px',
+          padding: '12px 20px 16px', // Reduced top padding
+          paddingTop: 'max(12px, env(safe-area-inset-top, 12px))', // Use safe area if available
           background: 'linear-gradient(to bottom, rgba(10,10,11,0.98) 0%, rgba(10,10,11,0.9) 60%, transparent 100%)',
           zIndex: viewMode === 'detail' ? 5 : 20,
           opacity: viewMode === 'detail' ? 0.3 : 1,
@@ -832,72 +875,89 @@ export default function Home() {
         {/* List View - z-index 30 */}
         {viewMode === 'list' && (
           <div 
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
             style={{
               position: 'absolute', bottom: 0, left: 0, right: 0,
               background: '#141416', borderRadius: '24px 24px 0 0',
               zIndex: 30, 
               display: 'flex', 
               flexDirection: 'column',
-              maxHeight: `${listContentHeight}px`,
+              maxHeight: '70vh',
               ...getSheetStyle(sheetVisible),
               ...getDismissTransform(),
             }}
           >
+            {/* Drag Handle - Only this area triggers sheet dismiss */}
             <div 
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
               style={{
                 padding: '12px 20px 14px', 
                 borderBottom: '1px solid rgba(255,255,255,0.06)',
                 background: '#141416', 
                 borderRadius: '24px 24px 0 0',
                 flexShrink: 0,
-                cursor: 'pointer'
+                cursor: 'grab',
+                touchAction: 'none', // Prevent scroll interference
               }} 
-              onClick={closeSheet}
             >
-              <div style={{ 
-                width: '48px', 
-                height: '5px', 
-                background: dismissProgress > 0.5 ? '#ab67f7' : '#666', 
-                borderRadius: '3px', 
-                margin: '0 auto 14px',
-                transition: 'background 150ms ease',
-              }} />
+              <div 
+                onClick={closeSheet}
+                style={{ 
+                  width: '48px', 
+                  height: '5px', 
+                  background: dismissProgress > 0.5 ? '#ab67f7' : '#666', 
+                  borderRadius: '3px', 
+                  margin: '0 auto 14px',
+                  transition: 'background 150ms ease',
+                }} 
+              />
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {/* Dynamic sticky header - updates as you scroll */}
                 <h3 style={{ 
                   fontSize: '14px', 
                   fontWeight: 700, 
                   color: '#ab67f7', 
-                  textTransform: 'uppercase' 
+                  textTransform: 'uppercase',
+                  transition: 'opacity 150ms ease',
                 }}>
-                  {Object.keys(grouped)[0] || filterLabel}
+                  {visibleDayLabel || Object.keys(grouped)[0] || filterLabel}
                 </h3>
                 <span style={{ fontSize: '12px', color: '#666' }}>Pull down to close</span>
               </div>
             </div>
             
-            <div style={{ 
-              flex: 1, 
-              overflowY: 'auto', 
-              padding: '8px 20px 30px',
-              overscrollBehavior: 'contain',
-              WebkitOverflowScrolling: 'touch',
-            }}>
+            {/* Scrollable event list - isolated scroll that won't dismiss sheet */}
+            <div 
+              ref={listScrollRef}
+              onScroll={handleListScroll}
+              style={{ 
+                flex: 1, 
+                overflowY: 'auto', 
+                padding: '8px 20px 30px',
+                overscrollBehavior: 'contain',
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-y', // Allow vertical scroll only
+              }}
+            >
               {Object.entries(grouped).map(([label, evs], gi) => (
-                <div key={label} style={{ marginTop: gi > 0 ? '20px' : '0' }}>
-                  {gi > 0 && (
-                    <h4 style={{ 
-                      fontSize: '12px', 
-                      fontWeight: 700, 
-                      color: '#555', 
-                      textTransform: 'uppercase', 
-                      marginBottom: '10px' 
-                    }}>
-                      {label}
-                    </h4>
-                  )}
+                <div 
+                  key={label} 
+                  ref={(el) => { if (el) daySectionRefs.current.set(label, el) }}
+                  style={{ marginTop: gi > 0 ? '24px' : '0' }}
+                >
+                  {/* Day separator - always show for multi-day views */}
+                  <div style={{ 
+                    fontSize: '12px', 
+                    fontWeight: 700, 
+                    color: gi === 0 ? 'transparent' : '#555', // Hide first one since it's in header
+                    textTransform: 'uppercase', 
+                    marginBottom: '12px',
+                    paddingBottom: gi > 0 ? '8px' : '0',
+                    borderBottom: gi > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                  }}>
+                    {label}
+                  </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {evs.map(e => (
                       <div 
@@ -908,12 +968,13 @@ export default function Home() {
                           alignItems: 'center', 
                           gap: '12px', 
                           padding: '12px 14px',
-                          background: '#1e1e24', 
+                          background: e.sold_out ? '#1a1a1d' : '#1e1e24', 
                           borderRadius: '14px', 
-                          cursor: 'pointer',
+                          cursor: e.sold_out ? 'default' : 'pointer',
+                          opacity: e.sold_out ? 0.6 : 1,
                           transition: `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`,
                         }}
-                        onPointerDown={(ev) => (ev.currentTarget.style.transform = 'scale(0.98)')}
+                        onPointerDown={(ev) => !e.sold_out && (ev.currentTarget.style.transform = 'scale(0.98)')}
                         onPointerUp={(ev) => (ev.currentTarget.style.transform = 'scale(1)')}
                         onPointerLeave={(ev) => (ev.currentTarget.style.transform = 'scale(1)')}
                       >
@@ -927,18 +988,49 @@ export default function Home() {
                         </span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ 
-                            fontSize: '14px', 
-                            fontWeight: 600, 
-                            marginBottom: '3px', 
-                            whiteSpace: 'nowrap', 
-                            overflow: 'hidden', 
-                            textOverflow: 'ellipsis' 
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            marginBottom: '3px',
                           }}>
-                            {e.title}
+                            {/* SO PICK badge */}
+                            {e.so_pick && (
+                              <span style={{
+                                fontSize: '9px',
+                                fontWeight: 800,
+                                color: '#ab67f7',
+                                background: 'rgba(171,103,247,0.2)',
+                                padding: '2px 5px',
+                                borderRadius: '4px',
+                                letterSpacing: '0.5px',
+                              }}>
+                                SO
+                              </span>
+                            )}
+                            <span style={{ 
+                              fontSize: '14px', 
+                              fontWeight: 600, 
+                              whiteSpace: 'nowrap', 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis' 
+                            }}>
+                              {e.title}
+                            </span>
                           </div>
                           <div style={{ fontSize: '12px', color: '#666' }}>{e.venue?.name}</div>
                         </div>
-                        {isFree(e.price_min, e.price_max) ? (
+                        {e.sold_out ? (
+                          <span style={{ 
+                            fontSize: '11px', 
+                            fontWeight: 700, 
+                            color: '#666', 
+                            background: 'rgba(255,255,255,0.1)', 
+                            padding: '4px 8px', 
+                            borderRadius: '6px' 
+                          }}>
+                            SOLD OUT
+                          </span>
+                        ) : isFree(e.price_min, e.price_max) ? (
                           <span style={{ 
                             fontSize: '11px', 
                             fontWeight: 700, 
@@ -960,9 +1052,10 @@ export default function Home() {
                 </div>
               ))}
               {filtered.length === 0 && (
-                <p style={{ textAlign: 'center', color: '#555', padding: '24px' }}>
-                  No events {filterLabel}
-                </p>
+                <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                  <p style={{ color: '#555', marginBottom: '12px' }}>No events {filterLabel}</p>
+                  <p style={{ color: '#444', fontSize: '13px' }}>Try selecting a different date</p>
+                </div>
               )}
             </div>
           </div>
@@ -1138,13 +1231,42 @@ export default function Home() {
                 <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, marginBottom: '6px' }}>
                   {formatTime(current.start_time)} · {getDateLabel(current.start_time)}
                 </p>
-                <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '6px', lineHeight: 1.2 }}>
-                  {current.title}
-                </h3>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+                  {current.so_pick && (
+                    <span style={{
+                      fontSize: '9px',
+                      fontWeight: 800,
+                      color: '#ab67f7',
+                      background: 'rgba(171,103,247,0.2)',
+                      padding: '3px 6px',
+                      borderRadius: '4px',
+                      letterSpacing: '0.5px',
+                      flexShrink: 0,
+                      marginTop: '3px',
+                    }}>
+                      SO
+                    </span>
+                  )}
+                  <h3 style={{ fontSize: '20px', fontWeight: 800, lineHeight: 1.2 }}>
+                    {current.title}
+                  </h3>
+                </div>
                 <p style={{ fontSize: '14px', color: '#888', marginBottom: '10px' }}>
                   {current.venue?.name}
                 </p>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {current.sold_out && (
+                    <span style={{ 
+                      padding: '5px 10px', 
+                      background: 'rgba(255,255,255,0.1)', 
+                      borderRadius: '8px', 
+                      fontSize: '12px', 
+                      fontWeight: 700, 
+                      color: '#666' 
+                    }}>
+                      SOLD OUT
+                    </span>
+                  )}
                   {isFree(current.price_min, current.price_max) && (
                     <span style={{ 
                       padding: '5px 10px', 
@@ -1367,16 +1489,32 @@ export default function Home() {
                 {current.end_time && ` – ${formatTime(current.end_time)}`}
               </p>
 
-              {/* Title */}
-              <h2 style={{ 
-                fontSize: '26px', 
-                fontWeight: 800, 
-                marginBottom: '8px', 
-                lineHeight: 1.2, 
-                ...noSelectStyle 
-              }}>
-                {current.title}
-              </h2>
+              {/* Title with SO Pick badge */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+                {current.so_pick && (
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    color: '#ab67f7',
+                    background: 'rgba(171,103,247,0.2)',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    letterSpacing: '0.5px',
+                    flexShrink: 0,
+                    marginTop: '4px',
+                  }}>
+                    SO PICK
+                  </span>
+                )}
+                <h2 style={{ 
+                  fontSize: '26px', 
+                  fontWeight: 800, 
+                  lineHeight: 1.2, 
+                  ...noSelectStyle 
+                }}>
+                  {current.title}
+                </h2>
+              </div>
 
               {/* Venue */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
@@ -1392,9 +1530,45 @@ export default function Home() {
                   </a>
                 )}
               </div>
+              
+              {/* No-phone policy indicator */}
+              {current.venue?.no_phones && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '12px 14px',
+                  background: 'rgba(255,200,50,0.1)',
+                  borderRadius: '12px',
+                  marginBottom: '16px',
+                  border: '1px solid rgba(255,200,50,0.2)',
+                }}>
+                  <span style={{ fontSize: '20px' }}>📵</span>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffc832', marginBottom: '2px' }}>
+                      No Phones Policy
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#888' }}>
+                      This venue requires phones to be stored or covered
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Tags */}
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
+                {current.sold_out && (
+                  <span style={{ 
+                    padding: '8px 14px', 
+                    background: 'rgba(255,255,255,0.1)', 
+                    borderRadius: '10px', 
+                    fontSize: '14px', 
+                    fontWeight: 700, 
+                    color: '#666' 
+                  }}>
+                    SOLD OUT
+                  </span>
+                )}
                 {isFree(current.price_min, current.price_max) && (
                   <span style={{ 
                     padding: '8px 14px', 
@@ -1443,7 +1617,20 @@ export default function Home() {
 
               {/* Actions */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {getTicketUrl(current.event_url) && (
+                {current.sold_out ? (
+                  <div style={{
+                    display: 'block', 
+                    padding: '16px', 
+                    background: 'rgba(255,255,255,0.1)',
+                    borderRadius: '14px', 
+                    textAlign: 'center', 
+                    fontWeight: 700, 
+                    fontSize: '15px', 
+                    color: '#666', 
+                  }}>
+                    SOLD OUT
+                  </div>
+                ) : getTicketUrl(current.event_url) ? (
                   <a 
                     href={getTicketUrl(current.event_url)!} 
                     target="_blank" 
@@ -1460,9 +1647,9 @@ export default function Home() {
                       textDecoration: 'none',
                     }}
                   >
-                    GET TICKETS
+                    {isFree(current.price_min, current.price_max) ? 'VIEW PAGE' : 'GET TICKETS'}
                   </a>
-                )}
+                ) : null}
                 {current.venue && (
                   <a 
                     href={mapsUrl(current.venue)} 
