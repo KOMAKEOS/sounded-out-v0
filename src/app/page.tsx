@@ -53,6 +53,8 @@ type Venue = {
   venue_type: string
   instagram_url: string | null
   no_phones?: boolean  // Optional venue-level fallback
+  is_claimed?: boolean
+  is_verified?: boolean
 }
 
 type Event = {
@@ -72,9 +74,11 @@ type Event = {
   sold_out?: boolean // Sold out status
   description?: string | null // Event description/more info
   no_phones?: boolean // Event-level no-phones policy (takes priority)
+  is_claimed?: boolean
+  is_verified?: boolean
 }
 
-type DateFilter = 'tonight' | 'tomorrow' | 'weekend' | string
+type DateFilter = 'today' | 'tomorrow' | 'weekend' | string
 type ViewMode = 'map' | 'preview' | 'detail' | 'list' | 'cluster'
 
 // ============================================================================
@@ -119,6 +123,10 @@ export default function Home() {
   // Detail view state
   const [showAllGenres, setShowAllGenres] = useState(false)
   const [showDescription, setShowDescription] = useState(false)
+  
+  // Claim modal state
+  const [showClaimModal, setShowClaimModal] = useState(false)
+  const [claimType, setClaimType] = useState<'venue' | 'event'>('event')
   
   // User location state
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
@@ -2137,7 +2145,7 @@ export default function Home() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  marginBottom: '12px',
+                  marginBottom: '8px',
                 }}>
                   <img 
                     src="/so-icon.png" 
@@ -2150,6 +2158,32 @@ export default function Home() {
                   />
                   <span style={{ fontSize: '12px', color: '#888' }}>
                     Curated by Sounded Out
+                  </span>
+                </div>
+              )}
+              
+              {/* Verified badge - shown when event/venue is verified */}
+              {current.is_verified && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginBottom: '12px',
+                }}>
+                  <span style={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '18px',
+                    height: '18px',
+                    background: '#3b82f6',
+                    borderRadius: '50%',
+                    fontSize: '10px',
+                  }}>
+                    ✓
+                  </span>
+                  <span style={{ fontSize: '12px', color: '#3b82f6', fontWeight: 600 }}>
+                    Verified
                   </span>
                 </div>
               )}
@@ -2399,6 +2433,29 @@ export default function Home() {
                 >
                   📤 Share event
                 </button>
+                
+                {/* Claim this event button */}
+                <button
+                  onClick={() => {
+                    setClaimType('event')
+                    setShowClaimModal(true)
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '12px',
+                    background: 'transparent',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '12px',
+                    color: '#666',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ⋯ Claim this event
+                </button>
               </div>
 
               {/* Navigation */}
@@ -2446,6 +2503,146 @@ export default function Home() {
                   Next →
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Claim Modal */}
+        {showClaimModal && current && (
+          <div 
+            onClick={() => setShowClaimModal(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.85)',
+              zIndex: 100,
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: '100%',
+                maxWidth: '500px',
+                background: '#1a1a1f',
+                borderRadius: '24px 24px 0 0',
+                padding: '20px 24px 36px',
+              }}
+            >
+              {/* Handle */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                <div style={{ width: '48px', height: '5px', background: '#333', borderRadius: '3px' }} />
+              </div>
+              
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Claim this {claimType}</h3>
+                <button
+                  onClick={() => setShowClaimModal(false)}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: 'rgba(255,255,255,0.1)',
+                    color: '#888',
+                    fontSize: '16px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+              
+              {/* Info */}
+              <div style={{ 
+                padding: '14px', 
+                background: 'rgba(171,103,247,0.1)', 
+                borderRadius: '12px', 
+                marginBottom: '20px' 
+              }}>
+                <p style={{ fontSize: '13px', color: '#ab67f7', marginBottom: '8px', fontWeight: 600 }}>
+                  {claimType === 'event' ? current.title : current.venue?.name}
+                </p>
+                <p style={{ fontSize: '12px', color: '#888', lineHeight: 1.5 }}>
+                  Claiming lets you verify and manage this listing. Once approved, you'll get a Verified badge and can update details like times, prices, and descriptions.
+                </p>
+              </div>
+              
+              {/* Contact options */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <a
+                  href={`https://wa.me/447123456789?text=${encodeURIComponent(
+                    `Hi, I want to claim this ${claimType} on Sounded Out:\n\n` +
+                    `${claimType === 'event' ? '🎵 Event' : '📍 Venue'}: ${claimType === 'event' ? current.title : current.venue?.name}\n` +
+                    `ID: ${claimType === 'event' ? current.id : current.venue?.id}\n\n` +
+                    `My name: \n` +
+                    `My role: Owner / Manager / Promoter\n` +
+                    `Proof (Instagram/website): `
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    padding: '16px',
+                    background: '#25D366',
+                    borderRadius: '14px',
+                    color: 'white',
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                  }}
+                >
+                  <span style={{ fontSize: '20px' }}>💬</span>
+                  Claim via WhatsApp
+                </a>
+                
+                <a
+                  href={`mailto:claims@soundedout.com?subject=${encodeURIComponent(
+                    `Claim Request: ${claimType === 'event' ? current.title : current.venue?.name}`
+                  )}&body=${encodeURIComponent(
+                    `Hi,\n\nI want to claim this ${claimType} on Sounded Out:\n\n` +
+                    `${claimType === 'event' ? 'Event' : 'Venue'}: ${claimType === 'event' ? current.title : current.venue?.name}\n` +
+                    `ID: ${claimType === 'event' ? current.id : current.venue?.id}\n\n` +
+                    `My name: \n` +
+                    `My role: Owner / Manager / Promoter\n` +
+                    `Proof (Instagram/website): \n\n` +
+                    `Thanks!`
+                  )}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    padding: '16px',
+                    background: 'rgba(255,255,255,0.1)',
+                    borderRadius: '14px',
+                    color: 'white',
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                  }}
+                >
+                  <span style={{ fontSize: '20px' }}>📧</span>
+                  Claim via Email
+                </a>
+              </div>
+              
+              {/* Footer note */}
+              <p style={{ 
+                fontSize: '11px', 
+                color: '#555', 
+                textAlign: 'center', 
+                marginTop: '20px',
+                lineHeight: 1.5,
+              }}>
+                We'll review your claim within 24-48 hours. Once approved, you'll receive login details to manage your listing.
+              </p>
             </div>
           </div>
         )}
