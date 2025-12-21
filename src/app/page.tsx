@@ -88,7 +88,7 @@ export default function Home() {
   // Core state
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const [dateFilter, setDateFilter] = useState<DateFilter>('tonight')
+  const [dateFilter, setDateFilter] = useState<DateFilter>('today')
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('map')
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -113,10 +113,8 @@ export default function Home() {
   // Genre/vibe filter state
   const [activeGenre, setActiveGenre] = useState<string | null>(null)
   
-  // Quick filters state
+  // Quick filters state (simplified - just Free for now)
   const [showFreeOnly, setShowFreeOnly] = useState(false)
-  const [showLateOnly, setShowLateOnly] = useState(false)
-  const [showNowOnly, setShowNowOnly] = useState(false)
   
   // Detail view state
   const [showAllGenres, setShowAllGenres] = useState(false)
@@ -189,7 +187,7 @@ export default function Home() {
   // Step 1: Filter by date
   const dateFiltered = useMemo(() => {
     switch (dateFilter) {
-      case 'tonight': return events.filter(e => isTonight(e.start_time))
+      case 'today': return events.filter(e => isTonight(e.start_time)) // isTonight checks same day
       case 'tomorrow': return events.filter(e => isTomorrow(e.start_time))
       case 'weekend': return events.filter(e => isWeekend(e.start_time))
       default: return events.filter(e => getDateStr(new Date(e.start_time)) === dateFilter)
@@ -252,34 +250,8 @@ export default function Home() {
       result = result.filter(e => e.price_min === 0)
     }
     
-    // Late filter: end_time exists AND end_time local hour >= 02:00 (2am+)
-    // Events ending past midnight count as late
-    if (showLateOnly) {
-      result = result.filter(e => {
-        if (!e.end_time) return false
-        const endDate = new Date(e.end_time)
-        const endHour = endDate.getHours()
-        // 2am-6am counts as "late" (past midnight events)
-        // OR starts at 10pm or later
-        const startHour = new Date(e.start_time).getHours()
-        return (endHour >= 2 && endHour <= 6) || startHour >= 22
-      })
-    }
-    
-    // Now filter: event is happening right now
-    // isNow = start_time <= now && end_time != null && now <= end_time
-    if (showNowOnly) {
-      const now = new Date()
-      result = result.filter(e => {
-        if (!e.end_time) return false // Don't guess if no end_time
-        const start = new Date(e.start_time)
-        const end = new Date(e.end_time)
-        return start <= now && now <= end
-      })
-    }
-    
     return result
-  }, [dateFiltered, activeGenre, showFreeOnly, showLateOnly, showNowOnly])
+  }, [dateFiltered, activeGenre, showFreeOnly])
 
   const current = filtered[currentIndex] || null
   const nextEvent = filtered[currentIndex + 1] || null
@@ -309,7 +281,7 @@ export default function Home() {
     }
   }, [grouped, visibleDayLabel])
 
-  const filterLabel = dateFilter === 'tonight' ? 'tonight' 
+  const filterLabel = dateFilter === 'today' ? 'today' 
     : dateFilter === 'tomorrow' ? 'tomorrow' 
     : dateFilter === 'weekend' ? 'this weekend' 
     : new Date(dateFilter).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
@@ -1159,11 +1131,9 @@ export default function Home() {
                 alt="Sounded Out" 
                 onClick={() => {
                   // Reset map + clear filters to default
-                  setDateFilter('tonight')
+                  setDateFilter('today')
                   setActiveGenre(null)
                   setShowFreeOnly(false)
-                  setShowLateOnly(false)
-                  setShowNowOnly(false)
                   setCurrentIndex(0)
                   setViewMode('map')
                   setSheetVisible(false)
@@ -1173,7 +1143,7 @@ export default function Home() {
               />
               <p style={{ fontSize: '11px', color: '#666', marginTop: '2px', marginBottom: '0px' }}>Newcastle</p>
               <p style={{ fontSize: '13px', color: '#ab67f7', fontWeight: 600, marginTop: '2px', marginBottom: '10px' }}>
-                {dateFilter === 'tonight' ? 'Tonight' : 
+                {dateFilter === 'today' ? 'Today' : 
                  dateFilter === 'tomorrow' ? 'Tomorrow' : 
                  dateFilter === 'weekend' ? 'This weekend' : 
                  new Date(dateFilter).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
@@ -1213,14 +1183,18 @@ export default function Home() {
           </div>
           
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {(['tonight', 'tomorrow', 'weekend'] as const).map(f => (
+            {(['today', 'tomorrow', 'weekend'] as const).map(f => (
               <button 
                 key={f} 
                 onClick={() => { 
-                  setDateFilter(f)
-                  setCurrentIndex(0)
-                  setViewMode('map')
-                  setSheetVisible(false) 
+                  // Toggle behavior: if clicking same filter, don't change anything
+                  // If clicking different filter, switch to it
+                  if (dateFilter !== f) {
+                    setDateFilter(f)
+                    setCurrentIndex(0)
+                    setViewMode('map')
+                    setSheetVisible(false)
+                  }
                 }} 
                 style={{
                   padding: '8px 14px', 
@@ -1234,7 +1208,7 @@ export default function Home() {
                   transition: `all ${SPRING.iosDuration}ms ${SPRING.ios}`,
                 }}
               >
-                {f.charAt(0).toUpperCase() + f.slice(1)}
+                {f === 'today' ? 'Today' : f === 'tomorrow' ? 'Tomorrow' : 'Weekend'}
               </button>
             ))}
             <button 
@@ -1267,7 +1241,12 @@ export default function Home() {
                   <button 
                     key={d.str} 
                     onClick={() => { 
-                      setDateFilter(d.str)
+                      // If clicking same date, reset to today
+                      if (dateFilter === d.str) {
+                        setDateFilter('today')
+                      } else {
+                        setDateFilter(d.str)
+                      }
                       setShowDatePicker(false)
                       setCurrentIndex(0)
                       setViewMode('map') 
@@ -1294,93 +1273,9 @@ export default function Home() {
             </div>
           )}
           
-          {/* Row 3: Constraint chips (Free / Late / Now) */}
-          <div style={{ marginTop: '10px' }}>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => setShowFreeOnly(!showFreeOnly)}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '20px',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  background: showFreeOnly ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.08)',
-                  color: showFreeOnly ? '#22c55e' : '#888',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  minHeight: '36px',
-                }}
-              >
-                💷 Free
-              </button>
-              <button
-                onClick={() => setShowLateOnly(!showLateOnly)}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '20px',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  background: showLateOnly ? 'rgba(171,103,247,0.2)' : 'rgba(255,255,255,0.08)',
-                  color: showLateOnly ? '#ab67f7' : '#888',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  minHeight: '36px',
-                }}
-              >
-                🌙 Late (2am+)
-              </button>
-              <button
-                onClick={() => setShowNowOnly(!showNowOnly)}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '20px',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  background: showNowOnly ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.08)',
-                  color: showNowOnly ? '#fbbf24' : '#888',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  minHeight: '36px',
-                }}
-              >
-                ⚡ Now
-              </button>
-              {(activeGenre || showFreeOnly || showLateOnly || showNowOnly) && (
-                <button
-                  onClick={() => {
-                    setActiveGenre(null)
-                    setShowFreeOnly(false)
-                    setShowLateOnly(false)
-                    setShowNowOnly(false)
-                  }}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '20px',
-                    border: 'none',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    background: 'rgba(248,113,113,0.15)',
-                    color: '#f87171',
-                    minHeight: '36px',
-                  }}
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-              
-            {/* Row 4: Genre chips (taste) - horizontal scroll */}
-            {availableGenres.length > 0 && (
+          {/* Genre chips row - horizontal scroll */}
+          {availableGenres.length > 0 && (
+            <div style={{ marginTop: '10px' }}>
               <div style={{ 
                 display: 'flex', 
                 gap: '8px', 
@@ -1401,7 +1296,7 @@ export default function Home() {
                       fontWeight: 500,
                       cursor: 'pointer',
                       background: activeGenre === genre ? 'rgba(171,103,247,0.15)' : 'transparent',
-                      color: activeGenre === genre ? '#ab67f7' : '#999',
+                      color: activeGenre === genre ? '#ab67f7' : '#888',
                       whiteSpace: 'nowrap',
                       flexShrink: 0,
                       textTransform: 'capitalize',
@@ -1411,9 +1306,28 @@ export default function Home() {
                     {genre}
                   </button>
                 ))}
+                {/* Show + button if there are more genres beyond the 8 shown */}
+                <button
+                  onClick={() => {/* TODO: Show full genre list modal */}}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '18px',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    background: 'transparent',
+                    color: '#ab67f7',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    minHeight: '36px',
+                  }}
+                >
+                  +
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </header>
 
         {/* Bottom Bar - z-index 15 */}
@@ -1437,7 +1351,7 @@ export default function Home() {
               alignItems: 'center', 
               justifyContent: 'space-between',
             }}>
-              {filtered.length === 0 ? (
+              {filtered.length === 0 && activeGenre ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ fontSize: '14px', color: '#888' }}>No events match filters</span>
                   <button 
@@ -1445,8 +1359,6 @@ export default function Home() {
                       e.stopPropagation()
                       setActiveGenre(null)
                       setShowFreeOnly(false)
-                      setShowLateOnly(false)
-                      setShowNowOnly(false)
                     }}
                     style={{ 
                       padding: '8px 14px',
@@ -1460,6 +1372,8 @@ export default function Home() {
                     }}
                   >Clear filters</button>
                 </div>
+              ) : filtered.length === 0 ? (
+                <span style={{ fontSize: '14px', color: '#888' }}>No events {filterLabel}</span>
               ) : (
                 <span style={{ fontSize: '15px' }}>
                   <span style={{ color: '#ab67f7', fontWeight: 700 }}>
@@ -1639,12 +1553,12 @@ export default function Home() {
                               {e.title}
                             </span>
                           </div>
-                          <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>{e.venue?.name}</div>
+                          <div style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>{e.venue?.name}</div>
                           {/* Genre/vibe indicator for differentiation */}
                           {(e.genres || e.vibe) && (
                             <div style={{ 
                               fontSize: '11px', 
-                              color: '#555',
+                              color: '#22d3ee',
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
@@ -1775,7 +1689,7 @@ export default function Home() {
                   </span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '2px' }}>{e.title}</div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>{getGenres(e.genres)}</div>
+                    <div style={{ fontSize: '12px', color: '#22d3ee' }}>{getGenres(e.genres)}</div>
                   </div>
                   {isFree(e.price_min, e.price_max) ? (
                     <span style={{ 
