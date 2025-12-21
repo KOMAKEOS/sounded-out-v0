@@ -2574,7 +2574,7 @@ export default function Home() {
               {/* Contact options */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <a
-                  href={`https://wa.me/447123456789?text=${encodeURIComponent(
+                  href={`https://wa.me/447584426424?text=${encodeURIComponent(
                     `Hi, I want to claim this ${claimType} on Sounded Out:\n\n` +
                     `${claimType === 'event' ? '🎵 Event' : '📍 Venue'}: ${claimType === 'event' ? current.title : current.venue?.name}\n` +
                     `ID: ${claimType === 'event' ? current.id : current.venue?.id}\n\n` +
@@ -2603,7 +2603,7 @@ export default function Home() {
                 </a>
                 
                 <a
-                  href={`mailto:claims@soundedout.com?subject=${encodeURIComponent(
+                  href={`mailto:oliver@soundedout.com?subject=${encodeURIComponent(
                     `Claim Request: ${claimType === 'event' ? current.title : current.venue?.name}`
                   )}&body=${encodeURIComponent(
                     `Hi,\n\nI want to claim this ${claimType} on Sounded Out:\n\n` +
