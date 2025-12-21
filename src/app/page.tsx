@@ -1313,7 +1313,7 @@ export default function Home() {
                     
                     {/* Instagram */}
                     <a
-                      href="https://instagram.com/soundedout"
+                      href="https://instagram.com/sounded.out"
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
