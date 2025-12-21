@@ -2604,7 +2604,7 @@ export default function Home() {
                 </a>
                 
                 <a
-                  href={`mailto:claims@soundedout.com?subject=${encodeURIComponent(
+                  href={`mailto:oliver@soundedout.com?subject=${encodeURIComponent(
                     `Claim Request: ${claimType === 'event' ? current.title : current.venue?.name}`
                   )}&body=${encodeURIComponent(
                     `Hi,\n\nI want to claim this ${claimType} on Sounded Out:\n\n` +
