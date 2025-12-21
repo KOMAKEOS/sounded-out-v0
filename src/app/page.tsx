@@ -2162,7 +2162,7 @@ export default function Home() {
                 </div>
               )}
               
-              {/* Verified badge - shown when event/venue is verified */}
+              {/* Verified badge - shown when event/venue is verified - PURPLE */}
               {current.is_verified && (
                 <div style={{
                   display: 'flex',
@@ -2176,13 +2176,14 @@ export default function Home() {
                     justifyContent: 'center',
                     width: '18px',
                     height: '18px',
-                    background: '#3b82f6',
+                    background: '#ab67f7',
                     borderRadius: '50%',
                     fontSize: '10px',
+                    color: 'white',
                   }}>
                     ✓
                   </span>
-                  <span style={{ fontSize: '12px', color: '#3b82f6', fontWeight: 600 }}>
+                  <span style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 600 }}>
                     Verified
                   </span>
                 </div>
@@ -2574,7 +2575,7 @@ export default function Home() {
               {/* Contact options */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <a
-                  href={`https://wa.me/447584426424?text=${encodeURIComponent(
+                  href={`https://wa.me/447123456789?text=${encodeURIComponent(
                     `Hi, I want to claim this ${claimType} on Sounded Out:\n\n` +
                     `${claimType === 'event' ? '🎵 Event' : '📍 Venue'}: ${claimType === 'event' ? current.title : current.venue?.name}\n` +
                     `ID: ${claimType === 'event' ? current.id : current.venue?.id}\n\n` +
@@ -2603,7 +2604,7 @@ export default function Home() {
                 </a>
                 
                 <a
-                  href={`mailto:oliver@soundedout.com?subject=${encodeURIComponent(
+                  href={`mailto:claims@soundedout.com?subject=${encodeURIComponent(
                     `Claim Request: ${claimType === 'event' ? current.title : current.venue?.name}`
                   )}&body=${encodeURIComponent(
                     `Hi,\n\nI want to claim this ${claimType} on Sounded Out:\n\n` +
