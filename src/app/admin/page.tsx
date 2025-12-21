@@ -20,7 +20,6 @@ type ClaimRequest = {
   message: string | null
   status: 'pending' | 'approved' | 'rejected'
   created_at: string
-  // Joined data
   venue?: { name: string } | null
   event?: { title: string } | null
 }
@@ -42,6 +41,7 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
   const [selectedClaim, setSelectedClaim] = useState<ClaimRequest | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const [actionMessage, setActionMessage] = useState('')
   
   // ============================================================================
   // AUTH & DATA LOADING
@@ -98,6 +98,10 @@ export default function AdminPage() {
     
     const { data, error } = await query
     
+    if (error) {
+      console.error('Error loading claims:', error)
+    }
+    
     if (data) {
       setClaims(data)
     }
@@ -114,119 +118,134 @@ export default function AdminPage() {
   // ============================================================================
   const handleApprove = async (claim: ClaimRequest) => {
     setActionLoading(true)
+    setActionMessage('')
     
     try {
-      // 1. Update claim status
-      await supabase
+      // 1. Update claim status to approved
+      const { error: updateError } = await supabase
         .from('claim_requests')
         .update({ 
           status: 'approved',
-          reviewed_by: user.id,
           reviewed_at: new Date().toISOString(),
         })
         .eq('id', claim.id)
       
-      // 2. Check if user already exists with this email
+      if (updateError) {
+        throw new Error(`Failed to update claim: ${updateError.message}`)
+      }
+      
+      // 2. Check if user exists with this email
       const { data: existingUser } = await supabase
         .from('profiles')
         .select('id')
         .eq('email', claim.requested_by_email)
         .single()
       
-      let userId = existingUser?.id
-      
-      // 3. If no user exists, we'll need to invite them (magic link)
-      if (!userId) {
-        // For now, just create a placeholder - they'll get invited via magic link
-        // In production, you'd trigger the magic link invitation here
-        alert(`User doesn't exist yet. Send them a magic link invite to: ${claim.requested_by_email}`)
-      } else {
-        // 4. Create entity_claim to grant ownership
-        await supabase
+      if (existingUser?.id) {
+        // 3. Create entity_claim to grant ownership
+        const { error: claimError } = await supabase
           .from('entity_claims')
           .insert({
-            user_id: userId,
+            user_id: existingUser.id,
             claim_type: claim.claim_type,
             venue_id: claim.venue_id,
             event_id: claim.event_id,
             role: claim.role || 'owner',
-            granted_by: user.id,
           })
         
-        // 5. Update the venue/event to mark as claimed
+        if (claimError) {
+          console.error('Entity claim error:', claimError)
+        }
+        
+        // 4. Mark venue/event as claimed
         if (claim.claim_type === 'venue' && claim.venue_id) {
           await supabase
             .from('venues')
-            .update({ 
-              is_claimed: true,
-              claimed_by_user_id: userId,
-            })
+            .update({ is_claimed: true, claimed_by_user_id: existingUser.id })
             .eq('id', claim.venue_id)
         } else if (claim.claim_type === 'event' && claim.event_id) {
           await supabase
             .from('events')
-            .update({ 
-              is_claimed: true,
-              claimed_by_user_id: userId,
-            })
+            .update({ is_claimed: true, claimed_by_user_id: existingUser.id })
             .eq('id', claim.event_id)
         }
+        
+        setActionMessage('✓ Approved and linked to user!')
+      } else {
+        setActionMessage('✓ Approved! User needs to sign up at /portal first.')
       }
       
-      // Refresh claims
-      loadClaims()
+      // Refresh claims list
+      await loadClaims()
       setSelectedClaim(null)
       
-    } catch (error) {
-      console.error('Error approving claim:', error)
-      alert('Error approving claim')
+    } catch (error: any) {
+      console.error('Approve error:', error)
+      setActionMessage(`Error: ${error.message}`)
     }
     
     setActionLoading(false)
   }
   
   const handleReject = async (claim: ClaimRequest) => {
-    const reason = prompt('Rejection reason (optional):')
-    
     setActionLoading(true)
+    setActionMessage('')
     
-    await supabase
-      .from('claim_requests')
-      .update({ 
-        status: 'rejected',
-        rejection_reason: reason,
-        reviewed_by: user.id,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq('id', claim.id)
+    try {
+      const { error } = await supabase
+        .from('claim_requests')
+        .update({ 
+          status: 'rejected',
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', claim.id)
+      
+      if (error) throw error
+      
+      setActionMessage('Claim rejected')
+      await loadClaims()
+      setSelectedClaim(null)
+      
+    } catch (error: any) {
+      setActionMessage(`Error: ${error.message}`)
+    }
     
-    loadClaims()
-    setSelectedClaim(null)
     setActionLoading(false)
   }
   
   const handleToggleVerified = async (claim: ClaimRequest, verified: boolean) => {
     setActionLoading(true)
+    setActionMessage('')
     
-    if (claim.claim_type === 'venue' && claim.venue_id) {
-      await supabase
-        .from('venues')
-        .update({ 
-          is_verified: verified,
-          verified_at: verified ? new Date().toISOString() : null,
-        })
-        .eq('id', claim.venue_id)
-    } else if (claim.claim_type === 'event' && claim.event_id) {
-      await supabase
-        .from('events')
-        .update({ 
-          is_verified: verified,
-          verified_at: verified ? new Date().toISOString() : null,
-        })
-        .eq('id', claim.event_id)
+    try {
+      if (claim.claim_type === 'venue' && claim.venue_id) {
+        const { error } = await supabase
+          .from('venues')
+          .update({ 
+            is_verified: verified,
+            verified_at: verified ? new Date().toISOString() : null,
+          })
+          .eq('id', claim.venue_id)
+        
+        if (error) throw error
+      } else if (claim.claim_type === 'event' && claim.event_id) {
+        const { error } = await supabase
+          .from('events')
+          .update({ 
+            is_verified: verified,
+            verified_at: verified ? new Date().toISOString() : null,
+          })
+          .eq('id', claim.event_id)
+        
+        if (error) throw error
+      }
+      
+      setActionMessage(verified ? '✓ Verified badge added!' : 'Verified badge removed')
+      
+    } catch (error: any) {
+      setActionMessage(`Error: ${error.message}`)
     }
     
-    alert(`${claim.claim_type} ${verified ? 'verified' : 'unverified'}!`)
     setActionLoading(false)
   }
   
@@ -249,7 +268,6 @@ export default function AdminPage() {
     )
   }
   
-  // Not logged in or not admin
   if (!user || !profile || profile.role !== 'admin') {
     return (
       <div style={{
@@ -306,6 +324,20 @@ export default function AdminPage() {
         <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>Claims Dashboard</h1>
         <p style={{ color: '#888', marginBottom: '24px' }}>Review and manage venue/event claim requests</p>
         
+        {/* Action message */}
+        {actionMessage && (
+          <div style={{
+            padding: '12px 16px',
+            background: actionMessage.includes('Error') ? 'rgba(248,113,113,0.15)' : 'rgba(34,197,94,0.15)',
+            borderRadius: '10px',
+            marginBottom: '20px',
+            fontSize: '14px',
+            color: actionMessage.includes('Error') ? '#f87171' : '#22c55e',
+          }}>
+            {actionMessage}
+          </div>
+        )}
+        
         {/* Status filters */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
           {(['pending', 'approved', 'rejected', 'all'] as const).map(status => (
@@ -345,7 +377,7 @@ export default function AdminPage() {
             {claims.map(claim => (
               <div
                 key={claim.id}
-                onClick={() => setSelectedClaim(claim)}
+                onClick={() => setSelectedClaim(selectedClaim?.id === claim.id ? null : claim)}
                 style={{
                   padding: '18px',
                   background: '#141416',
@@ -428,6 +460,7 @@ export default function AdminPage() {
                             target="_blank" 
                             rel="noopener noreferrer"
                             style={{ fontSize: '14px', color: '#ab67f7' }}
+                            onClick={(e) => e.stopPropagation()}
                           >
                             {claim.proof_url}
                           </a>
@@ -443,16 +476,19 @@ export default function AdminPage() {
                       )}
                     </div>
                     
-                    {/* Actions */}
+                    {/* Actions for pending claims */}
                     {claim.status === 'pending' && (
                       <div style={{ display: 'flex', gap: '10px' }}>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleApprove(claim) }}
+                          onClick={(e) => { 
+                            e.stopPropagation()
+                            handleApprove(claim) 
+                          }}
                           disabled={actionLoading}
                           style={{
                             flex: 1,
                             padding: '12px',
-                            background: '#22c55e',
+                            background: actionLoading ? '#444' : '#22c55e',
                             border: 'none',
                             borderRadius: '10px',
                             color: 'white',
@@ -461,10 +497,13 @@ export default function AdminPage() {
                             cursor: actionLoading ? 'not-allowed' : 'pointer',
                           }}
                         >
-                          ✓ Approve
+                          {actionLoading ? 'Processing...' : '✓ Approve'}
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleReject(claim) }}
+                          onClick={(e) => { 
+                            e.stopPropagation()
+                            handleReject(claim) 
+                          }}
                           disabled={actionLoading}
                           style={{
                             flex: 1,
@@ -483,27 +522,49 @@ export default function AdminPage() {
                       </div>
                     )}
                     
+                    {/* Actions for approved claims - PURPLE verified badge */}
                     {claim.status === 'approved' && (
                       <div style={{ display: 'flex', gap: '10px' }}>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleToggleVerified(claim, true) }}
+                          onClick={(e) => { 
+                            e.stopPropagation()
+                            handleToggleVerified(claim, true) 
+                          }}
                           disabled={actionLoading}
                           style={{
                             flex: 1,
                             padding: '12px',
-                            background: '#3b82f6',
+                            background: actionLoading ? '#444' : '#ab67f7',
                             border: 'none',
                             borderRadius: '10px',
                             color: 'white',
                             fontSize: '14px',
                             fontWeight: 700,
                             cursor: actionLoading ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
                           }}
                         >
-                          ✓ Mark Verified
+                          <span style={{
+                            width: '16px',
+                            height: '16px',
+                            background: 'white',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '10px',
+                            color: '#ab67f7',
+                          }}>✓</span>
+                          Add Verified Badge
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleToggleVerified(claim, false) }}
+                          onClick={(e) => { 
+                            e.stopPropagation()
+                            handleToggleVerified(claim, false) 
+                          }}
                           disabled={actionLoading}
                           style={{
                             flex: 1,
@@ -517,7 +578,7 @@ export default function AdminPage() {
                             cursor: actionLoading ? 'not-allowed' : 'pointer',
                           }}
                         >
-                          Remove Verified
+                          Remove Badge
                         </button>
                       </div>
                     )}
