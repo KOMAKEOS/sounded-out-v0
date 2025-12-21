@@ -127,6 +127,15 @@ export default function Home() {
   // Claim modal state
   const [showClaimModal, setShowClaimModal] = useState(false)
   const [claimType, setClaimType] = useState<'venue' | 'event'>('event')
+  const [claimForm, setClaimForm] = useState({ name: '', email: '', role: 'owner', proofUrl: '' })
+  const [claimSubmitting, setClaimSubmitting] = useState(false)
+  const [claimSubmitted, setClaimSubmitted] = useState(false)
+  const [claimError, setClaimError] = useState('')
+  
+  // Menu state
+  const [showMenu, setShowMenu] = useState(false)
+  const [logoTapCount, setLogoTapCount] = useState(0)
+  const logoTapTimer = useRef<NodeJS.Timeout | null>(null)
   
   // User location state
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
@@ -1119,6 +1128,19 @@ export default function Home() {
             }}
           />
         )}
+        
+        {/* Menu overlay - closes menu when clicking outside */}
+        {showMenu && (
+          <div 
+            onClick={() => setShowMenu(false)}
+            style={{ 
+              position: 'fixed', 
+              inset: 0, 
+              zIndex: 19,
+              background: 'transparent',
+            }}
+          />
+        )}
 
         {/* Header - z-index 20 */}
         <header style={{
@@ -1138,14 +1160,33 @@ export default function Home() {
                 src="/logo.svg" 
                 alt="Sounded Out" 
                 onClick={() => {
-                  // Reset map + clear filters to default
-                  setDateFilter('today')
-                  setActiveGenre(null)
-                  setShowFreeOnly(false)
-                  setCurrentIndex(0)
-                  setViewMode('map')
-                  setSheetVisible(false)
-                  map.current?.flyTo({ center: [-1.61, 54.978], zoom: 13, duration: 800 })
+                  // Secret admin tap - 5 taps within 3 seconds
+                  const newCount = logoTapCount + 1
+                  setLogoTapCount(newCount)
+                  
+                  // Clear previous timer
+                  if (logoTapTimer.current) clearTimeout(logoTapTimer.current)
+                  
+                  // Reset counter after 3 seconds of no taps
+                  logoTapTimer.current = setTimeout(() => setLogoTapCount(0), 3000)
+                  
+                  // 5 taps = go to admin
+                  if (newCount >= 5) {
+                    setLogoTapCount(0)
+                    window.location.href = '/admin'
+                    return
+                  }
+                  
+                  // Normal tap - reset map + clear filters
+                  if (newCount === 1) {
+                    setDateFilter('today')
+                    setActiveGenre(null)
+                    setShowFreeOnly(false)
+                    setCurrentIndex(0)
+                    setViewMode('map')
+                    setSheetVisible(false)
+                    map.current?.flyTo({ center: [-1.61, 54.978], zoom: 13, duration: 800 })
+                  }
                 }}
                 style={{ height: '26px', width: 'auto', marginBottom: '2px', cursor: 'pointer' }}
               />
@@ -1157,37 +1198,175 @@ export default function Home() {
                  new Date(dateFilter).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
               </p>
             </div>
-            {/* Location button - crosshair style with clear states */}
-            <button
-              onClick={toggleUserLocation}
-              aria-label="My location"
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                border: showUserLocation ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
-                background: showUserLocation ? 'rgba(171,103,247,0.15)' : 'rgba(255,255,255,0.08)',
-                color: showUserLocation ? '#ab67f7' : '#888',
-                fontSize: '18px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: `all ${SPRING.iosDuration}ms ${SPRING.ios}`,
-                boxShadow: showUserLocation ? '0 0 12px rgba(171,103,247,0.4)' : 'none',
-              }}
-              title={showUserLocation ? 'Hide my location' : 'Show my location'}
-            >
-              {/* Crosshair/target icon */}
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="4"/>
-                <line x1="12" y1="2" x2="12" y2="6"/>
-                <line x1="12" y1="18" x2="12" y2="22"/>
-                <line x1="2" y1="12" x2="6" y2="12"/>
-                <line x1="18" y1="12" x2="22" y2="12"/>
-              </svg>
-            </button>
+            {/* Right side buttons */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {/* Location button - crosshair style with clear states */}
+              <button
+                onClick={toggleUserLocation}
+                aria-label="My location"
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  border: showUserLocation ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
+                  background: showUserLocation ? 'rgba(171,103,247,0.15)' : 'rgba(255,255,255,0.08)',
+                  color: showUserLocation ? '#ab67f7' : '#888',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: `all ${SPRING.iosDuration}ms ${SPRING.ios}`,
+                  boxShadow: showUserLocation ? '0 0 12px rgba(171,103,247,0.4)' : 'none',
+                }}
+                title={showUserLocation ? 'Hide my location' : 'Show my location'}
+              >
+                {/* Crosshair/target icon */}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4"/>
+                  <line x1="12" y1="2" x2="12" y2="6"/>
+                  <line x1="12" y1="18" x2="12" y2="22"/>
+                  <line x1="2" y1="12" x2="6" y2="12"/>
+                  <line x1="18" y1="12" x2="22" y2="12"/>
+                </svg>
+              </button>
+              
+              {/* Menu button */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowMenu(!showMenu)}
+                  aria-label="Menu"
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    border: showMenu ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
+                    background: showMenu ? 'rgba(171,103,247,0.15)' : 'rgba(255,255,255,0.08)',
+                    color: showMenu ? '#ab67f7' : '#888',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: `all ${SPRING.iosDuration}ms ${SPRING.ios}`,
+                  }}
+                >
+                  {/* Hamburger icon */}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                  </svg>
+                </button>
+                
+                {/* Dropdown menu */}
+                {showMenu && (
+                  <div 
+                    style={{
+                      position: 'absolute',
+                      top: '48px',
+                      right: 0,
+                      background: '#1a1a1f',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '14px',
+                      padding: '8px',
+                      minWidth: '200px',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                      zIndex: 100,
+                    }}
+                  >
+                    {/* Partner Portal - main CTA */}
+                    <a
+                      href="/portal"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '14px 16px',
+                        borderRadius: '10px',
+                        background: 'rgba(171,103,247,0.1)',
+                        color: 'white',
+                        textDecoration: 'none',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      <span style={{ 
+                        width: '32px', 
+                        height: '32px', 
+                        background: '#ab67f7',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '16px',
+                      }}>
+                        👤
+                      </span>
+                      <div>
+                        <p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>Partner Portal</p>
+                        <p style={{ fontSize: '11px', color: '#888' }}>Manage your events</p>
+                      </div>
+                    </a>
+                    
+                    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '8px 0' }} />
+                    
+                    {/* Instagram */}
+                    <a
+                      href="https://instagram.com/soundedout"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        color: '#888',
+                        textDecoration: 'none',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        transition: 'background 150ms ease',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <span style={{ fontSize: '16px' }}>📸</span>
+                      Follow us
+                    </a>
+                    
+                    {/* About/Info */}
+                    <button
+                      onClick={() => {
+                        setShowMenu(false)
+                        alert('Sounded Out helps you discover the best nightlife events in your city. Browse by genre, date, and location.')
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        color: '#888',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        background: 'transparent',
+                        border: 'none',
+                        width: '100%',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'background 150ms ease',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <span style={{ fontSize: '16px' }}>ℹ️</span>
+                      About
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -2511,7 +2690,12 @@ export default function Home() {
         {/* Claim Modal */}
         {showClaimModal && current && (
           <div 
-            onClick={() => setShowClaimModal(false)}
+            onClick={() => {
+              setShowClaimModal(false)
+              setClaimSubmitted(false)
+              setClaimError('')
+              setClaimForm({ name: '', email: '', role: 'owner', proofUrl: '' })
+            }}
             style={{
               position: 'fixed',
               inset: 0,
@@ -2530,6 +2714,8 @@ export default function Home() {
                 background: '#1a1a1f',
                 borderRadius: '24px 24px 0 0',
                 padding: '20px 24px 36px',
+                maxHeight: '90vh',
+                overflowY: 'auto',
               }}
             >
               {/* Handle */}
@@ -2541,7 +2727,11 @@ export default function Home() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Claim this {claimType}</h3>
                 <button
-                  onClick={() => setShowClaimModal(false)}
+                  onClick={() => {
+                    setShowClaimModal(false)
+                    setClaimSubmitted(false)
+                    setClaimError('')
+                  }}
                   style={{
                     width: '32px',
                     height: '32px',
@@ -2557,93 +2747,242 @@ export default function Home() {
                 </button>
               </div>
               
-              {/* Info */}
-              <div style={{ 
-                padding: '14px', 
-                background: 'rgba(171,103,247,0.1)', 
-                borderRadius: '12px', 
-                marginBottom: '20px' 
-              }}>
-                <p style={{ fontSize: '13px', color: '#ab67f7', marginBottom: '8px', fontWeight: 600 }}>
-                  {claimType === 'event' ? current.title : current.venue?.name}
-                </p>
-                <p style={{ fontSize: '12px', color: '#888', lineHeight: 1.5 }}>
-                  Claiming lets you verify and manage this listing. Once approved, you'll get a Verified badge and can update details like times, prices, and descriptions.
-                </p>
-              </div>
-              
-              {/* Contact options */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <a
-                  href={`https://wa.me/447123456789?text=${encodeURIComponent(
-                    `Hi, I want to claim this ${claimType} on Sounded Out:\n\n` +
-                    `${claimType === 'event' ? '🎵 Event' : '📍 Venue'}: ${claimType === 'event' ? current.title : current.venue?.name}\n` +
-                    `ID: ${claimType === 'event' ? current.id : current.venue?.id}\n\n` +
-                    `My name: \n` +
-                    `My role: Owner / Manager / Promoter\n` +
-                    `Proof (Instagram/website): `
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
+              {/* Success State */}
+              {claimSubmitted ? (
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                  <div style={{
+                    width: '60px',
+                    height: '60px',
+                    background: 'rgba(34,197,94,0.15)',
+                    borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '10px',
-                    padding: '16px',
-                    background: '#25D366',
-                    borderRadius: '14px',
-                    color: 'white',
-                    fontSize: '15px',
-                    fontWeight: 700,
-                    textDecoration: 'none',
-                  }}
-                >
-                  <span style={{ fontSize: '20px' }}>💬</span>
-                  Claim via WhatsApp
-                </a>
-                
-                <a
-                  href={`mailto:oliver@soundedout.com?subject=${encodeURIComponent(
-                    `Claim Request: ${claimType === 'event' ? current.title : current.venue?.name}`
-                  )}&body=${encodeURIComponent(
-                    `Hi,\n\nI want to claim this ${claimType} on Sounded Out:\n\n` +
-                    `${claimType === 'event' ? 'Event' : 'Venue'}: ${claimType === 'event' ? current.title : current.venue?.name}\n` +
-                    `ID: ${claimType === 'event' ? current.id : current.venue?.id}\n\n` +
-                    `My name: \n` +
-                    `My role: Owner / Manager / Promoter\n` +
-                    `Proof (Instagram/website): \n\n` +
-                    `Thanks!`
-                  )}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    padding: '16px',
-                    background: 'rgba(255,255,255,0.1)',
-                    borderRadius: '14px',
-                    color: 'white',
-                    fontSize: '15px',
-                    fontWeight: 700,
-                    textDecoration: 'none',
-                  }}
-                >
-                  <span style={{ fontSize: '20px' }}>📧</span>
-                  Claim via Email
-                </a>
-              </div>
-              
-              {/* Footer note */}
-              <p style={{ 
-                fontSize: '11px', 
-                color: '#555', 
-                textAlign: 'center', 
-                marginTop: '20px',
-                lineHeight: 1.5,
-              }}>
-                We'll review your claim within 24-48 hours. Once approved, you'll receive login details to manage your listing.
-              </p>
+                    margin: '0 auto 16px',
+                    fontSize: '28px',
+                  }}>
+                    ✓
+                  </div>
+                  <h4 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px', color: '#22c55e' }}>
+                    Claim Submitted!
+                  </h4>
+                  <p style={{ fontSize: '14px', color: '#888', lineHeight: 1.6, marginBottom: '20px' }}>
+                    We'll review your claim within 24-48 hours. Once approved, sign in at{' '}
+                    <span style={{ color: '#ab67f7' }}>soundedout.com/portal</span> with your email to manage your listing.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowClaimModal(false)
+                      setClaimSubmitted(false)
+                      setClaimForm({ name: '', email: '', role: 'owner', proofUrl: '' })
+                    }}
+                    style={{
+                      padding: '14px 28px',
+                      background: '#ab67f7',
+                      border: 'none',
+                      borderRadius: '12px',
+                      color: 'white',
+                      fontSize: '15px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Info */}
+                  <div style={{ 
+                    padding: '14px', 
+                    background: 'rgba(171,103,247,0.1)', 
+                    borderRadius: '12px', 
+                    marginBottom: '20px' 
+                  }}>
+                    <p style={{ fontSize: '13px', color: '#ab67f7', marginBottom: '4px', fontWeight: 600 }}>
+                      {claimType === 'event' ? current.title : current.venue?.name}
+                    </p>
+                    <p style={{ fontSize: '12px', color: '#888', lineHeight: 1.5 }}>
+                      Fill out the form below to claim this listing. Once approved, you'll be able to edit details and get a Verified badge.
+                    </p>
+                  </div>
+                  
+                  {/* Error */}
+                  {claimError && (
+                    <div style={{
+                      padding: '12px',
+                      background: 'rgba(248,113,113,0.15)',
+                      borderRadius: '10px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      color: '#f87171',
+                    }}>
+                      {claimError}
+                    </div>
+                  )}
+                  
+                  {/* Form */}
+                  <form onSubmit={async (e) => {
+                    e.preventDefault()
+                    setClaimSubmitting(true)
+                    setClaimError('')
+                    
+                    try {
+                      const { error } = await supabase
+                        .from('claim_requests')
+                        .insert({
+                          claim_type: claimType,
+                          event_id: claimType === 'event' ? current.id : null,
+                          venue_id: claimType === 'venue' ? current.venue?.id : null,
+                          requested_by_name: claimForm.name,
+                          requested_by_email: claimForm.email,
+                          role: claimForm.role,
+                          proof_url: claimForm.proofUrl || null,
+                          status: 'pending',
+                        })
+                      
+                      if (error) throw error
+                      
+                      setClaimSubmitted(true)
+                    } catch (err: any) {
+                      setClaimError(err.message || 'Something went wrong. Please try again.')
+                    }
+                    
+                    setClaimSubmitting(false)
+                  }}>
+                    {/* Name */}
+                    <div style={{ marginBottom: '14px' }}>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                        Your Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={claimForm.name}
+                        onChange={(e) => setClaimForm({ ...claimForm, name: e.target.value })}
+                        placeholder="John Smith"
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          background: '#141416',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '10px',
+                          color: 'white',
+                          fontSize: '14px',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                    
+                    {/* Email */}
+                    <div style={{ marginBottom: '14px' }}>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                        Your Email *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={claimForm.email}
+                        onChange={(e) => setClaimForm({ ...claimForm, email: e.target.value })}
+                        placeholder="you@email.com"
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          background: '#141416',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '10px',
+                          color: 'white',
+                          fontSize: '14px',
+                          outline: 'none',
+                        }}
+                      />
+                      <p style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                        You'll use this email to sign in and manage your listing
+                      </p>
+                    </div>
+                    
+                    {/* Role */}
+                    <div style={{ marginBottom: '14px' }}>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                        Your Role *
+                      </label>
+                      <select
+                        required
+                        value={claimForm.role}
+                        onChange={(e) => setClaimForm({ ...claimForm, role: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          background: '#141416',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '10px',
+                          color: 'white',
+                          fontSize: '14px',
+                          outline: 'none',
+                        }}
+                      >
+                        <option value="owner">Owner</option>
+                        <option value="manager">Manager</option>
+                        <option value="promoter">Promoter</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    
+                    {/* Proof URL */}
+                    <div style={{ marginBottom: '20px' }}>
+                      <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                        Proof Link (Instagram, website, etc.)
+                      </label>
+                      <input
+                        type="url"
+                        value={claimForm.proofUrl}
+                        onChange={(e) => setClaimForm({ ...claimForm, proofUrl: e.target.value })}
+                        placeholder="https://instagram.com/yourvenue"
+                        style={{
+                          width: '100%',
+                          padding: '12px 14px',
+                          background: '#141416',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '10px',
+                          color: 'white',
+                          fontSize: '14px',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                    
+                    {/* Submit */}
+                    <button
+                      type="submit"
+                      disabled={claimSubmitting}
+                      style={{
+                        width: '100%',
+                        padding: '14px',
+                        background: claimSubmitting ? '#666' : 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                        border: 'none',
+                        borderRadius: '12px',
+                        color: 'white',
+                        fontSize: '15px',
+                        fontWeight: 700,
+                        cursor: claimSubmitting ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {claimSubmitting ? 'Submitting...' : 'Submit Claim'}
+                    </button>
+                  </form>
+                  
+                  {/* Footer note */}
+                  <p style={{ 
+                    fontSize: '11px', 
+                    color: '#555', 
+                    textAlign: 'center', 
+                    marginTop: '16px',
+                    lineHeight: 1.5,
+                  }}>
+                    We'll review your claim within 24-48 hours.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )}
