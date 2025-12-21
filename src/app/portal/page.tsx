@@ -173,6 +173,7 @@ export default function PortalPage() {
         background: '#0a0a0b',
         color: 'white',
         padding: '20px',
+        overflowY: 'auto',
       }}>
         <div style={{ maxWidth: '400px', margin: '0 auto', paddingTop: '60px' }}>
           {/* Logo */}
@@ -271,6 +272,7 @@ export default function PortalPage() {
       minHeight: '100vh',
       background: '#0a0a0b',
       color: 'white',
+      overflowY: 'auto',
     }}>
       {/* Header */}
       <header style={{
@@ -500,4 +502,3 @@ export default function PortalPage() {
     </div>
   )
 }
-
