@@ -116,6 +116,7 @@ export default function Home() {
   // Quick filters state
   const [showFreeOnly, setShowFreeOnly] = useState(false)
   const [showLateOnly, setShowLateOnly] = useState(false)
+  const [showNowOnly, setShowNowOnly] = useState(false)
   
   // Detail view state
   const [showAllGenres, setShowAllGenres] = useState(false)
@@ -195,15 +196,44 @@ export default function Home() {
     }
   }, [events, dateFilter])
   
-  // Extract unique genres from date-filtered events
+  // Pinned genre priority list (show first if present in dataset)
+  const PINNED_GENRES = ['techno', 'house', 'dnb', 'disco', 'hip-hop', 'indie', 'live', 'student']
+  
+  // Extract unique genres from date-filtered events with hybrid ordering
   const availableGenres = useMemo(() => {
-    const genreSet = new Set<string>()
+    // Count frequency of each genre
+    const genreCount = new Map<string, number>()
     dateFiltered.forEach(e => {
       if (e.genres) {
-        e.genres.split(',').forEach(g => genreSet.add(g.trim().toLowerCase()))
+        e.genres.split(',').forEach(g => {
+          const normalized = g.trim().toLowerCase()
+          genreCount.set(normalized, (genreCount.get(normalized) || 0) + 1)
+        })
       }
     })
-    return Array.from(genreSet).slice(0, 8) // Max 8 genre chips
+    
+    // Separate into pinned and unpinned
+    const pinnedPresent: string[] = []
+    const unpinned: { genre: string; count: number }[] = []
+    
+    genreCount.forEach((count, genre) => {
+      if (PINNED_GENRES.includes(genre)) {
+        pinnedPresent.push(genre)
+      } else {
+        unpinned.push({ genre, count })
+      }
+    })
+    
+    // Sort pinned by their priority order
+    pinnedPresent.sort((a, b) => PINNED_GENRES.indexOf(a) - PINNED_GENRES.indexOf(b))
+    
+    // Sort unpinned by frequency descending
+    unpinned.sort((a, b) => b.count - a.count)
+    
+    // Combine: pinned first, then by frequency
+    const result = [...pinnedPresent, ...unpinned.map(u => u.genre)]
+    
+    return result.slice(0, 8) // Max 8 genre chips
   }, [dateFiltered])
   
   // Step 2: Apply genre + quick filters
@@ -217,24 +247,39 @@ export default function Home() {
       )
     }
     
-    // Free filter
+    // Free filter: price_min === 0 (null means unknown, not free)
     if (showFreeOnly) {
-      result = result.filter(e => 
-        e.price_min === null || e.price_min === 0
-      )
+      result = result.filter(e => e.price_min === 0)
     }
     
-    // Late filter (starts after 10pm or ends after 2am)
+    // Late filter: end_time exists AND end_time local hour >= 02:00 (2am+)
+    // Events ending past midnight count as late
     if (showLateOnly) {
       result = result.filter(e => {
+        if (!e.end_time) return false
+        const endDate = new Date(e.end_time)
+        const endHour = endDate.getHours()
+        // 2am-6am counts as "late" (past midnight events)
+        // OR starts at 10pm or later
         const startHour = new Date(e.start_time).getHours()
-        const endHour = e.end_time ? new Date(e.end_time).getHours() : 0
-        return startHour >= 22 || (endHour > 0 && endHour <= 6)
+        return (endHour >= 2 && endHour <= 6) || startHour >= 22
+      })
+    }
+    
+    // Now filter: event is happening right now
+    // isNow = start_time <= now && end_time != null && now <= end_time
+    if (showNowOnly) {
+      const now = new Date()
+      result = result.filter(e => {
+        if (!e.end_time) return false // Don't guess if no end_time
+        const start = new Date(e.start_time)
+        const end = new Date(e.end_time)
+        return start <= now && now <= end
       })
     }
     
     return result
-  }, [dateFiltered, activeGenre, showFreeOnly, showLateOnly])
+  }, [dateFiltered, activeGenre, showFreeOnly, showLateOnly, showNowOnly])
 
   const current = filtered[currentIndex] || null
   const nextEvent = filtered[currentIndex + 1] || null
@@ -1042,7 +1087,7 @@ export default function Home() {
               marginBottom: '12px',
               lineHeight: 1.3,
             }}>
-              Find the best nights out<br />near you, instantly
+              Find the best nights out<br />near you — instantly
             </h2>
             <p style={{ 
               fontSize: '14px', 
@@ -1108,34 +1153,62 @@ export default function Home() {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              {/* Logo image instead of text */}
+              {/* Row 1: Logo + city + mode label */}
               <img 
                 src="/logo.svg" 
                 alt="Sounded Out" 
-                style={{ height: '26px', width: 'auto', marginBottom: '2px' }}
+                onClick={() => {
+                  // Reset map + clear filters to default
+                  setDateFilter('tonight')
+                  setActiveGenre(null)
+                  setShowFreeOnly(false)
+                  setShowLateOnly(false)
+                  setShowNowOnly(false)
+                  setCurrentIndex(0)
+                  setViewMode('map')
+                  setSheetVisible(false)
+                  map.current?.flyTo({ center: [-1.61, 54.978], zoom: 13, duration: 800 })
+                }}
+                style={{ height: '26px', width: 'auto', marginBottom: '2px', cursor: 'pointer' }}
               />
-              <p style={{ fontSize: '12px', color: '#888', marginTop: '2px', marginBottom: '12px' }}>Newcastle</p>
+              <p style={{ fontSize: '11px', color: '#666', marginTop: '2px', marginBottom: '0px' }}>Newcastle</p>
+              <p style={{ fontSize: '13px', color: '#ab67f7', fontWeight: 600, marginTop: '2px', marginBottom: '10px' }}>
+                {dateFilter === 'tonight' ? 'Tonight' : 
+                 dateFilter === 'tomorrow' ? 'Tomorrow' : 
+                 dateFilter === 'weekend' ? 'This weekend' : 
+                 new Date(dateFilter).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+              </p>
             </div>
-            {/* User location toggle */}
+            {/* Location button - crosshair style with clear states */}
             <button
               onClick={toggleUserLocation}
+              aria-label="My location"
               style={{
-                width: '36px',
-                height: '36px',
+                width: '40px',
+                height: '40px',
                 borderRadius: '50%',
-                border: 'none',
-                background: showUserLocation ? '#4285F4' : 'rgba(255,255,255,0.1)',
-                color: showUserLocation ? 'white' : '#888',
-                fontSize: '16px',
+                border: showUserLocation ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
+                background: showUserLocation ? 'rgba(171,103,247,0.15)' : 'rgba(255,255,255,0.08)',
+                color: showUserLocation ? '#ab67f7' : '#888',
+                fontSize: '18px',
                 cursor: 'pointer',
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: `all ${SPRING.iosDuration}ms ${SPRING.ios}`,
+                boxShadow: showUserLocation ? '0 0 12px rgba(171,103,247,0.4)' : 'none',
               }}
               title={showUserLocation ? 'Hide my location' : 'Show my location'}
             >
-              📍
+              {/* Crosshair/target icon */}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="4"/>
+                <line x1="12" y1="2" x2="12" y2="6"/>
+                <line x1="12" y1="18" x2="12" y2="22"/>
+                <line x1="2" y1="12" x2="6" y2="12"/>
+                <line x1="18" y1="12" x2="22" y2="12"/>
+              </svg>
             </button>
           </div>
           
@@ -1221,74 +1294,96 @@ export default function Home() {
             </div>
           )}
           
-          {/* Genre chips + Quick filters */}
-          {availableGenres.length > 0 && (
-            <div style={{ marginTop: '10px' }}>
-              {/* Quick filter toggles */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          {/* Row 3: Constraint chips (Free / Late / Now) */}
+          <div style={{ marginTop: '10px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setShowFreeOnly(!showFreeOnly)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: showFreeOnly ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.08)',
+                  color: showFreeOnly ? '#22c55e' : '#888',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  minHeight: '36px',
+                }}
+              >
+                💷 Free
+              </button>
+              <button
+                onClick={() => setShowLateOnly(!showLateOnly)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: showLateOnly ? 'rgba(171,103,247,0.2)' : 'rgba(255,255,255,0.08)',
+                  color: showLateOnly ? '#ab67f7' : '#888',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  minHeight: '36px',
+                }}
+              >
+                🌙 Late (2am+)
+              </button>
+              <button
+                onClick={() => setShowNowOnly(!showNowOnly)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: showNowOnly ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.08)',
+                  color: showNowOnly ? '#fbbf24' : '#888',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  minHeight: '36px',
+                }}
+              >
+                ⚡ Now
+              </button>
+              {(activeGenre || showFreeOnly || showLateOnly || showNowOnly) && (
                 <button
-                  onClick={() => setShowFreeOnly(!showFreeOnly)}
+                  onClick={() => {
+                    setActiveGenre(null)
+                    setShowFreeOnly(false)
+                    setShowLateOnly(false)
+                    setShowNowOnly(false)
+                  }}
                   style={{
-                    padding: '6px 12px',
-                    borderRadius: '16px',
+                    padding: '8px 14px',
+                    borderRadius: '20px',
                     border: 'none',
-                    fontSize: '12px',
+                    fontSize: '13px',
                     fontWeight: 600,
                     cursor: 'pointer',
-                    background: showFreeOnly ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.08)',
-                    color: showFreeOnly ? '#22c55e' : '#666',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
+                    background: 'rgba(248,113,113,0.15)',
+                    color: '#f87171',
+                    minHeight: '36px',
                   }}
                 >
-                  💷 Free
+                  Clear
                 </button>
-                <button
-                  onClick={() => setShowLateOnly(!showLateOnly)}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '16px',
-                    border: 'none',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    background: showLateOnly ? 'rgba(171,103,247,0.2)' : 'rgba(255,255,255,0.08)',
-                    color: showLateOnly ? '#ab67f7' : '#666',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                >
-                  🌙 Late
-                </button>
-                {(activeGenre || showFreeOnly || showLateOnly) && (
-                  <button
-                    onClick={() => {
-                      setActiveGenre(null)
-                      setShowFreeOnly(false)
-                      setShowLateOnly(false)
-                    }}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '16px',
-                      border: 'none',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      background: 'rgba(248,113,113,0.15)',
-                      color: '#f87171',
-                    }}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
+              )}
+            </div>
               
-              {/* Genre chips - horizontal scroll */}
+            {/* Row 4: Genre chips (taste) - horizontal scroll */}
+            {availableGenres.length > 0 && (
               <div style={{ 
                 display: 'flex', 
-                gap: '6px', 
+                gap: '8px', 
                 overflowX: 'auto',
                 paddingBottom: '4px',
                 msOverflowStyle: 'none',
@@ -1299,25 +1394,26 @@ export default function Home() {
                     key={genre}
                     onClick={() => setActiveGenre(activeGenre === genre ? null : genre)}
                     style={{
-                      padding: '6px 12px',
-                      borderRadius: '14px',
-                      border: activeGenre === genre ? '1px solid #ab67f7' : '1px solid rgba(255,255,255,0.1)',
-                      fontSize: '12px',
+                      padding: '8px 14px',
+                      borderRadius: '18px',
+                      border: activeGenre === genre ? '1px solid #ab67f7' : '1px solid rgba(255,255,255,0.12)',
+                      fontSize: '13px',
                       fontWeight: 500,
                       cursor: 'pointer',
                       background: activeGenre === genre ? 'rgba(171,103,247,0.15)' : 'transparent',
-                      color: activeGenre === genre ? '#ab67f7' : '#888',
+                      color: activeGenre === genre ? '#ab67f7' : '#999',
                       whiteSpace: 'nowrap',
                       flexShrink: 0,
                       textTransform: 'capitalize',
+                      minHeight: '36px',
                     }}
                   >
                     {genre}
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </header>
 
         {/* Bottom Bar - z-index 15 */}
@@ -1342,17 +1438,28 @@ export default function Home() {
               justifyContent: 'space-between',
             }}>
               {filtered.length === 0 ? (
-                <span style={{ fontSize: '14px', color: '#666' }}>
-                  No events match filters — <span 
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '14px', color: '#888' }}>No events match filters</span>
+                  <button 
                     onClick={(e) => { 
                       e.stopPropagation()
                       setActiveGenre(null)
                       setShowFreeOnly(false)
                       setShowLateOnly(false)
+                      setShowNowOnly(false)
                     }}
-                    style={{ color: '#ab67f7', cursor: 'pointer' }}
-                  >clear filters</span>
-                </span>
+                    style={{ 
+                      padding: '8px 14px',
+                      borderRadius: '20px',
+                      border: 'none',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: '#ab67f7',
+                      color: 'white',
+                    }}
+                  >Clear filters</button>
+                </div>
               ) : (
                 <span style={{ fontSize: '15px' }}>
                   <span style={{ color: '#ab67f7', fontWeight: 700 }}>
