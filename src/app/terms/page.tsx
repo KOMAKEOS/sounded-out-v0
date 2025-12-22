@@ -9,8 +9,11 @@ export default function TermsPage() {
   return (
     <div style={{
       minHeight: '100vh',
+      height: '100vh',
       background: '#0a0a0b',
       color: 'white',
+      overflowY: 'auto',
+      WebkitOverflowScrolling: 'touch',
     }}>
       {/* Header */}
       <header style={{
@@ -173,7 +176,7 @@ export default function TermsPage() {
             <p>
               If you have any questions about these Terms, please contact us at{' '}
               <a href="mailto:hello@soundedout.com" style={{ color: '#ab67f7' }}>
-                hello@soundedout.com
+                oliver@soundedout.com
               </a>
             </p>
           </section>
