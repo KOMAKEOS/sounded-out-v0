@@ -9,10 +9,13 @@ export default function AboutPage() {
   return (
     <div style={{
       minHeight: '100vh',
+      height: '100vh',
       background: '#0a0a0b',
       color: 'white',
       position: 'relative',
-      overflow: 'hidden',
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      WebkitOverflowScrolling: 'touch',
     }}>
       {/* Animated Background Orbs */}
       <div style={{
@@ -23,68 +26,16 @@ export default function AboutPage() {
         pointerEvents: 'none',
       }}>
         {/* Purple Orb 1 - Top Left */}
-        <div style={{
-          position: 'absolute',
-          top: '-20%',
-          left: '-10%',
-          width: '600px',
-          height: '600px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(171,103,247,0.3) 0%, rgba(171,103,247,0.1) 40%, transparent 70%)',
-          filter: 'blur(60px)',
-          animation: 'floatOrb1 22s ease-in-out infinite',
-        }} />
+        <div className="orb orb1" />
         
         {/* Purple Orb 2 - Top Right */}
-        <div style={{
-          position: 'absolute',
-          top: '10%',
-          right: '-15%',
-          width: '500px',
-          height: '500px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(171,103,247,0.25) 0%, rgba(171,103,247,0.08) 40%, transparent 70%)',
-          filter: 'blur(80px)',
-          animation: 'floatOrb2 26s ease-in-out infinite',
-        }} />
+        <div className="orb orb2" />
         
         {/* Purple Orb 3 - Center */}
-        <div style={{
-          position: 'absolute',
-          top: '40%',
-          left: '30%',
-          width: '400px',
-          height: '400px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(171,103,247,0.2) 0%, rgba(171,103,247,0.05) 40%, transparent 70%)',
-          filter: 'blur(100px)',
-          animation: 'floatOrb3 30s ease-in-out infinite',
-        }} />
+        <div className="orb orb3" />
         
         {/* Purple Orb 4 - Bottom */}
-        <div style={{
-          position: 'absolute',
-          bottom: '-10%',
-          right: '20%',
-          width: '550px',
-          height: '550px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(171,103,247,0.25) 0%, rgba(171,103,247,0.1) 40%, transparent 70%)',
-          filter: 'blur(70px)',
-          animation: 'floatOrb4 24s ease-in-out infinite',
-        }} />
-        
-        {/* Subtle grid overlay */}
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: `
-            linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)
-          `,
-          backgroundSize: '60px 60px',
-          animation: 'gridDrift 20s linear infinite',
-        }} />
+        <div className="orb orb4" />
       </div>
       
       {/* Content */}
@@ -129,7 +80,7 @@ export default function AboutPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '40px 24px 80px',
+          padding: '40px 24px 100px',
         }}>
           <div style={{
             maxWidth: '640px',
@@ -137,7 +88,7 @@ export default function AboutPage() {
           }}>
             {/* Glass Card */}
             <div style={{
-              background: 'rgba(20,20,22,0.8)',
+              background: 'rgba(20,20,22,0.85)',
               backdropFilter: 'blur(40px)',
               border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: '24px',
@@ -240,20 +191,62 @@ export default function AboutPage() {
         </main>
       </div>
       
-      {/* Keyframe Animations */}
-      <style jsx global>{`
+      {/* CSS Animations */}
+      <style>{`
+        .orb {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(80px);
+        }
+        
+        .orb1 {
+          top: -20%;
+          left: -10%;
+          width: 600px;
+          height: 600px;
+          background: radial-gradient(circle, rgba(171,103,247,0.35) 0%, rgba(171,103,247,0.1) 40%, transparent 70%);
+          animation: floatOrb1 20s ease-in-out infinite;
+        }
+        
+        .orb2 {
+          top: 10%;
+          right: -15%;
+          width: 500px;
+          height: 500px;
+          background: radial-gradient(circle, rgba(171,103,247,0.3) 0%, rgba(171,103,247,0.08) 40%, transparent 70%);
+          animation: floatOrb2 25s ease-in-out infinite;
+        }
+        
+        .orb3 {
+          top: 50%;
+          left: 20%;
+          width: 450px;
+          height: 450px;
+          background: radial-gradient(circle, rgba(171,103,247,0.25) 0%, rgba(171,103,247,0.05) 40%, transparent 70%);
+          animation: floatOrb3 28s ease-in-out infinite;
+        }
+        
+        .orb4 {
+          bottom: -15%;
+          right: 10%;
+          width: 550px;
+          height: 550px;
+          background: radial-gradient(circle, rgba(171,103,247,0.3) 0%, rgba(171,103,247,0.1) 40%, transparent 70%);
+          animation: floatOrb4 22s ease-in-out infinite;
+        }
+        
         @keyframes floatOrb1 {
           0%, 100% {
             transform: translate(0, 0) scale(1);
           }
           25% {
-            transform: translate(40px, -50px) scale(1.1);
+            transform: translate(60px, -80px) scale(1.15);
           }
           50% {
-            transform: translate(-30px, 30px) scale(0.95);
+            transform: translate(-40px, 40px) scale(0.9);
           }
           75% {
-            transform: translate(50px, 20px) scale(1.05);
+            transform: translate(80px, 30px) scale(1.1);
           }
         }
         
@@ -262,22 +255,22 @@ export default function AboutPage() {
             transform: translate(0, 0) scale(1);
           }
           33% {
-            transform: translate(-50px, 40px) scale(1.08);
+            transform: translate(-70px, 60px) scale(1.12);
           }
           66% {
-            transform: translate(40px, -40px) scale(0.92);
+            transform: translate(50px, -50px) scale(0.88);
           }
         }
         
         @keyframes floatOrb3 {
           0%, 100% {
-            transform: translate(0, 0) scale(1) rotate(0deg);
+            transform: translate(0, 0) scale(1);
           }
           33% {
-            transform: translate(30px, 50px) scale(1.12) rotate(5deg);
+            transform: translate(50px, 70px) scale(1.2);
           }
           66% {
-            transform: translate(-60px, -30px) scale(0.88) rotate(-5deg);
+            transform: translate(-80px, -40px) scale(0.85);
           }
         }
         
@@ -286,16 +279,7 @@ export default function AboutPage() {
             transform: translate(0, 0) scale(1);
           }
           50% {
-            transform: translate(-40px, 50px) scale(1.15);
-          }
-        }
-        
-        @keyframes gridDrift {
-          0% {
-            transform: translate(0, 0);
-          }
-          100% {
-            transform: translate(60px, 60px);
+            transform: translate(-60px, 80px) scale(1.18);
           }
         }
       `}</style>
