@@ -33,6 +33,10 @@ type Profile = {
 // ============================================================================
 // ADMIN DASHBOARD
 // ============================================================================
+
+// Set your admin passcode here
+const ADMIN_PASSCODE = '1234' // Change this to your preferred 4-digit code
+
 export default function AdminPage() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -43,43 +47,52 @@ export default function AdminPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [actionMessage, setActionMessage] = useState('')
   
+  // Passcode state
+  const [passcodeEntered, setPasscodeEntered] = useState(false)
+  const [passcodeInput, setPasscodeInput] = useState('')
+  const [passcodeError, setPasscodeError] = useState(false)
+  
+  // Check if passcode was already entered this session
+  useEffect(() => {
+    const savedAccess = sessionStorage.getItem('so_admin_access')
+    if (savedAccess === 'granted') {
+      setPasscodeEntered(true)
+    }
+  }, [])
+  
   // ============================================================================
   // AUTH & DATA LOADING
   // ============================================================================
   useEffect(() => {
+    // Only load data if passcode is entered
+    if (!passcodeEntered) {
+      setLoading(false)
+      return
+    }
+    
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
-      if (session?.user) {
-        loadProfile(session.user.id)
-      } else {
-        setLoading(false)
-      }
+      loadClaims()
+      setLoading(false)
     })
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user) {
-        loadProfile(session.user.id)
-      }
     })
     
     return () => subscription.unsubscribe()
-  }, [])
+  }, [passcodeEntered])
   
-  const loadProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    
-    if (data) {
-      setProfile(data)
-      if (data.role === 'admin') {
-        loadClaims()
-      }
+  const handlePasscodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (passcodeInput === ADMIN_PASSCODE) {
+      setPasscodeEntered(true)
+      setPasscodeError(false)
+      sessionStorage.setItem('so_admin_access', 'granted')
+    } else {
+      setPasscodeError(true)
+      setPasscodeInput('')
     }
-    setLoading(false)
   }
   
   const loadClaims = async () => {
@@ -253,6 +266,109 @@ export default function AdminPage() {
   // RENDER
   // ============================================================================
   
+  // Passcode gate
+  if (!passcodeEntered) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#0a0a0b',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        padding: '20px',
+      }}>
+        <div style={{
+          background: '#141416',
+          borderRadius: '20px',
+          padding: '32px',
+          width: '100%',
+          maxWidth: '320px',
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              background: 'rgba(248,113,113,0.15)',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              fontSize: '24px',
+            }}>
+              🔐
+            </div>
+            <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'white', marginBottom: '4px' }}>Admin Access</h1>
+            <p style={{ fontSize: '13px', color: '#888' }}>Enter passcode to continue</p>
+          </div>
+          
+          <form onSubmit={handlePasscodeSubmit}>
+            <input
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={4}
+              value={passcodeInput}
+              onChange={(e) => {
+                setPasscodeInput(e.target.value.replace(/\D/g, ''))
+                setPasscodeError(false)
+              }}
+              placeholder="••••"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '16px',
+                background: '#1e1e24',
+                border: passcodeError ? '2px solid #f87171' : '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '12px',
+                color: 'white',
+                fontSize: '24px',
+                textAlign: 'center',
+                letterSpacing: '8px',
+                outline: 'none',
+                marginBottom: '16px',
+              }}
+            />
+            
+            {passcodeError && (
+              <p style={{
+                color: '#f87171',
+                fontSize: '13px',
+                textAlign: 'center',
+                marginBottom: '16px',
+              }}>
+                Incorrect passcode
+              </p>
+            )}
+            
+            <button
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                border: 'none',
+                borderRadius: '12px',
+                color: 'white',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Enter
+            </button>
+          </form>
+        </div>
+        
+        <Link href="/" style={{ color: '#666', fontSize: '13px', marginTop: '24px', textDecoration: 'none' }}>
+          ← Back to map
+        </Link>
+      </div>
+    )
+  }
+  
   if (loading) {
     return (
       <div style={{
@@ -264,25 +380,6 @@ export default function AdminPage() {
         color: '#888',
       }}>
         Loading...
-      </div>
-    )
-  }
-  
-  if (!user || !profile || profile.role !== 'admin') {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#0a0a0b',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        gap: '16px',
-        color: 'white',
-      }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 700 }}>Access Denied</h1>
-        <p style={{ color: '#888' }}>You need admin privileges to access this page.</p>
-        <Link href="/" style={{ color: '#ab67f7' }}>← Back to map</Link>
       </div>
     )
   }
@@ -316,7 +413,24 @@ export default function AdminPage() {
             ADMIN
           </span>
         </div>
-        <span style={{ color: '#888', fontSize: '13px' }}>{profile.email}</span>
+        <button
+          onClick={() => {
+            sessionStorage.removeItem('so_admin_access')
+            setPasscodeEntered(false)
+            setPasscodeInput('')
+          }}
+          style={{
+            padding: '8px 14px',
+            background: 'rgba(255,255,255,0.1)',
+            border: 'none',
+            borderRadius: '8px',
+            color: '#888',
+            fontSize: '13px',
+            cursor: 'pointer',
+          }}
+        >
+          Lock
+        </button>
       </header>
       
       {/* Content */}
