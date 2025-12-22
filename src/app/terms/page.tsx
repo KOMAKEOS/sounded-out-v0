@@ -53,7 +53,7 @@ export default function TermsPage() {
           Terms & Conditions
         </h1>
         <p style={{ color: '#888', marginBottom: '40px' }}>
-          Last updated: December 2024
+          Last updated: December 2025
         </p>
         
         <div style={{ 
