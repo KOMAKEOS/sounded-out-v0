@@ -9,8 +9,11 @@ export default function PrivacyPage() {
   return (
     <div style={{
       minHeight: '100vh',
+      height: '100vh',
       background: '#0a0a0b',
       color: 'white',
+      overflowY: 'auto',
+      WebkitOverflowScrolling: 'touch',
     }}>
       {/* Header */}
       <header style={{
