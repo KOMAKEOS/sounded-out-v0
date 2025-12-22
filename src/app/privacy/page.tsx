@@ -250,8 +250,8 @@ export default function PrivacyPage() {
             </p>
             <p>
               Email:{' '}
-              <a href="mailto:privacy@soundedout.com" style={{ color: '#ab67f7' }}>
-                privacy@soundedout.com
+              <a href="mailto:oliver@soundedout.com" style={{ color: '#ab67f7' }}>
+                oliver@soundedout.com
               </a>
             </p>
           </section>
