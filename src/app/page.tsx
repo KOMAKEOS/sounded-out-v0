@@ -1335,12 +1335,9 @@ export default function Home() {
                       Follow us
                     </a>
                     
-                    {/* About/Info */}
-                    <button
-                      onClick={() => {
-                        setShowMenu(false)
-                        alert('Sounded Out helps you discover the best nightlife events in your city. Browse by genre, date, and location.')
-                      }}
+                    {/* About */}
+                    <a
+                      href="/about"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -1348,13 +1345,9 @@ export default function Home() {
                         padding: '12px 14px',
                         borderRadius: '10px',
                         color: '#888',
+                        textDecoration: 'none',
                         fontSize: '14px',
                         fontWeight: 500,
-                        background: 'transparent',
-                        border: 'none',
-                        width: '100%',
-                        cursor: 'pointer',
-                        textAlign: 'left',
                         transition: 'background 150ms ease',
                       }}
                       onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
@@ -1362,7 +1355,7 @@ export default function Home() {
                     >
                       <span style={{ fontSize: '16px' }}>ℹ️</span>
                       About
-                    </button>
+                    </a>
                   </div>
                 )}
               </div>
