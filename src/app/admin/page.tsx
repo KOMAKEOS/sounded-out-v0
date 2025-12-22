@@ -35,7 +35,7 @@ type Profile = {
 // ============================================================================
 
 // Set your admin passcode here
-const ADMIN_PASSCODE = '1234' // Change this to your preferred 4-digit code
+const ADMIN_PASSCODE = '6521' // Change this to your preferred 4-digit code
 
 export default function AdminPage() {
   const [user, setUser] = useState<any>(null)
