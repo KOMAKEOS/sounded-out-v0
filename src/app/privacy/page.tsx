@@ -53,7 +53,7 @@ export default function PrivacyPage() {
           Privacy Policy
         </h1>
         <p style={{ color: '#888', marginBottom: '40px' }}>
-          Last updated: December 2024
+          Last updated: December 2025
         </p>
         
         <div style={{ 
@@ -191,8 +191,8 @@ export default function PrivacyPage() {
             </ul>
             <p>
               To exercise any of these rights, please contact us at{' '}
-              <a href="mailto:privacy@soundedout.com" style={{ color: '#ab67f7' }}>
-                privacy@soundedout.com
+              <a href="mailto:oliver@soundedout.com" style={{ color: '#ab67f7' }}>
+                oliver@soundedout.com
               </a>
             </p>
           </section>
