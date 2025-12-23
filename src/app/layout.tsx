@@ -115,15 +115,17 @@ export const metadata: Metadata = {
     'og:country-name': 'United Kingdom',
   },
   
-  // Viewport with theme color
+  // Viewport
   viewport: {
     width: 'device-width',
     initialScale: 1,
     maximumScale: 5,
     userScalable: true,
     viewportFit: 'cover',
-    themeColor: '#0a0a0b',
   },
+  
+  // Theme color for browser chrome
+  themeColor: '#0a0a0b',
   
   // Icons
   icons: {
