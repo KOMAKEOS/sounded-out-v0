@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from 'next'
+import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 
@@ -108,6 +108,17 @@ export const metadata: Metadata = {
   // Classification
   classification: 'Nightlife Discovery Platform',
   
+  // Viewport
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+  },
+  
+  // Theme color
+  themeColor: '#0a0a0b',
+  
   // Other
   other: {
     'geo.region': 'GB-TWR',
@@ -115,15 +126,6 @@ export const metadata: Metadata = {
     'geo.position': '54.978;-1.61',
     'ICBM': '54.978, -1.61',
   },
-}
-
-// Viewport configuration
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 5,
-  userScalable: true,
-  themeColor: '#0a0a0b',
 }
 
 // ============================================================================
