@@ -235,6 +235,9 @@ export default function RootLayout({
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         
+        {/* Mapbox GL CSS - Required for markers to render */}
+        <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet" />
+        
         {/* Preconnect for performance */}
         <link rel="preconnect" href="https://api.mapbox.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
