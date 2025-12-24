@@ -108,11 +108,9 @@ export default function NewcastleNightlifePage() {
 
   return (
     <div style={{
-      minHeight: '100vh',
       background: '#050505',
       color: 'white',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      overflowX: 'hidden',
     }}>
       
       {/* ====== NAVIGATION ====== */}
@@ -122,7 +120,7 @@ export default function NewcastleNightlifePage() {
         left: 0,
         right: 0,
         zIndex: 100,
-        padding: '16px 32px',
+        padding: '24px 40px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -131,19 +129,19 @@ export default function NewcastleNightlifePage() {
         borderBottom: '1px solid rgba(255,255,255,0.05)',
       }}>
         <Link href="/" style={{ textDecoration: 'none' }}>
-          <img src="/logo.svg" alt="Sounded Out" style={{ height: '22px' }} />
+          <img src="/logo.svg" alt="Sounded Out" style={{ height: '32px' }} />
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
-          <Link href="/about" style={{ color: 'rgba(255,255,255,0.5)', textDecoration: 'none', fontSize: '13px', fontWeight: 500, letterSpacing: '0.5px' }}>About</Link>
+          <Link href="/about" style={{ color: 'rgba(255,255,255,0.5)', textDecoration: 'none', fontSize: '14px', fontWeight: 500, letterSpacing: '0.5px' }}>About</Link>
           <Link 
             href="/"
             style={{
-              padding: '12px 28px',
+              padding: '14px 32px',
               background: 'white',
               borderRadius: '100px',
               color: '#050505',
               textDecoration: 'none',
-              fontSize: '13px',
+              fontSize: '14px',
               fontWeight: 600,
               letterSpacing: '0.3px',
             }}
@@ -161,30 +159,25 @@ export default function NewcastleNightlifePage() {
         justifyContent: 'center',
         alignItems: 'center',
         textAlign: 'center',
-        padding: '120px 24px 80px',
+        padding: '140px 24px 80px',
         position: 'relative',
         overflow: 'hidden',
       }}>
-        {/* Background gradient orbs */}
+        {/* Animated background orbs */}
+        <div className="hero-orb hero-orb-1" />
+        <div className="hero-orb hero-orb-2" />
+        <div className="hero-orb hero-orb-3" />
+        <div className="hero-orb hero-orb-4" />
+        
+        {/* Grid overlay */}
         <div style={{
           position: 'absolute',
-          top: '10%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '800px',
-          height: '800px',
-          background: 'radial-gradient(circle, rgba(171,103,247,0.15) 0%, transparent 60%)',
-          filter: 'blur(60px)',
-          pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'absolute',
-          bottom: '20%',
-          right: '-10%',
-          width: '600px',
-          height: '600px',
-          background: 'radial-gradient(circle, rgba(171,103,247,0.1) 0%, transparent 60%)',
-          filter: 'blur(80px)',
+          inset: 0,
+          backgroundImage: `
+            linear-gradient(rgba(171,103,247,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(171,103,247,0.03) 1px, transparent 1px)
+          `,
+          backgroundSize: '60px 60px',
           pointerEvents: 'none',
         }} />
 
@@ -907,6 +900,66 @@ export default function NewcastleNightlifePage() {
           0%, 100% { transform: translateX(-50%) translateY(0); }
           50% { transform: translateX(-50%) translateY(8px); }
         }
+        
+        /* Animated hero orbs */
+        .hero-orb {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(80px);
+          pointer-events: none;
+        }
+        .hero-orb-1 {
+          top: 5%;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 900px;
+          height: 900px;
+          background: radial-gradient(circle, rgba(171,103,247,0.25) 0%, transparent 60%);
+          animation: floatOrb1 15s ease-in-out infinite;
+        }
+        .hero-orb-2 {
+          top: 20%;
+          right: -15%;
+          width: 700px;
+          height: 700px;
+          background: radial-gradient(circle, rgba(147,51,234,0.2) 0%, transparent 60%);
+          animation: floatOrb2 20s ease-in-out infinite;
+        }
+        .hero-orb-3 {
+          bottom: 10%;
+          left: -10%;
+          width: 600px;
+          height: 600px;
+          background: radial-gradient(circle, rgba(192,132,252,0.15) 0%, transparent 60%);
+          animation: floatOrb3 18s ease-in-out infinite;
+        }
+        .hero-orb-4 {
+          top: 40%;
+          left: 20%;
+          width: 400px;
+          height: 400px;
+          background: radial-gradient(circle, rgba(171,103,247,0.2) 0%, transparent 60%);
+          animation: floatOrb4 12s ease-in-out infinite;
+        }
+        
+        @keyframes floatOrb1 {
+          0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
+          33% { transform: translateX(-45%) translateY(-30px) scale(1.05); }
+          66% { transform: translateX(-55%) translateY(20px) scale(0.95); }
+        }
+        @keyframes floatOrb2 {
+          0%, 100% { transform: translateY(0) scale(1); opacity: 0.8; }
+          50% { transform: translateY(-50px) scale(1.1); opacity: 1; }
+        }
+        @keyframes floatOrb3 {
+          0%, 100% { transform: translateX(0) scale(1); }
+          50% { transform: translateX(40px) scale(1.08); }
+        }
+        @keyframes floatOrb4 {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.2); opacity: 1; }
+        }
+        
         details summary::-webkit-details-marker { display: none; }
         details summary { list-style: none; }
         details[open] summary span:last-child { transform: rotate(45deg); }
