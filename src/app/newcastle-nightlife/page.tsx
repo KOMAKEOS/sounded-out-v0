@@ -6,26 +6,26 @@ import { supabase } from '../../lib/supabase'
 
 // ============================================================================
 // NEWCASTLE NIGHTLIFE - Premium SEO Landing Page
-// Target keywords: "newcastle nightlife", "newcastle tonight", "what's on newcastle"
+// Design inspired by GoSounded - bold, clear, conversion-focused
 // ============================================================================
-
-type EventStats = {
-  tonight: number
-  tomorrow: number
-  weekend: number
-  totalVenues: number
-  genres: string[]
-}
 
 type Event = {
   id: string
   start_time: string
   venue_id: string
   genres?: string
+  name: string
   venue?: {
     id: string
     name: string
   }
+}
+
+type EventStats = {
+  tonight: number
+  tomorrow: number
+  weekend: number
+  totalVenues: number
 }
 
 export default function NewcastleNightlifePage() {
@@ -34,12 +34,9 @@ export default function NewcastleNightlifePage() {
     tomorrow: 0,
     weekend: 0,
     totalVenues: 0,
-    genres: [],
   })
   const [loading, setLoading] = useState(true)
-  const [currentTime, setCurrentTime] = useState(new Date())
 
-  // Load live stats from database
   useEffect(() => {
     async function loadStats() {
       const now = new Date()
@@ -49,19 +46,16 @@ export default function NewcastleNightlifePage() {
       tomorrow.setDate(tomorrow.getDate() + 1)
       const tomorrowStr = tomorrow.toISOString().split('T')[0]
       
-      // Get Friday of this week
       const friday = new Date(now)
       const dayOfWeek = friday.getDay()
       const daysUntilFriday = (5 - dayOfWeek + 7) % 7
-      if (dayOfWeek >= 5) friday.setDate(friday.getDate())
-      else friday.setDate(friday.getDate() + daysUntilFriday)
+      if (dayOfWeek < 5) friday.setDate(friday.getDate() + daysUntilFriday)
       friday.setHours(0, 0, 0, 0)
       
       const sunday = new Date(friday)
-      sunday.setDate(friday.getDate() + (7 - friday.getDay()))
+      sunday.setDate(friday.getDate() + 2)
       sunday.setHours(23, 59, 59)
 
-      // Fetch events
       const { data: events } = await supabase
         .from('events')
         .select('*, venue:venues(*)')
@@ -83,656 +77,601 @@ export default function NewcastleNightlifePage() {
           return d >= friday && d <= sunday
         }).length
 
-        // Count unique venues
         const uniqueVenues = new Set(events.map((e: Event) => e.venue_id))
-        
-        // Get unique genres
-        const allGenres = new Set<string>()
-        events.forEach((e: Event) => {
-          if (e.genres) {
-            e.genres.split(',').forEach((g: string) => allGenres.add(g.trim().toLowerCase()))
-          }
-        })
 
         setStats({
           tonight: tonightCount,
           tomorrow: tomorrowCount,
           weekend: weekendCount,
           totalVenues: uniqueVenues.size,
-          genres: Array.from(allGenres).slice(0, 8),
         })
       }
       setLoading(false)
     }
 
     loadStats()
-    
-    // Update time every minute
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000)
-    return () => clearInterval(timer)
   }, [])
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-GB', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
-    })
-  }
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-GB', { 
-      weekday: 'long',
-      day: 'numeric', 
-      month: 'long',
-      year: 'numeric'
-    })
-  }
 
   return (
     <div style={{
       minHeight: '100vh',
       background: '#0a0a0b',
       color: 'white',
-      position: 'relative',
-      overflowX: 'hidden',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
     }}>
-      {/* Animated Background Orbs */}
-      <div style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 0,
-        overflow: 'hidden',
-        pointerEvents: 'none',
+      
+      {/* Navigation */}
+      <nav style={{
+        padding: '20px 24px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        maxWidth: '1200px',
+        margin: '0 auto',
       }}>
-        <div className="orb orb1" />
-        <div className="orb orb2" />
-        <div className="orb orb3" />
-        <div className="orb orb4" />
-      </div>
-
-      {/* Content */}
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        
-        {/* Header */}
-        <header style={{
-          padding: '20px 24px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          maxWidth: '1200px',
-          margin: '0 auto',
-        }}>
-          <Link href="/">
-            <img src="/logo.svg" alt="Sounded Out" style={{ height: '28px', cursor: 'pointer' }} />
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+          <img src="/logo.svg" alt="Sounded Out" style={{ height: '24px' }} />
+        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+          <Link href="/about" style={{ color: '#888', textDecoration: 'none', fontSize: '14px' }}>About</Link>
+          <Link 
+            href="/"
+            style={{
+              padding: '10px 20px',
+              background: '#ab67f7',
+              borderRadius: '8px',
+              color: 'white',
+              textDecoration: 'none',
+              fontSize: '14px',
+              fontWeight: 600,
+            }}
+          >
+            Open Map
           </Link>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <span style={{ 
-              fontSize: '12px', 
-              color: '#666',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}>
-              <span style={{
-                width: '8px',
-                height: '8px',
-                background: '#22c55e',
-                borderRadius: '50%',
-                animation: 'pulse 2s infinite',
-              }} />
-              Live
-            </span>
-            <Link 
-              href="/"
-              style={{
-                padding: '12px 24px',
-                background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
-                border: 'none',
-                borderRadius: '12px',
-                color: 'white',
-                textDecoration: 'none',
-                fontSize: '14px',
-                fontWeight: 700,
-                boxShadow: '0 4px 20px rgba(171,103,247,0.3)',
-              }}
-            >
-              Open Map
-            </Link>
-          </div>
-        </header>
+        </div>
+      </nav>
 
-        {/* Hero Section - Above the fold, featured snippet optimized */}
-        <section style={{
-          maxWidth: '1200px',
+      {/* HERO SECTION - Bold, immediate value prop */}
+      <section style={{
+        maxWidth: '1200px',
+        margin: '0 auto',
+        padding: '80px 24px 100px',
+        textAlign: 'center',
+      }}>
+        {/* Eyebrow */}
+        <div style={{
+          display: 'inline-block',
+          padding: '6px 12px',
+          background: 'rgba(171,103,247,0.15)',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: 600,
+          color: '#ab67f7',
+          marginBottom: '24px',
+          textTransform: 'uppercase',
+          letterSpacing: '1px',
+        }}>
+          Newcastle&apos;s Live Nightlife Map
+        </div>
+
+        {/* Main Headline - BOLD */}
+        <h1 style={{
+          fontSize: 'clamp(40px, 10vw, 72px)',
+          fontWeight: 800,
+          lineHeight: 1.05,
+          marginBottom: '24px',
+          letterSpacing: '-2px',
+        }}>
+          FIND WHAT&apos;S ON<br />
+          <span style={{ color: '#ab67f7' }}>TONIGHT</span>
+        </h1>
+
+        {/* Subheadline */}
+        <p style={{
+          fontSize: 'clamp(18px, 3vw, 22px)',
+          color: '#888',
+          maxWidth: '500px',
+          margin: '0 auto 40px',
+          lineHeight: 1.5,
+        }}>
+          Stop scrolling Instagram. See every club, DJ event, and late-night venue in Newcastle — on one map.
+        </p>
+
+        {/* Primary CTA */}
+        <Link
+          href="/"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '18px 36px',
+            background: '#ab67f7',
+            borderRadius: '12px',
+            color: 'white',
+            textDecoration: 'none',
+            fontSize: '18px',
+            fontWeight: 700,
+            marginBottom: '16px',
+          }}
+        >
+          Explore the Map →
+        </Link>
+
+        <p style={{ fontSize: '13px', color: '#555' }}>
+          Free to use. No account needed.
+        </p>
+      </section>
+
+      {/* LIVE STATS BAR */}
+      <section style={{
+        background: 'rgba(171,103,247,0.08)',
+        borderTop: '1px solid rgba(171,103,247,0.2)',
+        borderBottom: '1px solid rgba(171,103,247,0.2)',
+        padding: '32px 24px',
+      }}>
+        <div style={{
+          maxWidth: '800px',
           margin: '0 auto',
-          padding: '60px 24px 80px',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: '24px',
           textAlign: 'center',
         }}>
-          {/* Live timestamp - freshness signal for Google */}
+          {[
+            { value: stats.tonight, label: 'Tonight' },
+            { value: stats.tomorrow, label: 'Tomorrow' },
+            { value: stats.weekend, label: 'This Weekend' },
+            { value: stats.totalVenues, label: 'Venues' },
+          ].map((stat) => (
+            <div key={stat.label}>
+              <div style={{
+                fontSize: '36px',
+                fontWeight: 800,
+                color: '#ab67f7',
+              }}>
+                {loading ? '—' : stat.value}
+              </div>
+              <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* SEE IT WORK SECTION */}
+      <section style={{
+        maxWidth: '1000px',
+        margin: '0 auto',
+        padding: '100px 24px',
+        textAlign: 'center',
+      }}>
+        <p style={{
+          fontSize: '13px',
+          fontWeight: 600,
+          color: '#ab67f7',
+          textTransform: 'uppercase',
+          letterSpacing: '2px',
+          marginBottom: '16px',
+        }}>
+          See it work. Right now.
+        </p>
+        <h2 style={{
+          fontSize: 'clamp(28px, 5vw, 40px)',
+          fontWeight: 700,
+          marginBottom: '16px',
+        }}>
+          One Map. Every Night Out.
+        </h2>
+        <p style={{
+          fontSize: '16px',
+          color: '#888',
+          maxWidth: '500px',
+          margin: '0 auto 40px',
+        }}>
+          Open the map to see what&apos;s actually happening in Newcastle — updated daily with real events.
+        </p>
+        
+        {/* Map Preview Placeholder */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(171,103,247,0.1) 0%, rgba(20,20,22,0.8) 100%)',
+          border: '1px solid rgba(171,103,247,0.2)',
+          borderRadius: '16px',
+          padding: '60px',
+          marginBottom: '32px',
+        }}>
           <div style={{
+            width: '80px',
+            height: '80px',
+            background: 'rgba(171,103,247,0.2)',
+            borderRadius: '50%',
+            margin: '0 auto 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ab67f7" strokeWidth="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+          </div>
+          <p style={{ color: '#666', fontSize: '14px' }}>Live map with {loading ? '...' : stats.tonight + stats.tomorrow} upcoming events</p>
+        </div>
+
+        <Link
+          href="/"
+          style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '8px 16px',
-            background: 'rgba(255,255,255,0.05)',
-            borderRadius: '20px',
-            marginBottom: '24px',
-            fontSize: '13px',
-            color: '#888',
-          }}>
-            <span style={{
-              width: '6px',
-              height: '6px',
-              background: '#22c55e',
-              borderRadius: '50%',
-            }} />
-            Updated {formatDate(currentTime)} at {formatTime(currentTime)}
-          </div>
+            padding: '14px 28px',
+            background: 'transparent',
+            border: '2px solid #ab67f7',
+            borderRadius: '10px',
+            color: '#ab67f7',
+            textDecoration: 'none',
+            fontSize: '16px',
+            fontWeight: 600,
+          }}
+        >
+          ✦ Open the Map →
+        </Link>
+      </section>
 
-          {/* H1 - Primary keyword target */}
-          <h1 style={{
-            fontSize: 'clamp(36px, 8vw, 64px)',
-            fontWeight: 800,
-            lineHeight: 1.1,
-            marginBottom: '20px',
-            background: 'linear-gradient(135deg, #ffffff 0%, #ab67f7 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-          }}>
-            Newcastle Nightlife Tonight
-          </h1>
+      {/* WITHOUT VS WITH COMPARISON */}
+      <section style={{
+        maxWidth: '900px',
+        margin: '0 auto',
+        padding: '0 24px 100px',
+      }}>
+        <h2 style={{
+          fontSize: 'clamp(24px, 5vw, 36px)',
+          fontWeight: 700,
+          textAlign: 'center',
+          marginBottom: '48px',
+        }}>
+          WITHOUT SOUNDED OUT VS WITH <span style={{ color: '#ab67f7' }}>SOUNDED OUT</span>
+        </h2>
 
-          {/* H2 - Secondary keywords */}
-          <h2 style={{
-            fontSize: 'clamp(18px, 3vw, 24px)',
-            fontWeight: 500,
-            color: '#888',
-            marginBottom: '40px',
-            maxWidth: '600px',
-            margin: '0 auto 40px',
-          }}>
-            Live clubs, DJ events & late-night venues — updated daily
-          </h2>
-
-          {/* Featured snippet trap - bullet list format */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '24px',
+        }}>
+          {/* Without */}
           <div style={{
-            background: 'rgba(20,20,22,0.8)',
-            backdropFilter: 'blur(40px)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '20px',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '16px',
             padding: '32px',
-            maxWidth: '500px',
-            margin: '0 auto 48px',
-            textAlign: 'left',
-          }}>
-            <p style={{ 
-              fontSize: '16px', 
-              color: '#ccc', 
-              marginBottom: '16px',
-              fontWeight: 500,
-            }}>
-              Looking for what's happening in Newcastle tonight?
-            </p>
-            <p style={{ fontSize: '14px', color: '#888', marginBottom: '4px' }}>Sounded Out shows:</p>
-            <ul style={{ 
-              listStyle: 'none', 
-              padding: 0, 
-              margin: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-            }}>
-              {[
-                'Clubs open tonight',
-                'Live DJ events',
-                'Late-night venues',
-                'What\'s actually worth going to',
-              ].map((item, i) => (
-                <li key={i} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  fontSize: '14px',
-                  color: '#ab67f7',
-                }}>
-                  <span style={{
-                    width: '6px',
-                    height: '6px',
-                    background: '#ab67f7',
-                    borderRadius: '50%',
-                    flexShrink: 0,
-                  }} />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Live Stats - Dynamic data from database */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: '16px',
-            maxWidth: '600px',
-            margin: '0 auto 48px',
-          }}>
-            {[
-              { label: 'Tonight', value: stats.tonight, href: '/?filter=today' },
-              { label: 'Tomorrow', value: stats.tomorrow, href: '/?filter=tomorrow' },
-              { label: 'This Weekend', value: stats.weekend, href: '/?filter=weekend' },
-              { label: 'Venues', value: stats.totalVenues, href: '/' },
-            ].map((stat) => (
-              <Link
-                key={stat.label}
-                href={stat.href}
-                style={{
-                  background: 'rgba(171,103,247,0.08)',
-                  border: '1px solid rgba(171,103,247,0.2)',
-                  borderRadius: '16px',
-                  padding: '20px',
-                  textDecoration: 'none',
-                  transition: 'all 200ms ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(171,103,247,0.15)'
-                  e.currentTarget.style.transform = 'translateY(-2px)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(171,103,247,0.08)'
-                  e.currentTarget.style.transform = 'translateY(0)'
-                }}
-              >
-                <div style={{
-                  fontSize: '32px',
-                  fontWeight: 800,
-                  color: '#ab67f7',
-                  marginBottom: '4px',
-                }}>
-                  {loading ? '—' : stat.value}
-                </div>
-                <div style={{
-                  fontSize: '13px',
-                  color: '#888',
-                  fontWeight: 500,
-                }}>
-                  {stat.label}
-                </div>
-              </Link>
-            ))}
-          </div>
-
-          {/* Primary CTA */}
-          <Link
-            href="/"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '18px 40px',
-              background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
-              borderRadius: '16px',
-              color: 'white',
-              textDecoration: 'none',
-              fontSize: '18px',
-              fontWeight: 700,
-              boxShadow: '0 8px 32px rgba(171,103,247,0.4)',
-              transition: 'all 200ms ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)'
-              e.currentTarget.style.boxShadow = '0 12px 40px rgba(171,103,247,0.5)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 8px 32px rgba(171,103,247,0.4)'
-            }}
-          >
-            Explore the Map
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-          </Link>
-        </section>
-
-        {/* Genre Section - Targets genre-specific searches */}
-        {stats.genres.length > 0 && (
-          <section style={{
-            maxWidth: '1200px',
-            margin: '0 auto',
-            padding: '0 24px 80px',
           }}>
             <h3 style={{
               fontSize: '14px',
               fontWeight: 600,
               color: '#666',
+              marginBottom: '24px',
               textTransform: 'uppercase',
               letterSpacing: '1px',
-              marginBottom: '20px',
-              textAlign: 'center',
             }}>
-              Find Events By Genre
+              Without Sounded Out
             </h3>
-            <div style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-              gap: '10px',
-            }}>
-              {stats.genres.map((genre) => (
-                <Link
-                  key={genre}
-                  href={`/?genre=${encodeURIComponent(genre)}`}
-                  style={{
-                    padding: '10px 20px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '20px',
-                    color: '#888',
-                    textDecoration: 'none',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    textTransform: 'capitalize',
-                    transition: 'all 200ms ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(171,103,247,0.15)'
-                    e.currentTarget.style.borderColor = 'rgba(171,103,247,0.3)'
-                    e.currentTarget.style.color = '#ab67f7'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
-                    e.currentTarget.style.color = '#888'
-                  }}
-                >
-                  {genre} Newcastle
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* What is Sounded Out - Authority section */}
-        <section style={{
-          maxWidth: '800px',
-          margin: '0 auto',
-          padding: '0 24px 80px',
-        }}>
-          <div style={{
-            background: 'rgba(20,20,22,0.6)',
-            backdropFilter: 'blur(40px)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: '24px',
-            padding: '40px',
-          }}>
-            <h3 style={{
-              fontSize: '24px',
-              fontWeight: 700,
-              marginBottom: '16px',
-            }}>
-              What is Sounded Out?
-            </h3>
-            <p style={{
-              fontSize: '16px',
-              color: '#999',
-              lineHeight: 1.8,
-              marginBottom: '20px',
-            }}>
-              <strong style={{ color: '#ccc' }}>Sounded Out is Newcastle's live nightlife map.</strong> We show what's actually happening tonight — clubs, DJ events, live music, and late-night venues — updated daily.
-            </p>
-            <p style={{
-              fontSize: '16px',
-              color: '#999',
-              lineHeight: 1.8,
-              marginBottom: '20px',
-            }}>
-              No more scrolling through Instagram stories or outdated listings. Find events with clear details: what's free, what runs late, and what's genuinely worth going to.
-            </p>
-            <p style={{
-              fontSize: '14px',
-              color: '#666',
-              fontStyle: 'italic',
-            }}>
-              Built in Newcastle. Used by thousands planning nights out across the city.
-            </p>
-          </div>
-        </section>
-
-        {/* FAQ Section - Targets "People Also Ask" */}
-        <section style={{
-          maxWidth: '800px',
-          margin: '0 auto',
-          padding: '0 24px 80px',
-        }}>
-          <h3 style={{
-            fontSize: '24px',
-            fontWeight: 700,
-            marginBottom: '24px',
-            textAlign: 'center',
-          }}>
-            Frequently Asked Questions
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {[
-              {
-                q: "What's on in Newcastle tonight?",
-                a: "Sounded Out shows all live clubs, DJ events, and late-night venues happening in Newcastle tonight. Our map updates daily with events across the city — from techno and house to drum and bass, indie nights, and more."
-              },
-              {
-                q: "What are the best clubs in Newcastle?",
-                a: "Newcastle has a thriving club scene with venues like Digital, Riverside, World Headquarters, and more. Sounded Out maps all club nights so you can see what's actually happening tonight, not just venue listings."
-              },
-              {
-                q: "Where can I find drum and bass events in Newcastle?",
-                a: "Newcastle has regular drum and bass nights at venues across the city. Use Sounded Out to filter by genre and find DnB events happening tonight or this weekend."
-              },
-              {
-                q: "Is Sounded Out free to use?",
-                a: "Yes, Sounded Out is completely free. We're building the best way to discover nightlife in Newcastle — no account required, no paywalls, just clarity on what's happening tonight."
-              },
-            ].map((faq, i) => (
-              <details
-                key={i}
-                style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                }}
-              >
-                <summary style={{
-                  padding: '18px 20px',
-                  fontSize: '15px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  color: '#ccc',
-                  listStyle: 'none',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}>
-                  {faq.q}
-                  <span style={{ color: '#ab67f7', fontSize: '18px' }}>+</span>
-                </summary>
-                <div style={{
-                  padding: '0 20px 18px',
-                  fontSize: '14px',
-                  color: '#888',
-                  lineHeight: 1.7,
-                }}>
-                  {faq.a}
-                </div>
-              </details>
+              'Scrolling through Instagram stories',
+              'Asking mates "what\'s on?"',
+              'Outdated event listings',
+              'Guessing what\'s actually good',
+            ].map((item, i) => (
+              <div key={i} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                marginBottom: '16px',
+                fontSize: '15px',
+                color: '#888',
+              }}>
+                <span style={{ color: '#ef4444' }}>✕</span>
+                {item}
+              </div>
             ))}
           </div>
-        </section>
 
-        {/* Final CTA */}
-        <section style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          padding: '0 24px 100px',
-          textAlign: 'center',
-        }}>
-          <h3 style={{
-            fontSize: '28px',
-            fontWeight: 700,
-            marginBottom: '12px',
-          }}>
-            Ready to find your night?
-          </h3>
-          <p style={{
-            fontSize: '16px',
-            color: '#888',
-            marginBottom: '32px',
-          }}>
-            {stats.tonight > 0 
-              ? `${stats.tonight} events happening in Newcastle tonight`
-              : 'Explore what\'s happening in Newcastle'
-            }
-          </p>
-          <Link
-            href="/"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '18px 40px',
-              background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
-              borderRadius: '16px',
-              color: 'white',
-              textDecoration: 'none',
-              fontSize: '18px',
-              fontWeight: 700,
-              boxShadow: '0 8px 32px rgba(171,103,247,0.4)',
-            }}
-          >
-            Open the Map
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-          </Link>
-        </section>
-
-        {/* Footer */}
-        <footer style={{
-          borderTop: '1px solid rgba(255,255,255,0.08)',
-          padding: '40px 24px',
-          textAlign: 'center',
-        }}>
+          {/* With */}
           <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '24px',
-            flexWrap: 'wrap',
-            marginBottom: '20px',
+            background: 'rgba(171,103,247,0.08)',
+            border: '1px solid rgba(171,103,247,0.3)',
+            borderRadius: '16px',
+            padding: '32px',
           }}>
-            <Link href="/about" style={{ color: '#666', fontSize: '13px', textDecoration: 'none' }}>
-              About
-            </Link>
-            <Link href="/terms" style={{ color: '#666', fontSize: '13px', textDecoration: 'none' }}>
-              Terms
-            </Link>
-            <Link href="/privacy" style={{ color: '#666', fontSize: '13px', textDecoration: 'none' }}>
-              Privacy
-            </Link>
-            <a 
-              href="https://instagram.com/sounded.out" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              style={{ color: '#666', fontSize: '13px', textDecoration: 'none' }}
-            >
-              Instagram
-            </a>
+            <h3 style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              color: '#ab67f7',
+              marginBottom: '24px',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+            }}>
+              With Sounded Out
+            </h3>
+            {[
+              'Every event on one map',
+              'Updated daily',
+              'Filter by genre',
+              'Know what\'s worth going to',
+            ].map((item, i) => (
+              <div key={i} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                marginBottom: '16px',
+                fontSize: '15px',
+                color: '#ccc',
+              }}>
+                <span style={{ color: '#22c55e' }}>✓</span>
+                {item}
+              </div>
+            ))}
           </div>
-          <p style={{ fontSize: '12px', color: '#444' }}>
-            © {new Date().getFullYear()} Sounded Out. Newcastle's live nightlife map.
-          </p>
-        </footer>
-      </div>
+        </div>
+      </section>
 
-      {/* CSS Animations */}
+      {/* HOW IT WORKS */}
+      <section style={{
+        background: 'rgba(255,255,255,0.02)',
+        padding: '100px 24px',
+      }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <p style={{
+            fontSize: '13px',
+            fontWeight: 600,
+            color: '#ab67f7',
+            textTransform: 'uppercase',
+            letterSpacing: '2px',
+            marginBottom: '16px',
+            textAlign: 'center',
+          }}>
+            How it works
+          </p>
+          <h2 style={{
+            fontSize: 'clamp(28px, 5vw, 40px)',
+            fontWeight: 700,
+            textAlign: 'center',
+            marginBottom: '60px',
+          }}>
+            Three Steps to a Better Night
+          </h2>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '40px',
+          }}>
+            {[
+              {
+                num: '1',
+                title: 'Open the Map',
+                desc: 'See every event happening in Newcastle tonight, tomorrow, or this weekend.',
+              },
+              {
+                num: '2',
+                title: 'Filter by Vibe',
+                desc: 'Techno, house, DnB, indie — find exactly what you\'re in the mood for.',
+              },
+              {
+                num: '3',
+                title: 'Choose with Clarity',
+                desc: 'See prices, times, and SO Picks — events we think are worth going to.',
+              },
+            ].map((step) => (
+              <div key={step.num} style={{ textAlign: 'center' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  background: '#ab67f7',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 20px',
+                  fontSize: '20px',
+                  fontWeight: 700,
+                }}>
+                  {step.num}
+                </div>
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: 700,
+                  marginBottom: '8px',
+                }}>
+                  {step.title}
+                </h3>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#888',
+                  lineHeight: 1.6,
+                }}>
+                  {step.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* WHAT IS SOUNDED OUT - SEO Content */}
+      <section style={{
+        maxWidth: '700px',
+        margin: '0 auto',
+        padding: '100px 24px',
+        textAlign: 'center',
+      }}>
+        <h2 style={{
+          fontSize: 'clamp(24px, 5vw, 32px)',
+          fontWeight: 700,
+          marginBottom: '24px',
+        }}>
+          What is Sounded Out?
+        </h2>
+        <p style={{
+          fontSize: '16px',
+          color: '#999',
+          lineHeight: 1.8,
+          marginBottom: '20px',
+        }}>
+          <strong style={{ color: '#fff' }}>Sounded Out is Newcastle&apos;s live nightlife map.</strong> We show what&apos;s actually happening tonight — clubs, DJ events, live music, and late-night venues — all in one place.
+        </p>
+        <p style={{
+          fontSize: '16px',
+          color: '#999',
+          lineHeight: 1.8,
+          marginBottom: '20px',
+        }}>
+          No more scrolling through Instagram stories. No more outdated listings. Just clarity on what&apos;s worth going to.
+        </p>
+        <p style={{
+          fontSize: '14px',
+          color: '#666',
+          fontStyle: 'italic',
+        }}>
+          Built in Newcastle. Updated daily.
+        </p>
+      </section>
+
+      {/* FAQ SECTION */}
+      <section style={{
+        maxWidth: '700px',
+        margin: '0 auto',
+        padding: '0 24px 100px',
+      }}>
+        <h2 style={{
+          fontSize: '24px',
+          fontWeight: 700,
+          marginBottom: '32px',
+          textAlign: 'center',
+        }}>
+          Frequently Asked Questions
+        </h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {[
+            {
+              q: "What's on in Newcastle tonight?",
+              a: "Sounded Out shows all live clubs, DJ events, and late-night venues happening in Newcastle tonight. Our map updates daily with events across the city — from techno and house to drum and bass and indie nights."
+            },
+            {
+              q: "Is Sounded Out free?",
+              a: "Yes, completely free. No account needed. Just open the map and find your night."
+            },
+            {
+              q: "What are SO Picks?",
+              a: "SO Picks are events we think stand out — for the music, the atmosphere, or the community. Not paid placements, just genuine recommendations."
+            },
+            {
+              q: "How often is it updated?",
+              a: "Daily. We add new events as they're announced and remove ones that have passed."
+            },
+          ].map((faq, i) => (
+            <details
+              key={i}
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '12px',
+              }}
+            >
+              <summary style={{
+                padding: '18px 20px',
+                fontSize: '15px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                color: '#ccc',
+                listStyle: 'none',
+              }}>
+                {faq.q}
+              </summary>
+              <div style={{
+                padding: '0 20px 18px',
+                fontSize: '14px',
+                color: '#888',
+                lineHeight: 1.7,
+              }}>
+                {faq.a}
+              </div>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      {/* FINAL CTA */}
+      <section style={{
+        background: 'linear-gradient(180deg, transparent 0%, rgba(171,103,247,0.1) 100%)',
+        padding: '100px 24px',
+        textAlign: 'center',
+      }}>
+        <h2 style={{
+          fontSize: 'clamp(32px, 6vw, 48px)',
+          fontWeight: 800,
+          marginBottom: '16px',
+        }}>
+          STOP GUESSING.<br />
+          <span style={{ color: '#ab67f7' }}>START KNOWING.</span>
+        </h2>
+        <p style={{
+          fontSize: '16px',
+          color: '#888',
+          marginBottom: '32px',
+        }}>
+          {stats.tonight > 0 
+            ? `${stats.tonight} events happening in Newcastle tonight.`
+            : "See what's happening in Newcastle tonight."
+          }
+        </p>
+        <Link
+          href="/"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '18px 36px',
+            background: '#ab67f7',
+            borderRadius: '12px',
+            color: 'white',
+            textDecoration: 'none',
+            fontSize: '18px',
+            fontWeight: 700,
+          }}
+        >
+          Open the Map →
+        </Link>
+        <p style={{ fontSize: '13px', color: '#555', marginTop: '16px' }}>
+          Free forever. No account needed.
+        </p>
+      </section>
+
+      {/* FOOTER */}
+      <footer style={{
+        borderTop: '1px solid rgba(255,255,255,0.08)',
+        padding: '40px 24px',
+        textAlign: 'center',
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '32px',
+          flexWrap: 'wrap',
+          marginBottom: '20px',
+        }}>
+          <Link href="/about" style={{ color: '#555', fontSize: '13px', textDecoration: 'none' }}>About</Link>
+          <Link href="/terms" style={{ color: '#555', fontSize: '13px', textDecoration: 'none' }}>Terms</Link>
+          <Link href="/privacy" style={{ color: '#555', fontSize: '13px', textDecoration: 'none' }}>Privacy</Link>
+          <a href="https://instagram.com/sounded.out" target="_blank" rel="noopener noreferrer" style={{ color: '#555', fontSize: '13px', textDecoration: 'none' }}>Instagram</a>
+        </div>
+        <p style={{ fontSize: '12px', color: '#333' }}>
+          © {new Date().getFullYear()} Sounded Out. Newcastle&apos;s live nightlife map.
+        </p>
+      </footer>
+
       <style>{`
-        .orb {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(80px);
-        }
-        
-        .orb1 {
-          top: -20%;
-          left: -10%;
-          width: 600px;
-          height: 600px;
-          background: radial-gradient(circle, rgba(171,103,247,0.25) 0%, rgba(171,103,247,0.08) 40%, transparent 70%);
-          animation: floatOrb1 20s ease-in-out infinite;
-        }
-        
-        .orb2 {
-          top: 10%;
-          right: -15%;
-          width: 500px;
-          height: 500px;
-          background: radial-gradient(circle, rgba(171,103,247,0.2) 0%, rgba(171,103,247,0.06) 40%, transparent 70%);
-          animation: floatOrb2 25s ease-in-out infinite;
-        }
-        
-        .orb3 {
-          top: 60%;
-          left: 20%;
-          width: 450px;
-          height: 450px;
-          background: radial-gradient(circle, rgba(171,103,247,0.15) 0%, rgba(171,103,247,0.04) 40%, transparent 70%);
-          animation: floatOrb3 28s ease-in-out infinite;
-        }
-        
-        .orb4 {
-          bottom: -15%;
-          right: 10%;
-          width: 550px;
-          height: 550px;
-          background: radial-gradient(circle, rgba(171,103,247,0.2) 0%, rgba(171,103,247,0.06) 40%, transparent 70%);
-          animation: floatOrb4 22s ease-in-out infinite;
-        }
-        
-        @keyframes floatOrb1 {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          25% { transform: translate(60px, -80px) scale(1.15); }
-          50% { transform: translate(-40px, 40px) scale(0.9); }
-          75% { transform: translate(80px, 30px) scale(1.1); }
-        }
-        
-        @keyframes floatOrb2 {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(-70px, 60px) scale(1.12); }
-          66% { transform: translate(50px, -50px) scale(0.88); }
-        }
-        
-        @keyframes floatOrb3 {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(50px, 70px) scale(1.2); }
-          66% { transform: translate(-80px, -40px) scale(0.85); }
-        }
-        
-        @keyframes floatOrb4 {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          50% { transform: translate(-60px, 80px) scale(1.18); }
-        }
-        
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-        
-        details summary::-webkit-details-marker {
-          display: none;
-        }
-        
-        details[open] summary span {
-          transform: rotate(45deg);
-        }
+        details summary::-webkit-details-marker { display: none; }
+        details summary { list-style: none; }
       `}</style>
     </div>
   )
