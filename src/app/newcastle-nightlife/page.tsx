@@ -17,6 +17,17 @@ type EventStats = {
   genres: string[]
 }
 
+type Event = {
+  id: string
+  start_time: string
+  venue_id: string
+  genres?: string
+  venue?: {
+    id: string
+    name: string
+  }
+}
+
 export default function NewcastleNightlifePage() {
   const [stats, setStats] = useState<EventStats>({
     tonight: 0,
@@ -59,25 +70,25 @@ export default function NewcastleNightlifePage() {
         .order('start_time')
 
       if (events) {
-        const tonightCount = events.filter(e => 
+        const tonightCount = events.filter((e: Event) =>
           e.start_time.startsWith(today)
         ).length
 
-        const tomorrowCount = events.filter(e => 
+        const tomorrowCount = events.filter((e: Event) =>
           e.start_time.startsWith(tomorrowStr)
         ).length
 
-        const weekendCount = events.filter(e => {
+        const weekendCount = events.filter((e: Event) => {
           const d = new Date(e.start_time)
           return d >= friday && d <= sunday
         }).length
 
         // Count unique venues
-        const uniqueVenues = new Set(events.map(e => e.venue_id))
+        const uniqueVenues = new Set(events.map((e: Event) => e.venue_id))
         
         // Get unique genres
         const allGenres = new Set<string>()
-        events.forEach(e => {
+        events.forEach((e: Event) => {
           if (e.genres) {
             e.genres.split(',').forEach((g: string) => allGenres.add(g.trim().toLowerCase()))
           }
