@@ -37,7 +37,7 @@ export default function NewcastleNightlifePage() {
   const cardRefs = useRef<(HTMLDivElement | null)[]>([])
 
   const EMAIL = 'oliver@soundedout.com'
-  const WHATSAPP = '447123456789' // Replace with your actual WhatsApp number
+  const WHATSAPP = '447584426424' // Replace with your actual WhatsApp number
 
   // Trigger animations + scroll unlock
   useEffect(() => {
