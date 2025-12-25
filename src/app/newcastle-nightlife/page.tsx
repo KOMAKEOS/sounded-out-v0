@@ -664,7 +664,7 @@ export default function NewcastleNightlifePage() {
                 <span className="text-accent">care about their nights</span>
               </h2>
               <p className="body-md text-muted" style={{ maxWidth: '480px', margin: '0 auto' }}>
-                Not another event aggregator. A curated guide to what&apos;s actually worth going to.
+               Everything you need to decide, all in one place.
               </p>
             </div>
 
