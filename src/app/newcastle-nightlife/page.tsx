@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabase'
 
 // ============================================================================
 // NEWCASTLE NIGHTLIFE - £500K Mobile-First Premium Landing
-// Updates: Event-focused carousel, interactive cards, monetization hooks
+// Updates: Event deep links, centered carousel, contact modal
 // ============================================================================
 
 type Event = {
@@ -32,7 +32,12 @@ export default function NewcastleNightlifePage() {
   const [loading, setLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
   const [activeCard, setActiveCard] = useState<number | null>(null)
+  const [showContact, setShowContact] = useState(false)
+  const [copied, setCopied] = useState(false)
   const cardRefs = useRef<(HTMLDivElement | null)[]>([])
+
+  const EMAIL = 'oliver@soundedout.com'
+  const WHATSAPP = '447123456789' // Replace with your actual WhatsApp number
 
   // Trigger animations + scroll unlock
   useEffect(() => {
@@ -121,6 +126,24 @@ export default function NewcastleNightlifePage() {
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   const formatTime = (d: string) => new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(EMAIL)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = EMAIL
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
   const valueProps = [
     { icon: '◉', title: 'Live map', desc: 'Every venue, every event, plotted in real-time. Filter by genre, date, or vibe. See exactly what\'s happening across Newcastle tonight.' },
     { icon: '✦', title: 'SO Picks', desc: 'Events we think stand out — for the music, the atmosphere, or the community. Not paid placements. Just genuine recommendations from people who go out.' },
@@ -180,6 +203,14 @@ export default function NewcastleNightlifePage() {
           0%, 100% { box-shadow: 0 0 20px rgba(171,103,247,0.3); }
           50% { box-shadow: 0 0 40px rgba(171,103,247,0.5); }
         }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes scaleIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
 
         .animate-fade-up { opacity: 0; animation: fadeUp 0.6s ease-out forwards; }
         .delay-1 { animation-delay: 0.1s; }
@@ -189,14 +220,11 @@ export default function NewcastleNightlifePage() {
 
         .scroll-x {
           display: flex;
-          gap: 12px;
+          gap: 16px;
           overflow-x: auto;
           scroll-snap-type: x mandatory;
           -webkit-overflow-scrolling: touch;
-          padding: 4px;
-          margin: 0 -20px;
-          padding-left: 20px;
-          padding-right: 20px;
+          padding: 8px 0;
         }
         .scroll-x::-webkit-scrollbar { display: none; }
         .scroll-x > * { scroll-snap-align: start; flex-shrink: 0; }
@@ -317,7 +345,126 @@ export default function NewcastleNightlifePage() {
           outline: 2px solid #ab67f7;
           outline-offset: 2px;
         }
+
+        /* Modal styles */
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.8);
+          backdrop-filter: blur(8px);
+          z-index: 200;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          animation: fadeIn 0.2s ease-out;
+        }
+        .modal-content {
+          background: #111;
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 20px;
+          padding: 32px;
+          max-width: 400px;
+          width: 100%;
+          animation: scaleIn 0.2s ease-out;
+        }
+        .modal-close {
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          background: none;
+          border: none;
+          color: rgba(255,255,255,0.5);
+          font-size: 24px;
+          cursor: pointer;
+          padding: 8px;
+          line-height: 1;
+        }
+        .modal-close:hover { color: #fff; }
+
+        .contact-option {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 16px;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          width: 100%;
+          text-align: left;
+          color: #fff;
+          text-decoration: none;
+        }
+        .contact-option:hover {
+          background: rgba(171,103,247,0.1);
+          border-color: rgba(171,103,247,0.2);
+        }
+        .contact-icon {
+          width: 44px;
+          height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255,255,255,0.06);
+          border-radius: 10px;
+          font-size: 20px;
+        }
       `}</style>
+
+      {/* Contact Modal */}
+      {showContact && (
+        <div className="modal-overlay" onClick={() => setShowContact(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
+            <button className="modal-close" onClick={() => setShowContact(false)}>×</button>
+            
+            <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '8px' }}>Get in touch</h3>
+            <p className="text-muted" style={{ marginBottom: '24px' }}>Choose how you&apos;d like to contact us</p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Copy email */}
+              <button className="contact-option" onClick={copyEmail}>
+                <div className="contact-icon">✉️</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, marginBottom: '2px' }}>
+                    {copied ? 'Copied!' : 'Copy email'}
+                  </div>
+                  <div className="text-muted" style={{ fontSize: '0.875rem' }}>{EMAIL}</div>
+                </div>
+                <span style={{ color: '#ab67f7', fontSize: '0.875rem' }}>
+                  {copied ? '✓' : 'Copy'}
+                </span>
+              </button>
+
+              {/* Open in email app */}
+              <a href={`mailto:${EMAIL}`} className="contact-option">
+                <div className="contact-icon">📧</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, marginBottom: '2px' }}>Open email app</div>
+                  <div className="text-muted" style={{ fontSize: '0.875rem' }}>Opens your default mail client</div>
+                </div>
+                <span style={{ color: 'rgba(255,255,255,0.3)' }}>→</span>
+              </a>
+
+              {/* WhatsApp */}
+              <a 
+                href={`https://wa.me/${WHATSAPP}?text=Hi%20Oliver%2C%20I%27m%20interested%20in%20Sounded%20Out`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="contact-option"
+              >
+                <div className="contact-icon">💬</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, marginBottom: '2px' }}>WhatsApp</div>
+                  <div className="text-muted" style={{ fontSize: '0.875rem' }}>Message on WhatsApp</div>
+                </div>
+                <span style={{ color: 'rgba(255,255,255,0.3)' }}>→</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ minHeight: '100dvh', overflowX: 'hidden' }}>
         {/* NAV */}
@@ -426,10 +573,10 @@ export default function NewcastleNightlifePage() {
           </div>
         </section>
 
-        {/* EVENTS CAROUSEL */}
+        {/* EVENTS CAROUSEL - Centered */}
         <section id="events" style={{ padding: '48px 0', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
-          <div style={{ padding: '0 20px', marginBottom: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="container" style={{ padding: '0 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <div>
                 <h2 className="headline-md" style={{ marginBottom: '4px' }}>Coming up</h2>
                 <p className="text-muted" style={{ fontSize: '0.875rem' }}>Click any event to see it on the map</p>
@@ -438,71 +585,71 @@ export default function NewcastleNightlifePage() {
                 View all →
               </Link>
             </div>
-          </div>
-          
-          <div className="scroll-x">
-            {stats.events.length > 0 ? stats.events.slice(0, 8).map((event, i) => (
-              <Link
-                key={event.id}
-                href="/"
-                className="event-card"
-                style={{
-                  animation: mounted ? `slideIn 0.4s ease-out ${i * 0.05}s forwards` : 'none',
-                  opacity: mounted ? 0 : 1,
-                }}
-              >
-                {/* Date badge */}
-                <div style={{
-                  display: 'inline-block',
-                  padding: '6px 10px',
-                  background: 'rgba(171,103,247,0.1)',
-                  borderRadius: '8px',
-                  marginBottom: '16px',
-                }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#ab67f7' }}>
-                    {formatDate(event.start_time)}
-                  </span>
-                </div>
-
-                {/* Event name - prominent */}
-                <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '8px', lineHeight: 1.3 }}>
-                  {event.name}
-                </h3>
-
-                {/* Venue - secondary */}
-                <p className="text-muted" style={{ fontSize: '0.875rem', marginBottom: '12px' }}>
-                  @ {event.venue?.name}
-                </p>
-
-                {/* Time + SO Pick */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
-                    {formatTime(event.start_time)}
-                  </span>
-                  {event.is_so_pick && (
-                    <span style={{
-                      padding: '3px 8px',
-                      background: 'rgba(171,103,247,0.2)',
-                      borderRadius: '6px',
-                      fontSize: '0.65rem',
-                      fontWeight: 700,
-                      color: '#ab67f7',
-                      letterSpacing: '0.02em',
-                    }}>
-                      SO PICK
+            
+            <div className="scroll-x">
+              {stats.events.length > 0 ? stats.events.slice(0, 8).map((event, i) => (
+                <Link
+                  key={event.id}
+                  href={`/?event=${event.id}`}
+                  className="event-card"
+                  style={{
+                    animation: mounted ? `slideIn 0.4s ease-out ${i * 0.05}s forwards` : 'none',
+                    opacity: mounted ? 0 : 1,
+                  }}
+                >
+                  {/* Date badge */}
+                  <div style={{
+                    display: 'inline-block',
+                    padding: '6px 10px',
+                    background: 'rgba(171,103,247,0.1)',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                  }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#ab67f7' }}>
+                      {formatDate(event.start_time)}
                     </span>
-                  )}
-                </div>
-              </Link>
-            )) : (
-              [...Array(4)].map((_, i) => (
-                <div key={i} className="event-card" style={{ opacity: 0.5 }}>
-                  <div style={{ height: '24px', width: '80px', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', marginBottom: '16px' }} />
-                  <div style={{ height: '24px', width: '180px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', marginBottom: '8px' }} />
-                  <div style={{ height: '16px', width: '120px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }} />
-                </div>
-              ))
-            )}
+                  </div>
+
+                  {/* Event name - prominent */}
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '8px', lineHeight: 1.3 }}>
+                    {event.name}
+                  </h3>
+
+                  {/* Venue - secondary */}
+                  <p className="text-muted" style={{ fontSize: '0.875rem', marginBottom: '12px' }}>
+                    @ {event.venue?.name}
+                  </p>
+
+                  {/* Time + SO Pick */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
+                      {formatTime(event.start_time)}
+                    </span>
+                    {event.is_so_pick && (
+                      <span style={{
+                        padding: '3px 8px',
+                        background: 'rgba(171,103,247,0.2)',
+                        borderRadius: '6px',
+                        fontSize: '0.65rem',
+                        fontWeight: 700,
+                        color: '#ab67f7',
+                        letterSpacing: '0.02em',
+                      }}>
+                        SO PICK
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              )) : (
+                [...Array(4)].map((_, i) => (
+                  <div key={i} className="event-card" style={{ opacity: 0.5 }}>
+                    <div style={{ height: '24px', width: '80px', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', marginBottom: '16px' }} />
+                    <div style={{ height: '24px', width: '180px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', marginBottom: '8px' }} />
+                    <div style={{ height: '16px', width: '120px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }} />
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </section>
 
@@ -622,9 +769,9 @@ export default function NewcastleNightlifePage() {
                 <Link href="/about" className="btn-primary">
                   Learn more
                 </Link>
-                <a href="mailto:hello@soundedout.com" className="btn-secondary">
+                <button onClick={() => setShowContact(true)} className="btn-secondary">
                   Get in touch
-                </a>
+                </button>
               </div>
             </div>
           </div>
@@ -656,15 +803,15 @@ export default function NewcastleNightlifePage() {
                 },
                 { 
                   q: "How do I get my venue or event listed?", 
-                  a: "We're always looking to add great venues and events to the map. If you run a venue or promote events in Newcastle, get in touch at hello@soundedout.com. We'll review your venue and get you set up — it's free to be listed." 
+                  a: "We're always looking to add great venues and events to the map. If you run a venue or promote events in Newcastle, get in touch at oliver@soundedout.com. We'll review your venue and get you set up — it's free to be listed." 
                 },
                 { 
                   q: "Can I claim my venue?", 
-                  a: "Yes! If your venue is already on the map, you can claim it to update information, add upcoming events, and make sure everything is accurate. Contact us at hello@soundedout.com with your venue name and we'll verify ownership." 
+                  a: "Yes! If your venue is already on the map, you can claim it to update information, add upcoming events, and make sure everything is accurate. Contact us at oliver@soundedout.com with your venue name and we'll verify ownership." 
                 },
                 { 
                   q: "Do you offer sponsorship or featured placements?", 
-                  a: "We're exploring ways to help venues and promoters reach more people while keeping the platform authentic. If you're interested in partnership opportunities, reach out to hello@soundedout.com and let's talk." 
+                  a: "We're exploring ways to help venues and promoters reach more people while keeping the platform authentic. If you're interested in partnership opportunities, reach out to oliver@soundedout.com and let's talk." 
                 },
                 { 
                   q: "What areas does Sounded Out cover?", 
@@ -748,7 +895,13 @@ export default function NewcastleNightlifePage() {
               <Link href="/about" className="text-muted" style={{ fontSize: '0.875rem', textDecoration: 'none' }}>About</Link>
               <Link href="/terms" className="text-muted" style={{ fontSize: '0.875rem', textDecoration: 'none' }}>Terms</Link>
               <Link href="/privacy" className="text-muted" style={{ fontSize: '0.875rem', textDecoration: 'none' }}>Privacy</Link>
-              <a href="mailto:hello@soundedout.com" className="text-muted" style={{ fontSize: '0.875rem', textDecoration: 'none' }}>Contact</a>
+              <button 
+                onClick={() => setShowContact(true)} 
+                className="text-muted" 
+                style={{ fontSize: '0.875rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                Contact
+              </button>
               <a href="https://instagram.com/sounded.out" target="_blank" rel="noopener noreferrer" className="text-muted" style={{ fontSize: '0.875rem', textDecoration: 'none' }}>Instagram</a>
             </div>
             <p className="text-muted-2" style={{ fontSize: '0.75rem' }}>
