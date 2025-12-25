@@ -711,13 +711,13 @@ export default function NewcastleNightlifePage() {
                 </h2>
                 <div className="body-md text-muted" style={{ lineHeight: 1.8 }}>
                   <p style={{ marginBottom: '20px' }}>
-                    <strong style={{ color: '#fff' }}>Sounded Out helps you choose a good night out&apos;s ,without the guesswork.</strong> We show what&apos;s actually happening tonight — clubs, DJ events, live music, and late-night venues — updated daily.
+                    <strong style={{ color: '#fff' }}>Sounded Out helps you choose a good night out, without the guesswork.</strong> We bring what&apos;s happening tonight this weekend, and beyond into one clear map. Real events, real times, and the details you actually need to decide.
                   </p>
                   <p style={{ marginBottom: '20px' }}>
-                    Stop scrolling through Instagram stories. Stop asking group chats &quot;what&apos;s on?&quot;. Just open the map and see everything in one place — with prices, times, and honest recommendations.
+                    No endless scrolling. No half-answers. Just open the map, see what’s on, and go.
                   </p>
                   <p className="text-muted-2">
-                    Built in Newcastle. Used by thousands. Free forever.
+                    Built in Newcastle. Updated daily. Free forever.
                   </p>
                 </div>
               </div>
