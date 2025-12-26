@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
@@ -7,16 +6,18 @@ import { supabase } from '../../lib/supabase'
 
 // ============================================================================
 // NEWCASTLE NIGHTLIFE - £500K Mobile-First Premium Landing
-// Updates: Event deep links, centered carousel, contact modal
+// Updates: Fixed event carousel, ambient floating orbs
 // ============================================================================
 
 type Event = {
   id: string
   name: string
+  title?: string
   start_time: string
   venue_id: string
   genres?: string
   is_so_pick?: boolean
+  so_pick?: boolean
   venue?: { id: string; name: string }
 }
 
@@ -38,9 +39,8 @@ export default function NewcastleNightlifePage() {
   const cardRefs = useRef<(HTMLDivElement | null)[]>([])
 
   const EMAIL = 'oliver@soundedout.com'
-  const WHATSAPP = '447584426424' // Replace with your actual WhatsApp number
+  const WHATSAPP = '447584426424'
 
-  // Trigger animations + scroll unlock
   useEffect(() => {
     setMounted(true)
     const html = document.documentElement
@@ -57,7 +57,6 @@ export default function NewcastleNightlifePage() {
     }
   }, [])
 
-  // Intersection observer for mobile card highlighting
   useEffect(() => {
     if (typeof window === 'undefined') return
     
@@ -80,7 +79,6 @@ export default function NewcastleNightlifePage() {
     return () => observer.disconnect()
   }, [mounted])
 
-  // Load data
   useEffect(() => {
     async function load() {
       try {
@@ -126,6 +124,15 @@ export default function NewcastleNightlifePage() {
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   const formatTime = (d: string) => new Date(d).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  
+  // Get event title (handles both 'title' and 'name' fields)
+  const getEventTitle = (e: Event) => e.title || e.name || 'Untitled Event'
+  
+  // Get first 2 genres as pills
+  const getGenrePills = (genres: string | undefined) => {
+    if (!genres) return []
+    return genres.split(',').map(g => g.trim()).filter(Boolean).slice(0, 2)
+  }
 
   const copyEmail = async () => {
     try {
@@ -133,7 +140,6 @@ export default function NewcastleNightlifePage() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      // Fallback for older browsers
       const textArea = document.createElement('textarea')
       textArea.value = EMAIL
       document.body.appendChild(textArea)
@@ -151,6 +157,25 @@ export default function NewcastleNightlifePage() {
     { icon: '↻', title: 'Updated daily', desc: 'New events added as they\'re announced. Past events removed automatically. Nothing stale, nothing missed, always current.' },
     { icon: '♫', title: 'Filter by sound', desc: 'Techno, house, drum and bass, disco, indie, R&B — find exactly what you\'re in the mood for. Your music, your night.' },
   ]
+
+  // Floating Orb component
+  const FloatingOrb = ({ size, top, left, delay, duration, color }: { 
+    size: number, top: string, left: string, delay: number, duration: number, color: string 
+  }) => (
+    <div style={{
+      position: 'absolute',
+      width: `${size}px`,
+      height: `${size}px`,
+      top,
+      left,
+      background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
+      borderRadius: '50%',
+      filter: 'blur(40px)',
+      opacity: 0.6,
+      animation: `floatOrb ${duration}s ease-in-out ${delay}s infinite`,
+      pointerEvents: 'none',
+    }} />
+  )
 
   return (
     <>
@@ -211,6 +236,38 @@ export default function NewcastleNightlifePage() {
         @keyframes scaleIn {
           from { opacity: 0; transform: scale(0.95); }
           to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes floatOrb {
+          0%, 100% { 
+            transform: translate(0, 0) scale(1); 
+            opacity: 0.4;
+          }
+          25% { 
+            transform: translate(30px, -20px) scale(1.1); 
+            opacity: 0.6;
+          }
+          50% { 
+            transform: translate(-20px, 30px) scale(0.9); 
+            opacity: 0.5;
+          }
+          75% { 
+            transform: translate(20px, 20px) scale(1.05); 
+            opacity: 0.7;
+          }
+        }
+        @keyframes floatOrbSlow {
+          0%, 100% { 
+            transform: translate(0, 0) rotate(0deg); 
+            opacity: 0.3;
+          }
+          33% { 
+            transform: translate(50px, -30px) rotate(120deg); 
+            opacity: 0.5;
+          }
+          66% { 
+            transform: translate(-30px, 40px) rotate(240deg); 
+            opacity: 0.4;
+          }
         }
 
         .animate-fade-up { opacity: 0; animation: fadeUp 0.6s ease-out forwards; }
@@ -313,10 +370,10 @@ export default function NewcastleNightlifePage() {
         }
         .btn-secondary:hover { background: rgba(255,255,255,0.1); }
 
-        .section { padding: 80px 20px; }
+        .section { padding: 80px 20px; position: relative; overflow: hidden; }
         @media (min-width: 768px) { .section { padding: 120px 40px; } }
 
-        .container { max-width: 1200px; margin: 0 auto; }
+        .container { max-width: 1200px; margin: 0 auto; position: relative; z-index: 1; }
 
         .text-accent { color: #ab67f7; }
         .text-muted { color: rgba(255,255,255,0.5); }
@@ -326,15 +383,17 @@ export default function NewcastleNightlifePage() {
         details summary::-webkit-details-marker { display: none; }
 
         .event-card {
-          width: 280px;
-          padding: 24px;
+          width: 300px;
+          padding: 20px;
           background: rgba(255,255,255,0.03);
           border: 1px solid rgba(255,255,255,0.08);
           border-radius: 16px;
           text-decoration: none;
           color: inherit;
           transition: all 0.2s ease;
-          display: block;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
         }
         .event-card:hover {
           background: rgba(171,103,247,0.08);
@@ -342,12 +401,23 @@ export default function NewcastleNightlifePage() {
           transform: translateY(-2px);
         }
 
+        .genre-pill {
+          display: inline-block;
+          padding: 4px 10px;
+          background: rgba(34, 211, 238, 0.1);
+          border: 1px solid rgba(34, 211, 238, 0.2);
+          border-radius: 100px;
+          font-size: 0.7rem;
+          font-weight: 600;
+          color: #22d3ee;
+          text-transform: lowercase;
+        }
+
         a:focus-visible, button:focus-visible {
           outline: 2px solid #ab67f7;
           outline-offset: 2px;
         }
 
-        /* Modal styles */
         .modal-overlay {
           position: fixed;
           inset: 0;
@@ -412,6 +482,14 @@ export default function NewcastleNightlifePage() {
           border-radius: 10px;
           font-size: 20px;
         }
+
+        .ambient-bg {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          pointer-events: none;
+          z-index: 0;
+        }
       `}</style>
 
       {/* Contact Modal */}
@@ -424,7 +502,6 @@ export default function NewcastleNightlifePage() {
             <p className="text-muted" style={{ marginBottom: '24px' }}>Choose how you&apos;d like to contact us</p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Copy email */}
               <button className="contact-option" onClick={copyEmail}>
                 <div className="contact-icon">✉️</div>
                 <div style={{ flex: 1 }}>
@@ -438,7 +515,6 @@ export default function NewcastleNightlifePage() {
                 </span>
               </button>
 
-              {/* Open in email app */}
               <a href={`mailto:${EMAIL}`} className="contact-option">
                 <div className="contact-icon">📧</div>
                 <div style={{ flex: 1 }}>
@@ -448,7 +524,6 @@ export default function NewcastleNightlifePage() {
                 <span style={{ color: 'rgba(255,255,255,0.3)' }}>→</span>
               </a>
 
-              {/* WhatsApp */}
               <a 
                 href={`https://wa.me/${WHATSAPP}?text=Hi%20Oliver%2C%20I%27m%20interested%20in%20Sounded%20Out`} 
                 target="_blank" 
@@ -500,17 +575,13 @@ export default function NewcastleNightlifePage() {
           position: 'relative',
           overflow: 'hidden',
         }}>
-          <div style={{
-            position: 'absolute',
-            top: '-20%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '150%',
-            maxWidth: '800px',
-            aspectRatio: '1',
-            background: 'radial-gradient(circle, rgba(171,103,247,0.12) 0%, transparent 60%)',
-            pointerEvents: 'none',
-          }} />
+          {/* Ambient background orbs */}
+          <div className="ambient-bg">
+            <FloatingOrb size={400} top="-10%" left="60%" delay={0} duration={20} color="rgba(171,103,247,0.15)" />
+            <FloatingOrb size={300} top="60%" left="-10%" delay={2} duration={25} color="rgba(171,103,247,0.1)" />
+            <FloatingOrb size={200} top="30%" left="80%" delay={5} duration={18} color="rgba(34,211,238,0.08)" />
+            <FloatingOrb size={150} top="70%" left="70%" delay={8} duration={22} color="rgba(171,103,247,0.12)" />
+          </div>
 
           <div className="container" style={{ position: 'relative', zIndex: 1 }}>
             <div className={mounted ? 'animate-fade-up' : ''} style={{
@@ -574,8 +645,13 @@ export default function NewcastleNightlifePage() {
           </div>
         </section>
 
-        {/* EVENTS CAROUSEL - Centered */}
-        <section id="events" style={{ padding: '48px 0', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+        {/* EVENTS CAROUSEL */}
+        <section id="events" style={{ padding: '48px 0', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', position: 'relative', overflow: 'hidden' }}>
+          {/* Subtle ambient orb */}
+          <div className="ambient-bg">
+            <FloatingOrb size={250} top="20%" left="90%" delay={3} duration={30} color="rgba(171,103,247,0.08)" />
+          </div>
+          
           <div className="container" style={{ padding: '0 20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <div>
@@ -598,40 +674,30 @@ export default function NewcastleNightlifePage() {
                     opacity: mounted ? 0 : 1,
                   }}
                 >
-                  {/* Date badge */}
-                  <div style={{
-                    display: 'inline-block',
-                    padding: '6px 10px',
-                    background: 'rgba(171,103,247,0.1)',
-                    borderRadius: '8px',
-                    marginBottom: '16px',
-                  }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#ab67f7' }}>
-                      {formatDate(event.start_time)}
-                    </span>
-                  </div>
-
-                  {/* Event name - prominent */}
-                  <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '8px', lineHeight: 1.3 }}>
-                    {event.name}
-                  </h3>
-
-                  {/* Venue - secondary */}
-                  <p className="text-muted" style={{ fontSize: '0.875rem', marginBottom: '12px' }}>
-                    @ {event.venue?.name}
-                  </p>
-
-                  {/* Time + SO Pick */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
-                      {formatTime(event.start_time)}
-                    </span>
-                    {event.is_so_pick && (
+                  {/* Top row: Date + Time + SO Pick */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ 
+                        padding: '5px 10px',
+                        background: 'rgba(171,103,247,0.1)',
+                        borderRadius: '6px',
+                        fontSize: '0.7rem', 
+                        fontWeight: 700, 
+                        color: '#ab67f7',
+                        textTransform: 'uppercase',
+                      }}>
+                        {formatDate(event.start_time)}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>
+                        {formatTime(event.start_time)}
+                      </span>
+                    </div>
+                    {(event.is_so_pick || event.so_pick) && (
                       <span style={{
-                        padding: '3px 8px',
+                        padding: '4px 8px',
                         background: 'rgba(171,103,247,0.2)',
                         borderRadius: '6px',
-                        fontSize: '0.65rem',
+                        fontSize: '0.6rem',
                         fontWeight: 700,
                         color: '#ab67f7',
                         letterSpacing: '0.02em',
@@ -640,13 +706,52 @@ export default function NewcastleNightlifePage() {
                       </span>
                     )}
                   </div>
+
+                  {/* Event title - THE MAIN FOCUS */}
+                  <h3 style={{ 
+                    fontSize: '1.1rem', 
+                    fontWeight: 700, 
+                    lineHeight: 1.3,
+                    color: '#fff',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}>
+                    {getEventTitle(event)}
+                  </h3>
+
+                  {/* Genre pills */}
+                  {event.genres && (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {getGenrePills(event.genres).map((genre, idx) => (
+                        <span key={idx} className="genre-pill">{genre}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Venue - secondary info */}
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '6px',
+                    paddingTop: '8px',
+                    borderTop: '1px solid rgba(255,255,255,0.06)',
+                    marginTop: 'auto',
+                  }}>
+                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>📍</span>
+                    <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>
+                      {event.venue?.name || 'Venue TBA'}
+                    </span>
+                  </div>
                 </Link>
               )) : (
                 [...Array(4)].map((_, i) => (
                   <div key={i} className="event-card" style={{ opacity: 0.5 }}>
-                    <div style={{ height: '24px', width: '80px', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', marginBottom: '16px' }} />
-                    <div style={{ height: '24px', width: '180px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', marginBottom: '8px' }} />
-                    <div style={{ height: '16px', width: '120px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }} />
+                    <div style={{ height: '20px', width: '120px', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', marginBottom: '12px' }} />
+                    <div style={{ height: '24px', width: '200px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', marginBottom: '8px' }} />
+                    <div style={{ height: '20px', width: '80px', background: 'rgba(255,255,255,0.05)', borderRadius: '100px', marginBottom: '12px' }} />
+                    <div style={{ height: '16px', width: '140px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }} />
                   </div>
                 ))
               )}
@@ -656,6 +761,12 @@ export default function NewcastleNightlifePage() {
 
         {/* VALUE PROPS */}
         <section className="section" style={{ background: '#000' }}>
+          {/* Ambient orbs */}
+          <div className="ambient-bg">
+            <FloatingOrb size={350} top="10%" left="-5%" delay={0} duration={28} color="rgba(171,103,247,0.1)" />
+            <FloatingOrb size={200} top="60%" left="85%" delay={4} duration={22} color="rgba(34,211,238,0.06)" />
+          </div>
+          
           <div className="container">
             <div style={{ textAlign: 'center', marginBottom: '60px' }}>
               <h2 className="headline-lg" style={{ marginBottom: '16px' }}>
@@ -664,7 +775,7 @@ export default function NewcastleNightlifePage() {
                 <span className="text-accent">care about their nights</span>
               </h2>
               <p className="body-md text-muted" style={{ maxWidth: '480px', margin: '0 auto' }}>
-               Everything you need to decide, all in one place.
+                Everything you need to decide, all in one place.
               </p>
             </div>
 
@@ -694,8 +805,14 @@ export default function NewcastleNightlifePage() {
           </div>
         </section>
 
-        {/* ABOUT / SEO - Redesigned */}
+        {/* ABOUT / SEO */}
         <section className="section" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          {/* Ambient orbs */}
+          <div className="ambient-bg">
+            <FloatingOrb size={300} top="50%" left="80%" delay={2} duration={25} color="rgba(171,103,247,0.1)" />
+            <FloatingOrb size={180} top="20%" left="10%" delay={6} duration={20} color="rgba(171,103,247,0.08)" />
+          </div>
+          
           <div className="container">
             <div style={{
               display: 'grid',
@@ -703,7 +820,6 @@ export default function NewcastleNightlifePage() {
               gap: '48px',
               alignItems: 'center',
             }}>
-              {/* Left: Content */}
               <div>
                 <span className="caption text-accent" style={{ display: 'block', marginBottom: '12px' }}>About</span>
                 <h2 className="headline-lg" style={{ marginBottom: '24px' }}>
@@ -711,10 +827,10 @@ export default function NewcastleNightlifePage() {
                 </h2>
                 <div className="body-md text-muted" style={{ lineHeight: 1.8 }}>
                   <p style={{ marginBottom: '20px' }}>
-                    <strong style={{ color: '#fff' }}>Sounded Out helps you choose a good night out, without the guesswork.</strong> We bring what&apos;s happening tonight this weekend, and beyond into one clear map. Real events, real times, and the details you actually need to decide.
+                    <strong style={{ color: '#fff' }}>Sounded Out helps you choose a good night out, without the guesswork.</strong> We bring what&apos;s happening tonight, this weekend, and beyond into one clear map. Real events, real times, and the details you actually need to decide.
                   </p>
                   <p style={{ marginBottom: '20px' }}>
-                    No endless scrolling. No half-answers. Just open the map, see what’s on, and go.
+                    No endless scrolling. No half-answers. Just open the map, see what's on, and go.
                   </p>
                   <p className="text-muted-2">
                     Built in Newcastle. Updated daily. Free forever.
@@ -722,7 +838,6 @@ export default function NewcastleNightlifePage() {
                 </div>
               </div>
 
-              {/* Right: Stats/Trust */}
               <div style={{
                 background: 'rgba(171,103,247,0.05)',
                 border: '1px solid rgba(171,103,247,0.1)',
@@ -749,8 +864,14 @@ export default function NewcastleNightlifePage() {
           </div>
         </section>
 
-        {/* FOR VENUES / PROMOTERS - Monetization hook */}
+        {/* FOR VENUES / PROMOTERS */}
         <section className="section" style={{ background: '#000' }}>
+          {/* Ambient orbs */}
+          <div className="ambient-bg">
+            <FloatingOrb size={250} top="30%" left="5%" delay={1} duration={24} color="rgba(171,103,247,0.1)" />
+            <FloatingOrb size={200} top="70%" left="75%" delay={5} duration={28} color="rgba(34,211,238,0.05)" />
+          </div>
+          
           <div className="container">
             <div style={{
               background: 'linear-gradient(135deg, rgba(171,103,247,0.1) 0%, rgba(171,103,247,0.02) 100%)',
@@ -778,8 +899,14 @@ export default function NewcastleNightlifePage() {
           </div>
         </section>
 
-        {/* FAQ - Expanded */}
+        {/* FAQ */}
         <section className="section" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          {/* Ambient orbs */}
+          <div className="ambient-bg">
+            <FloatingOrb size={300} top="10%" left="70%" delay={3} duration={26} color="rgba(171,103,247,0.08)" />
+            <FloatingOrb size={180} top="80%" left="20%" delay={7} duration={22} color="rgba(171,103,247,0.06)" />
+          </div>
+          
           <div className="container" style={{ maxWidth: '700px' }}>
             <div style={{ textAlign: 'center', marginBottom: '48px' }}>
               <h2 className="headline-lg">Frequently Asked Questions</h2>
@@ -849,17 +976,12 @@ export default function NewcastleNightlifePage() {
           paddingTop: '100px',
           paddingBottom: '100px',
         }}>
-          <div style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '100%',
-            maxWidth: '600px',
-            aspectRatio: '1',
-            background: 'radial-gradient(circle, rgba(171,103,247,0.15) 0%, transparent 60%)',
-            pointerEvents: 'none',
-          }} />
+          {/* Multiple ambient orbs for dramatic effect */}
+          <div className="ambient-bg">
+            <FloatingOrb size={500} top="40%" left="50%" delay={0} duration={30} color="rgba(171,103,247,0.12)" />
+            <FloatingOrb size={300} top="20%" left="20%" delay={2} duration={25} color="rgba(171,103,247,0.08)" />
+            <FloatingOrb size={250} top="60%" left="80%" delay={4} duration={22} color="rgba(34,211,238,0.06)" />
+          </div>
 
           <div className="container" style={{ position: 'relative', zIndex: 1 }}>
             <h2 className="headline-lg" style={{ marginBottom: '16px' }}>
@@ -883,7 +1005,12 @@ export default function NewcastleNightlifePage() {
         </section>
 
         {/* FOOTER */}
-        <footer style={{ padding: '40px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <footer style={{ padding: '40px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', position: 'relative', overflow: 'hidden' }}>
+          {/* Subtle footer orb */}
+          <div className="ambient-bg">
+            <FloatingOrb size={200} top="50%" left="10%" delay={0} duration={35} color="rgba(171,103,247,0.05)" />
+          </div>
+          
           <div className="container" style={{
             display: 'flex',
             flexDirection: 'column',
