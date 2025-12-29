@@ -1173,14 +1173,3 @@ function EventCard({ event, isPast = false }: { event: Event; isPast?: boolean }
     </Link>
   )
 }
-
-// Helper to get anon ID in components
-function getAnonId(): string {
-  if (typeof window === 'undefined') return ''
-  let id = localStorage.getItem('so_anon_id')
-  if (!id) {
-    id = 'user_' + Date.now() + '_' + Math.random().toString(36).slice(2)
-    localStorage.setItem('so_anon_id', id)
-  }
-  return id
-}
