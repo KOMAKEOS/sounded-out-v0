@@ -161,7 +161,7 @@ export default function ComingUpPage() {
       .select('brand_id')
       .eq('user_id', userId)
     
-    const brandIds = follows?.map(f => f.brand_id) || []
+    const brandIds = follows?.map((f: any) => f.brand_id) || []
     setFollowedBrandIds(brandIds)
     
     // 3. Get upcoming events from followed brands
