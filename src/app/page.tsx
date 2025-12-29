@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import mapboxgl from 'mapbox-gl'
 import { supabase } from '../lib/supabase'
+import { initAnalytics, trackEventView, trackTicketClick, trackDateFilter, trackGenreFilter, trackListOpen, trackMarkerClick } from '../lib/analytics'
 
 // ============================================================================
 // APPLE-GRADE MOTION CONSTANTS (Atlas audit Round 4)
@@ -85,6 +86,10 @@ type ViewMode = 'map' | 'preview' | 'detail' | 'list' | 'cluster'
 // MAIN COMPONENT
 // ============================================================================
 export default function Home() {
+  // Initialize analytics
+  useEffect(() => {
+    initAnalytics()
+  }, [])
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; el: HTMLDivElement; inner: HTMLDivElement }>>(new Map())
