@@ -343,7 +343,11 @@ export default function Home() {
     supabase.from('events').select('*, venue:venues(*)').eq('status', 'published')
       .gte('start_time', new Date().toISOString().split('T')[0]).order('start_time')
       .then(({ data }: { data: Event[] | null }) => { 
-        if (data) setEvents(data)
+        if (data) {
+          setEvents(data)
+          // ANALYTICS: Track map loaded
+          trackMapLoaded(data.length, new Set(data.map(e => e.venue_id)).size)
+        }
         setLoading(false) 
       })
   }, [])
@@ -622,6 +626,9 @@ export default function Home() {
           const idx = filtered.findIndex(x => x.id === evs[0].id)
           setCurrentIndex(idx)
           setViewMode('preview')
+          // ANALYTICS: Track marker click and event view
+          trackMarkerClick(evs[0].id, evs[0].title, v.name)
+          trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
         }
         
         // Make sheet visible after state is set
@@ -1178,7 +1185,7 @@ export default function Home() {
                   // 5 taps = go to admin
                   if (newCount >= 5) {
                     setLogoTapCount(0)
-                    window.location.href = '/admin'
+                    window.location.href = '/admin/analytics'
                     return
                   }
                   
