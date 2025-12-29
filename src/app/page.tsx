@@ -3,7 +3,24 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import mapboxgl from 'mapbox-gl'
 import { supabase } from '../lib/supabase'
-import { initAnalytics, trackEventView, trackTicketClick, trackDateFilter, trackGenreFilter, trackListOpen, trackMarkerClick } from '../lib/analytics'
+import { 
+  initAnalytics, 
+  trackEventView, 
+  trackTicketClick, 
+  trackDateFilter, 
+  trackGenreFilter, 
+  trackListOpen, 
+  trackMarkerClick,
+  trackMapLoaded,
+  trackDirectionsClick,
+  trackShareClick,
+  trackClaimStart,
+  trackClaimSubmit,
+  trackMenuOpen,
+  trackLocationEnabled,
+  trackLocationDenied,
+  trackCTAClick,
+} from '../lib/analytics'
 
 // ============================================================================
 // APPLE-GRADE MOTION CONSTANTS (Atlas audit Round 4)
@@ -103,6 +120,7 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [clusterEvents, setClusterEvents] = useState<Event[]>([])
   const [visibleDayLabel, setVisibleDayLabel] = useState<string>('') // Track visible day for sticky header
+  const [showAdminMenu, setShowAdminMenu] = useState(false)
   
   // Animation state
   const [isAnimating, setIsAnimating] = useState(false)
@@ -343,11 +361,15 @@ export default function Home() {
     supabase.from('events').select('*, venue:venues(*)').eq('status', 'published')
       .gte('start_time', new Date().toISOString().split('T')[0]).order('start_time')
       .then(({ data }: { data: Event[] | null }) => { 
-        if (data) {
-          setEvents(data)
-          // ANALYTICS: Track map loaded
-          trackMapLoaded(data.length, new Set(data.map(e => e.venue_id)).size)
-        }
+       if (data) {
+  setEvents(data)
+  // ANALYTICS: Track map loaded with counts
+  const venueIds = new Set<string>()
+  for (let i = 0; i < data.length; i++) {
+    venueIds.add(data[i].venue_id)
+  }
+  trackMapLoaded(data.length, venueIds.size)
+}
         setLoading(false) 
       })
   }, [])
@@ -1182,12 +1204,12 @@ export default function Home() {
                   // Reset counter after 3 seconds of no taps
                   logoTapTimer.current = setTimeout(() => setLogoTapCount(0), 3000)
                   
-                  // 5 taps = go to admin
-                  if (newCount >= 5) {
-                    setLogoTapCount(0)
-                    window.location.href = '/admin/analytics'
-                    return
-                  }
+                  // 5 taps = show admin menu
+if (newCount >= 5) {
+  setLogoTapCount(0)
+  setShowAdminMenu(true)
+  return
+}
                   
                   // Normal tap - reset map + clear filters
                   if (newCount === 1) {
@@ -2991,7 +3013,123 @@ export default function Home() {
             </div>
           </div>
         )}
-
+{/* Admin Menu - 5 tap access */}
+{showAdminMenu && (
+  <div 
+    onClick={() => setShowAdminMenu(false)}
+    style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.9)',
+      zIndex: 200,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px',
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        background: '#1a1a1f',
+        borderRadius: '20px',
+        padding: '24px',
+        width: '100%',
+        maxWidth: '320px',
+        border: '1px solid rgba(171,103,247,0.3)',
+      }}
+    >
+      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <span style={{ fontSize: '32px' }}>🔐</span>
+        <h3 style={{ fontSize: '18px', fontWeight: 700, marginTop: '12px', color: '#fff' }}>Admin Access</h3>
+        <p style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>Choose dashboard</p>
+      </div>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <a
+          href="/admin/analytics"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '16px',
+            background: 'linear-gradient(135deg, rgba(171,103,247,0.2), rgba(171,103,247,0.1))',
+            border: '1px solid rgba(171,103,247,0.3)',
+            borderRadius: '14px',
+            color: 'white',
+            textDecoration: 'none',
+          }}
+        >
+          <span style={{ 
+            width: '44px', 
+            height: '44px', 
+            background: '#ab67f7',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px',
+          }}>
+            📊
+          </span>
+          <div>
+            <p style={{ fontSize: '15px', fontWeight: 700, marginBottom: '2px' }}>Analytics</p>
+            <p style={{ fontSize: '12px', color: '#888' }}>Sessions, conversions, metrics</p>
+          </div>
+        </a>
+        
+        <a
+          href="/admin"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '16px',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '14px',
+            color: 'white',
+            textDecoration: 'none',
+          }}
+        >
+          <span style={{ 
+            width: '44px', 
+            height: '44px', 
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px',
+          }}>
+            ⚙️
+          </span>
+          <div>
+            <p style={{ fontSize: '15px', fontWeight: 700, marginBottom: '2px' }}>Content Admin</p>
+            <p style={{ fontSize: '12px', color: '#888' }}>Events, venues, claims</p>
+          </div>
+        </a>
+      </div>
+      
+      <button
+        onClick={() => setShowAdminMenu(false)}
+        style={{
+          width: '100%',
+          marginTop: '16px',
+          padding: '12px',
+          background: 'transparent',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: '10px',
+          color: '#666',
+          fontSize: '14px',
+          cursor: 'pointer',
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+)}
         {/* Global Styles */}
         <style jsx global>{`
           @keyframes slideDown {
