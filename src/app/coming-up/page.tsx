@@ -706,13 +706,3 @@ function EventCard({ event, onUpdate }: { event: EventWithMeta; onUpdate: () => 
     </div>
   )
 }
-
-function getAnonId(): string {
-  if (typeof window === 'undefined') return ''
-  let id = localStorage.getItem('so_anon_id')
-  if (!id) {
-    id = 'user_' + Date.now() + '_' + Math.random().toString(36).slice(2)
-    localStorage.setItem('so_anon_id', id)
-  }
-  return id
-}
