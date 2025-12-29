@@ -99,7 +99,7 @@ export default function PersonProfilePage() {
       
       // Fetch events from affiliated brands
       if (affiliationData && affiliationData.length > 0) {
-        const brandIds = affiliationData.map(a => a.brand.id)
+        const brandIds = affiliationData.map((a: any) => a.brand.id)
         const now = new Date().toISOString()
         
         const { data: upcoming } = await supabase
