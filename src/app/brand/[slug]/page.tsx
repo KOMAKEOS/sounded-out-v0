@@ -109,7 +109,7 @@ const formatPrice = (min: number | null, max: number | null) => {
 // ============================================================================
 export default function BrandProfilePage() {
   const params = useParams()
-  const slug = params.slug as string
+const slug = params.id as string  // Still treating it as a slug, just different param name
   
   const [brand, setBrand] = useState<Brand | null>(null)
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([])
