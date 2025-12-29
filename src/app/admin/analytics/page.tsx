@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
+import { supabase } from '@/lib/supabase'
 
 // ============================================================================
 // ADMIN ANALYTICS DASHBOARD
@@ -40,7 +40,7 @@ export default function AnalyticsDashboard() {
   }, [])
 
   const handleLogin = () => {
-    // Simple code check - you can make this more secure
+    // Simple code check - same as your admin code
     if (code === '1234' || code === process.env.NEXT_PUBLIC_ADMIN_CODE) {
       sessionStorage.setItem('so_admin_analytics', 'true')
       setAuthenticated(true)
@@ -53,14 +53,6 @@ export default function AnalyticsDashboard() {
     if (!authenticated) return
     loadStats()
   }, [authenticated, timeRange])
-
-  const getTimeFilter = () => {
-    switch (timeRange) {
-      case 'today': return "NOW() - INTERVAL '1 day'"
-      case '7days': return "NOW() - INTERVAL '7 days'"
-      case '30days': return "NOW() - INTERVAL '30 days'"
-    }
-  }
 
   const loadStats = async () => {
     setLoading(true)
@@ -78,8 +70,22 @@ export default function AnalyticsDashboard() {
         .gte('created_at', sinceStr)
         .order('created_at', { ascending: false })
 
-      if (!events) {
-        setStats(null)
+      if (!events || events.length === 0) {
+        setStats({
+          totalSessions: 0,
+          totalEvents: 0,
+          uniqueUsers: 0,
+          todaySessions: 0,
+          ticketClicks: 0,
+          eventViews: 0,
+          topEvents: [],
+          topVenues: [],
+          deviceBreakdown: [],
+          hourlyActivity: [],
+          recentEvents: [],
+          conversionRate: 0,
+          sourceBreakdown: [],
+        })
         setLoading(false)
         return
       }
@@ -200,7 +206,7 @@ export default function AnalyticsDashboard() {
           maxWidth: '400px',
           width: '100%',
         }}>
-          <h1 style={{ fontSize: '24px', marginBottom: '8px', color: '#fff' }}>Analytics Dashboard</h1>
+          <h1 style={{ fontSize: '24px', marginBottom: '8px', color: '#fff' }}>📊 Analytics Dashboard</h1>
           <p style={{ color: '#888', marginBottom: '24px' }}>Enter admin code to continue</p>
           <input
             type="password"
@@ -217,6 +223,7 @@ export default function AnalyticsDashboard() {
               color: '#fff',
               fontSize: '16px',
               marginBottom: '16px',
+              outline: 'none',
             }}
           />
           <button
@@ -262,7 +269,7 @@ export default function AnalyticsDashboard() {
             <p style={{ color: '#888' }}>Sounded Out Performance Metrics</p>
           </div>
           
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {(['today', '7days', '30days'] as const).map(range => (
               <button
                 key={range}
@@ -309,7 +316,7 @@ export default function AnalyticsDashboard() {
             {/* Key Metrics */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
               gap: '16px',
               marginBottom: '32px',
             }}>
@@ -318,65 +325,73 @@ export default function AnalyticsDashboard() {
               <MetricCard label="Today's Sessions" value={stats.todaySessions} color="#22c55e" />
               <MetricCard label="Event Views" value={stats.eventViews} color="#f59e0b" />
               <MetricCard label="Ticket Clicks" value={stats.ticketClicks} color="#ef4444" />
-              <MetricCard label="Conversion Rate" value={`${stats.conversionRate.toFixed(1)}%`} color="#8b5cf6" />
+              <MetricCard label="Conversion" value={`${stats.conversionRate.toFixed(1)}%`} color="#8b5cf6" />
             </div>
 
             {/* Charts Row */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
               gap: '16px',
               marginBottom: '32px',
             }}>
               {/* Device Breakdown */}
               <div style={{ background: '#141416', borderRadius: '12px', padding: '20px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: '#888' }}>📱 Devices</h3>
-                {stats.deviceBreakdown.map(d => (
-                  <div key={d.device} style={{ marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ textTransform: 'capitalize' }}>{d.device}</span>
-                      <span style={{ color: '#888' }}>{d.count}</span>
+                {stats.deviceBreakdown.length === 0 ? (
+                  <p style={{ color: '#555' }}>No data yet</p>
+                ) : (
+                  stats.deviceBreakdown.map(d => (
+                    <div key={d.device} style={{ marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ textTransform: 'capitalize' }}>{d.device}</span>
+                        <span style={{ color: '#888' }}>{d.count}</span>
+                      </div>
+                      <div style={{ height: '8px', background: '#1e1e24', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${(d.count / Math.max(stats.totalSessions, 1)) * 100}%`,
+                          background: d.device === 'mobile' ? '#ab67f7' : d.device === 'desktop' ? '#22d3ee' : '#22c55e',
+                          borderRadius: '4px',
+                        }} />
+                      </div>
                     </div>
-                    <div style={{ height: '8px', background: '#1e1e24', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%',
-                        width: `${(d.count / stats.totalSessions) * 100}%`,
-                        background: d.device === 'mobile' ? '#ab67f7' : d.device === 'desktop' ? '#22d3ee' : '#22c55e',
-                        borderRadius: '4px',
-                      }} />
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
 
               {/* Traffic Sources */}
               <div style={{ background: '#141416', borderRadius: '12px', padding: '20px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: '#888' }}>🔗 Traffic Sources</h3>
-                {stats.sourceBreakdown.map(s => (
-                  <div key={s.source} style={{ marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ textTransform: 'capitalize' }}>{s.source}</span>
-                      <span style={{ color: '#888' }}>{s.count}</span>
+                {stats.sourceBreakdown.length === 0 ? (
+                  <p style={{ color: '#555' }}>No data yet</p>
+                ) : (
+                  stats.sourceBreakdown.map(s => (
+                    <div key={s.source} style={{ marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ textTransform: 'capitalize' }}>{s.source}</span>
+                        <span style={{ color: '#888' }}>{s.count}</span>
+                      </div>
+                      <div style={{ height: '8px', background: '#1e1e24', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${(s.count / Math.max(stats.totalEvents, 1)) * 100}%`,
+                          background: '#ab67f7',
+                          borderRadius: '4px',
+                        }} />
+                      </div>
                     </div>
-                    <div style={{ height: '8px', background: '#1e1e24', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%',
-                        width: `${(s.count / stats.totalEvents) * 100}%`,
-                        background: '#ab67f7',
-                        borderRadius: '4px',
-                      }} />
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
 
               {/* Hourly Activity */}
               <div style={{ background: '#141416', borderRadius: '12px', padding: '20px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: '#888' }}>⏰ Peak Hours</h3>
-                <div style={{ display: 'flex', alignItems: 'flex-end', height: '120px', gap: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-end', height: '100px', gap: '3px' }}>
                   {stats.hourlyActivity.map(h => {
-                    const maxCount = Math.max(...stats.hourlyActivity.map(x => x.count))
-                    const height = maxCount > 0 ? (h.count / maxCount) * 100 : 0
+                    const maxCount = Math.max(...stats.hourlyActivity.map(x => x.count), 1)
+                    const height = (h.count / maxCount) * 100
                     return (
                       <div
                         key={h.hour}
@@ -387,6 +402,7 @@ export default function AnalyticsDashboard() {
                           background: h.hour >= 20 || h.hour <= 3 ? '#ab67f7' : '#333',
                           borderRadius: '2px',
                           minHeight: '4px',
+                          cursor: 'pointer',
                         }}
                       />
                     )
@@ -403,7 +419,7 @@ export default function AnalyticsDashboard() {
             {/* Lists Row */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
               gap: '16px',
               marginBottom: '32px',
             }}>
@@ -411,7 +427,7 @@ export default function AnalyticsDashboard() {
               <div style={{ background: '#141416', borderRadius: '12px', padding: '20px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: '#888' }}>🔥 Top Events</h3>
                 {stats.topEvents.length === 0 ? (
-                  <p style={{ color: '#666' }}>No event views yet</p>
+                  <p style={{ color: '#555' }}>No event views yet</p>
                 ) : (
                   stats.topEvents.map((e, i) => (
                     <div key={i} style={{
@@ -425,6 +441,7 @@ export default function AnalyticsDashboard() {
                         textOverflow: 'ellipsis', 
                         whiteSpace: 'nowrap',
                         maxWidth: '70%',
+                        fontSize: '14px',
                       }}>
                         {i + 1}. {e.title}
                       </span>
@@ -438,7 +455,7 @@ export default function AnalyticsDashboard() {
               <div style={{ background: '#141416', borderRadius: '12px', padding: '20px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: '#888' }}>📍 Top Venues</h3>
                 {stats.topVenues.length === 0 ? (
-                  <p style={{ color: '#666' }}>No venue views yet</p>
+                  <p style={{ color: '#555' }}>No venue views yet</p>
                 ) : (
                   stats.topVenues.map((v, i) => (
                     <div key={i} style={{
@@ -447,7 +464,7 @@ export default function AnalyticsDashboard() {
                       padding: '10px 0',
                       borderBottom: i < stats.topVenues.length - 1 ? '1px solid #1e1e24' : 'none',
                     }}>
-                      <span>{i + 1}. {v.name}</span>
+                      <span style={{ fontSize: '14px' }}>{i + 1}. {v.name}</span>
                       <span style={{ color: '#22d3ee', fontWeight: 600 }}>{v.views}</span>
                     </div>
                   ))
@@ -458,35 +475,40 @@ export default function AnalyticsDashboard() {
             {/* Recent Activity */}
             <div style={{ background: '#141416', borderRadius: '12px', padding: '20px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', color: '#888' }}>📋 Recent Activity (Live)</h3>
-              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {stats.recentEvents.map((e, i) => (
-                  <div key={i} style={{
-                    display: 'flex',
-                    gap: '12px',
-                    padding: '10px 0',
-                    borderBottom: '1px solid #1e1e24',
-                    fontSize: '14px',
-                  }}>
-                    <span style={{ color: '#666', minWidth: '60px' }}>
-                      {new Date(e.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    <span style={{
-                      padding: '2px 8px',
-                      background: getEventColor(e.event_name),
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      minWidth: '100px',
-                      textAlign: 'center',
+              {stats.recentEvents.length === 0 ? (
+                <p style={{ color: '#555' }}>No activity yet</p>
+              ) : (
+                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                  {stats.recentEvents.map((e, i) => (
+                    <div key={i} style={{
+                      display: 'flex',
+                      gap: '12px',
+                      padding: '10px 0',
+                      borderBottom: '1px solid #1e1e24',
+                      fontSize: '14px',
+                      alignItems: 'center',
                     }}>
-                      {e.event_name}
-                    </span>
-                    <span style={{ color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {getEventDescription(e)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                      <span style={{ color: '#666', minWidth: '50px', fontSize: '12px' }}>
+                        {new Date(e.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span style={{
+                        padding: '3px 8px',
+                        background: getEventColor(e.event_name),
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        minWidth: '90px',
+                        textAlign: 'center',
+                      }}>
+                        {e.event_name.replace('_', ' ')}
+                      </span>
+                      <span style={{ color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {getEventDescription(e)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -504,8 +526,8 @@ function MetricCard({ label, value, color }: { label: string; value: number | st
       padding: '20px',
       borderLeft: `4px solid ${color}`,
     }}>
-      <p style={{ color: '#888', fontSize: '14px', marginBottom: '8px' }}>{label}</p>
-      <p style={{ fontSize: '32px', fontWeight: 700, color }}>{value}</p>
+      <p style={{ color: '#888', fontSize: '13px', marginBottom: '8px' }}>{label}</p>
+      <p style={{ fontSize: '28px', fontWeight: 700, color }}>{value}</p>
     </div>
   )
 }
@@ -518,6 +540,8 @@ function getEventColor(eventName: string): string {
     'ticket_click': 'rgba(239, 68, 68, 0.2)',
     'marker_click': 'rgba(34, 211, 238, 0.2)',
     'list_open': 'rgba(245, 158, 11, 0.2)',
+    'date_filter': 'rgba(139, 92, 246, 0.2)',
+    'genre_filter': 'rgba(236, 72, 153, 0.2)',
   }
   return colors[eventName] || 'rgba(255, 255, 255, 0.1)'
 }
@@ -527,6 +551,8 @@ function getEventDescription(e: any): string {
   if (props.event_title) return props.event_title
   if (props.venue_name) return props.venue_name
   if (props.page) return props.page
+  if (props.filter) return `→ ${props.filter}`
+  if (props.genre) return `→ ${props.genre}`
   if (props.type) return props.type
   return ''
 }
