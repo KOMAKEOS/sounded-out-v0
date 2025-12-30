@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import mapboxgl from 'mapbox-gl'
 import { supabase } from '../lib/supabase'
+import Link from 'next/link'
 import { 
   initAnalytics, 
   trackEventView, 
@@ -968,6 +969,45 @@ const [windowWidth, setWindowWidth] = useState(() => {
   const dismissProgress = Math.min(dragY / GESTURE.dismissThreshold, 1)
 
   // ============================================================================
+// NAVIGATION MENU COMPONENT (Shared between desktop/mobile)
+// ============================================================================
+const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
+  <>
+    {/* Browse Section */}
+    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', paddingLeft: '4px' }}>Browse</p>
+    <Link href="/events" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#ccc', textDecoration: 'none', fontSize: '14px', marginBottom: '4px' }}>
+      <span style={{ fontSize: '16px' }}>🎵</span> All Events
+    </Link>
+    <Link href="/venues" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#ccc', textDecoration: 'none', fontSize: '14px', marginBottom: '4px' }}>
+      <span style={{ fontSize: '16px' }}>📍</span> Venues
+    </Link>
+    <Link href="/saved" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#ccc', textDecoration: 'none', fontSize: '14px', marginBottom: '4px' }}>
+      <span style={{ fontSize: '16px' }}>💜</span> Saved
+    </Link>
+    
+    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '12px 0' }} />
+    
+    {/* Partner Section */}
+    <Link href="/portal" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderRadius: '10px', background: 'rgba(171,103,247,0.1)', color: 'white', textDecoration: 'none', marginBottom: '8px' }}>
+      <span style={{ width: '40px', height: '40px', background: '#ab67f7', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>👤</span>
+      <div><p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>Partner Portal</p><p style={{ fontSize: '11px', color: '#888' }}>Manage your events</p></div>
+    </Link>
+    <Link href="/for-promoters" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px', marginBottom: '4px' }}>
+      <span style={{ fontSize: '16px' }}>🎤</span> For Promoters
+    </Link>
+    
+    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '12px 0' }} />
+    
+    <a href="https://instagram.com/sounded.out" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px', marginBottom: '4px' }}>
+      <span style={{ fontSize: '16px' }}>📸</span> Follow us
+    </a>
+    <Link href="/about" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px' }}>
+      <span style={{ fontSize: '16px' }}>ℹ️</span> About
+    </Link>
+  </>
+)
+
+  // ============================================================================
   // DESKTOP/TABLET SIDEBAR COMPONENT
   // ============================================================================
   const DesktopSidebar = () => (
@@ -1287,7 +1327,13 @@ const [windowWidth, setWindowWidth] = useState(() => {
                         {e.title}
                       </span>
                     </div>
-                    <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '2px' }}>{e.venue?.name}</div>
+                   <Link 
+  href={`/venue/${e.venue?.id}`} 
+  onClick={(ev) => ev.stopPropagation()}
+  style={{ fontSize: '11px', color: '#aaa', marginBottom: '2px', textDecoration: 'none', display: 'block' }}
+>
+  {e.venue?.name}
+</Link>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 600 }}>
                         {formatTime(e.start_time)}
@@ -1588,7 +1634,7 @@ const [windowWidth, setWindowWidth] = useState(() => {
             )}
             <button
               onClick={async () => {
-                const shareUrl = `${window.location.origin}?event=${current.id}`
+                const shareUrl = `${window.location.origin}/event/${current.id}`
                  trackShareClick(current.id, current.title, 'share_button')
                 try {
                   if (navigator.share) {
@@ -1624,6 +1670,19 @@ const [windowWidth, setWindowWidth] = useState(() => {
               ⋯ Claim this event
             </button>
           </div>
+
+          {/* View full page link */}
+<Link 
+  href={`/event/${current.id}`}
+  style={{
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+    padding: '12px', background: 'rgba(171,103,247,0.1)',
+    border: '1px solid rgba(171,103,247,0.2)', borderRadius: '10px',
+    color: '#ab67f7', fontSize: '13px', textDecoration: 'none', fontWeight: 600,
+  }}
+>
+  🔗 View shareable page
+</Link>
           
           {/* Navigation */}
           <div style={{ 
@@ -1810,42 +1869,18 @@ const [windowWidth, setWindowWidth] = useState(() => {
         )}
         
         {/* Desktop Menu Dropdown */}
-        {showMenu && (
-          <>
-            <div onClick={() => setShowMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />
-            <div style={{
-              position: 'fixed', top: '70px', left: deviceType === 'desktop' ? '290px' : '240px', 
-              background: '#1a1a1f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', 
-              padding: '8px', minWidth: '200px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', zIndex: 100,
-            }}>
-              <a href="/portal" style={{
-                display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
-                borderRadius: '10px', background: 'rgba(171,103,247,0.1)',
-                color: 'white', textDecoration: 'none', marginBottom: '4px',
-              }}>
-                <span style={{ width: '44px', height: '44px', background: '#ab67f7', borderRadius: '8px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>👤</span>
-                <div>
-                  <p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>Partner Portal</p>
-                  <p style={{ fontSize: '11px', color: '#888' }}>Manage your events</p>
-                </div>
-              </a>
-              <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '8px 0' }} />
-              <a href="https://instagram.com/sounded.out" target="_blank" rel="noopener noreferrer" style={{
-                display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px',
-                borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px', fontWeight: 500,
-              }}>
-                <span style={{ fontSize: '16px' }}>📸</span> Follow us
-              </a>
-              <a href="/about" style={{
-                display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px',
-                borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px', fontWeight: 500,
-              }}>
-                <span style={{ fontSize: '16px' }}>ℹ️</span> About
-              </a>
-            </div>
-          </>
-        )}
+   {showMenu && (
+  <>
+    <div onClick={() => setShowMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />
+    <div style={{
+      position: 'fixed', top: '70px', left: deviceType === 'desktop' ? '290px' : '240px', 
+      background: '#1a1a1f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', 
+      padding: '12px', minWidth: '220px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', zIndex: 100,
+    }}>
+      <NavigationLinks onClose={() => setShowMenu(false)} />
+    </div>
+  </>
+)}
         
         {/* Admin Menu */}
         {showAdminMenu && (
@@ -2317,7 +2352,7 @@ const [windowWidth, setWindowWidth] = useState(() => {
               <button
                 onClick={async (e) => {
                   e.stopPropagation()
-                  const shareUrl = `${window.location.origin}?event=${current.id}`
+                  const shareUrl = `${window.location.origin}/event/${current.id}`
                   trackShareClick(current.id, current.title, 'preview_sheet')
                   try { if (navigator.share) { await navigator.share({ title: current.title, text: `${current.title} at ${current.venue?.name}`, url: shareUrl }) } else { await navigator.clipboard.writeText(shareUrl); alert('Link copied!') } } catch (err) { console.log('Share failed:', err) }
                 }}
@@ -2369,21 +2404,16 @@ const [windowWidth, setWindowWidth] = useState(() => {
 
         {/* Menu Slide-over */}
         {showMenu && (
-          <>
-            <div onClick={() => setShowMenu(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300 }} />
-            <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '280px', maxWidth: '85vw', background: '#0a0a0b', borderLeft: '1px solid rgba(255,255,255,0.08)', padding: '24px', paddingTop: 'max(24px, env(safe-area-inset-top))', zIndex: 301, display: 'flex', flexDirection: 'column' }}>
-              <button onClick={() => setShowMenu(false)} style={{ position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', right: '16px', width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer' }}>✕</button>
-              <img src="/logo.svg" alt="Sounded Out" onClick={handleLogoTap} style={{ height: '24px', width: 'auto', marginBottom: '24px', marginTop: '8px', cursor: 'pointer' }} />
-              <a href="/portal" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderRadius: '10px', background: 'rgba(171,103,247,0.1)', color: 'white', textDecoration: 'none', marginBottom: '16px' }}>
-                <span style={{ width: '44px', height: '44px', background: '#ab67f7', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>👤</span>
-                <div><p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>Partner Portal</p><p style={{ fontSize: '11px', color: '#888' }}>Manage your events</p></div>
-              </a>
-              <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', marginBottom: '16px' }} />
-              <a href="https://instagram.com/sounded.out" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px', marginBottom: '8px' }}><span style={{ fontSize: '16px' }}>📸</span> Follow us</a>
-              <a href="/about" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px' }}><span style={{ fontSize: '16px' }}>ℹ️</span> About</a>
-            </div>
-          </>
-        )}
+  <>
+    <div onClick={() => setShowMenu(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300 }} />
+    <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '280px', maxWidth: '85vw', background: '#0a0a0b', borderLeft: '1px solid rgba(255,255,255,0.08)', padding: '24px', paddingTop: 'max(24px, env(safe-area-inset-top))', zIndex: 301, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+      <button onClick={() => setShowMenu(false)} style={{ position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', right: '16px', width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer' }}>✕</button>
+      <img src="/logo.svg" alt="Sounded Out" onClick={handleLogoTap} style={{ height: '24px', width: 'auto', marginBottom: '24px', marginTop: '8px', cursor: 'pointer' }} />
+      
+      <NavigationLinks onClose={() => setShowMenu(false)} />
+    </div>
+  </>
+)}
 
         {/* Admin Menu */}
         {showAdminMenu && (
@@ -2536,7 +2566,7 @@ function MobileDetailSheet({
         )}
         <button
           onClick={async () => {
-            const shareUrl = `${window.location.origin}?event=${current.id}`
+            const shareUrl = `${window.location.origin}/event/${current.id}`
             try { if (navigator.share) { await navigator.share({ title: current.title, text: `${current.title} at ${current.venue?.name} - ${getDateLabel(current.start_time)}`, url: shareUrl }) } else { await navigator.clipboard.writeText(shareUrl); alert('Link copied!') } } catch (err) { console.log('Share failed:', err) }
           }}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#888', fontSize: '14px', cursor: 'pointer' }}
