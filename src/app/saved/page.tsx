@@ -29,12 +29,12 @@ export default function SavedPage() {
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) {
+    supabase.auth.getUser().then((response) => {
+      if (!response.data.user) {
         router.push('/login')
       } else {
-        setUser(data.user)
-        loadSavedEvents(data.user.id)
+        setUser(response.data.user)
+        loadSavedEvents(response.data.user.id)
       }
     })
   }, [router])
