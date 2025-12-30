@@ -1944,7 +1944,7 @@ export default function Home() {
               <button 
                 key={f}
                 onClick={() => { 
-                  if (dateFilter !== f) { setDateFilter(f); setCurrentIndex(0); trackDateFilter(f) }
+                  if (dateFilter !== f) { setDateFilter(f); setCurrentIndex(0); trackDateFilter(f, filtered.length) }
                 }}
                 style={{
                   padding: '8px 14px', borderRadius: '20px', border: 'none',
@@ -1982,7 +1982,7 @@ export default function Home() {
                 {getNext7Days().map(d => (
                   <button 
                     key={d.str}
-                    onClick={() => { setDateFilter(d.str); setShowDatePicker(false); setCurrentIndex(0); trackDateFilter(d.str) }}
+                    onClick={() => { setDateFilter(d.str); setShowDatePicker(false); setCurrentIndex(0); trackDateFilter(d.str, filtered.length) }}
                     style={{
                       width: '40px', padding: '8px 4px', borderRadius: '12px', border: 'none', cursor: 'pointer',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
@@ -2004,7 +2004,7 @@ export default function Home() {
               {availableGenres.map(genre => (
                 <button
                   key={genre}
-                  onClick={() => { setActiveGenre(activeGenre === genre ? null : genre); trackGenreFilter(genre) }}
+                  onClick={() => { setActiveGenre(activeGenre === genre ? null : genre); trackGenreFilter(genre, filtered.length) }}
                   style={{
                     padding: '6px 12px', borderRadius: '16px',
                     border: activeGenre === genre ? '1px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
@@ -2047,7 +2047,7 @@ export default function Home() {
         {/* Pull-up Sheet - Peek state shows event count */}
         {viewMode === 'map' && (
           <div 
-            onClick={() => { openSheet('list'); trackListOpen() }}
+            onClick={() => { openSheet('list'); trackListOpen(filtered.length) }}
             style={{
               position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 15,
               background: '#141416', borderRadius: '20px 20px 0 0',
@@ -2207,7 +2207,7 @@ export default function Home() {
                 onClick={async (e) => {
                   e.stopPropagation()
                   const shareUrl = `${window.location.origin}?event=${current.id}`
-                  trackShareClick(current.id, current.title)
+                  trackShareClick(current.id, current.title, 'preview_sheet')
                   try { if (navigator.share) { await navigator.share({ title: current.title, text: `${current.title} at ${current.venue?.name}`, url: shareUrl }) } else { await navigator.clipboard.writeText(shareUrl); alert('Link copied!') } } catch (err) { console.log('Share failed:', err) }
                 }}
                 style={{ width: '52px', padding: '14px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '14px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
