@@ -23,39 +23,37 @@ export default function VenuesPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all')
 
   useEffect(() => {
-    // Get venues with event counts
-    supabase
-      .from('venues')
-      .select('*')
-      .order('name')
-      .then(async (response) => {
-        const venueData = response.data
-        if (venueData) {
-          // Get event counts for each venue
-          const eventResponse = await supabase
-            .from('events')
-            .select('venue_id')
-            .eq('status', 'published')
-            .gte('start_time', new Date().toISOString().split('T')[0])
-          
-          const eventCounts = eventResponse.data
-          const countMap = new Map<string, number>()
-          eventCounts?.forEach((e: any) => {
+    const loadVenues = async () => {
+      const { data: venueData } = await supabase
+        .from('venues')
+        .select('*')
+        .order('name')
+      
+      if (venueData) {
+        const { data: eventCounts } = await supabase
+          .from('events')
+          .select('venue_id')
+          .eq('status', 'published')
+          .gte('start_time', new Date().toISOString().split('T')[0])
+        
+        const countMap = new Map<string, number>()
+        if (eventCounts) {
+          eventCounts.forEach((e: any) => {
             countMap.set(e.venue_id, (countMap.get(e.venue_id) || 0) + 1)
           })
-          
-          const venuesWithCounts = venueData.map((v: any) => ({
-            ...v,
-            event_count: countMap.get(v.id) || 0,
-          }))
-          
-          // Sort by event count (venues with events first)
-          venuesWithCounts.sort((a: any, b: any) => b.event_count - a.event_count)
-          
-          setVenues(venuesWithCounts)
         }
-        setLoading(false)
-      })
+        
+        const venuesWithCounts = venueData.map((v: any) => ({
+          ...v,
+          event_count: countMap.get(v.id) || 0,
+        }))
+        
+        venuesWithCounts.sort((a: any, b: any) => b.event_count - a.event_count)
+        setVenues(venuesWithCounts)
+      }
+      setLoading(false)
+    }
+    loadVenues()
   }, [])
 
   const venueTypes = [...new Set(venues.map(v => v.venue_type).filter(Boolean))]
@@ -204,7 +202,7 @@ export default function VenuesPage() {
                     {venue.venue_type}
                   </span>
                 )}
-                {venue.event_count > 0 && (
+                {venue.event_count && venue.event_count > 0 && (
                   <span style={{ 
                     fontSize: '12px', 
                     color: '#ab67f7',
