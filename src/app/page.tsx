@@ -1039,7 +1039,7 @@ export default function Home() {
                 if (dateFilter !== f) {
                   setDateFilter(f)
                   setCurrentIndex(0)
-                  trackDateFilter(f)
+                  trackDateFilter(f, filtered.length)
                 }
               }} 
               style={{
@@ -1090,7 +1090,7 @@ export default function Home() {
                     setDateFilter(d.str)
                     setShowDatePicker(false)
                     setCurrentIndex(0)
-                    trackDateFilter(d.str)
+                    trackDateFilter(d.str, filtered.length)
                   }} 
                   style={{
                     width: '38px', 
@@ -1126,7 +1126,7 @@ export default function Home() {
                 key={genre}
                 onClick={() => {
                   setActiveGenre(activeGenre === genre ? null : genre)
-                  trackGenreFilter(genre)
+                  trackGenreFilter(genre, filtered.length)
                 }}
                 style={{
                   padding: '6px 12px',
@@ -1514,7 +1514,7 @@ export default function Home() {
                 href={getTicketUrl(current.event_url)!} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                onClick={() => { trackTicketClick(current.id, current.title, current.venue?.name || ''); trackCTAClick('tickets', current.id) }}
+                onClick={() => { trackTicketClick(current.id, current.title, current.event_url || '', current.venue?.name || ''); trackCTAClick('tickets', current.id) }}
                 style={{
                   display: 'block', padding: '14px', borderRadius: '12px', textAlign: 'center',
                   fontWeight: 700, fontSize: '14px', textDecoration: 'none',
@@ -1530,7 +1530,7 @@ export default function Home() {
                 href={mapsUrl(current.venue)} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                onClick={() => trackDirectionsClick(current.id, current.venue!.name)}
+                onClick={() => trackDirectionsClick(current.venue!.name, current.venue!.id)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                   padding: '12px', color: '#888', fontSize: '13px', textDecoration: 'none'
@@ -1542,7 +1542,7 @@ export default function Home() {
             <button
               onClick={async () => {
                 const shareUrl = `${window.location.origin}?event=${current.id}`
-                trackShareClick(current.id, current.title)
+                 trackShareClick(current.id, current.title, 'share_button')
                 try {
                   if (navigator.share) {
                     await navigator.share({
@@ -1566,7 +1566,7 @@ export default function Home() {
               📤 Share event
             </button>
             <button
-              onClick={() => { setClaimType('event'); setShowClaimModal(true); trackClaimStart('event', current.id) }}
+              onClick={() => { setClaimType('event'); setShowClaimModal(true); trackClaimStart('event', current.title, current.id) }}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                 padding: '10px', background: 'transparent',
@@ -1905,7 +1905,7 @@ export default function Home() {
           <div style={{ display: 'flex', gap: '10px', pointerEvents: 'auto', marginBottom: '10px' }}>
             {/* Search/Filter bar */}
             <div 
-              onClick={() => { openSheet('list'); trackListOpen() }}
+              onClick={() => { openSheet('list'); trackListOpen(filtered.length) }}
               style={{
                 flex: 1, padding: '12px 16px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
                 WebkitBackdropFilter: 'blur(10px)',
@@ -2490,7 +2490,7 @@ function ClaimModal({
                 })
                 if (error) throw error
                 setClaimSubmitted(true)
-                trackClaimSubmit(claimType, current.id)
+                trackClaimSubmit(claimType, current.title, current.id)
               } catch (err: any) { setClaimError(err.message || 'Something went wrong. Please try again.') }
               setClaimSubmitting(false)
             }}>
