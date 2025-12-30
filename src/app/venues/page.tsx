@@ -28,27 +28,29 @@ export default function VenuesPage() {
       .from('venues')
       .select('*')
       .order('name')
-      .then(async ({ data: venueData }) => {
+      .then(async (response) => {
+        const venueData = response.data
         if (venueData) {
           // Get event counts for each venue
-          const { data: eventCounts } = await supabase
+          const eventResponse = await supabase
             .from('events')
             .select('venue_id')
             .eq('status', 'published')
             .gte('start_time', new Date().toISOString().split('T')[0])
           
+          const eventCounts = eventResponse.data
           const countMap = new Map<string, number>()
-          eventCounts?.forEach(e => {
+          eventCounts?.forEach((e: any) => {
             countMap.set(e.venue_id, (countMap.get(e.venue_id) || 0) + 1)
           })
           
-          const venuesWithCounts = venueData.map(v => ({
+          const venuesWithCounts = venueData.map((v: any) => ({
             ...v,
             event_count: countMap.get(v.id) || 0,
           }))
           
           // Sort by event count (venues with events first)
-          venuesWithCounts.sort((a, b) => b.event_count - a.event_count)
+          venuesWithCounts.sort((a: any, b: any) => b.event_count - a.event_count)
           
           setVenues(venuesWithCounts)
         }
