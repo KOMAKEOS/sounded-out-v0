@@ -134,8 +134,18 @@ export default function Home() {
   const [showAdminMenu, setShowAdminMenu] = useState(false)
   
   // Responsive state
-  const [deviceType, setDeviceType] = useState<DeviceType>('mobile')
-  const [windowWidth, setWindowWidth] = useState(0)
+  const [deviceType, setDeviceType] = useState<DeviceType>(() => {
+  if (typeof window !== 'undefined') {
+    const width = window.innerWidth
+    if (width >= 1024) return 'desktop'
+    if (width >= 768) return 'tablet'
+  }
+  return 'mobile'
+})
+const [windowWidth, setWindowWidth] = useState(() => {
+  if (typeof window !== 'undefined') return window.innerWidth
+  return 0
+})
   
   // Animation state
   const [isAnimating, setIsAnimating] = useState(false)
@@ -388,7 +398,13 @@ export default function Home() {
   // MAP INITIALIZATION
   // ============================================================================
   useEffect(() => {
-    if (!mapContainer.current || map.current) return
+    if (!mapContainer.current) return
+    
+    // Destroy existing map if switching device types
+    if (map.current) {
+      map.current.remove()
+      map.current = null
+    }
     
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
     
@@ -414,9 +430,9 @@ export default function Home() {
       setMapReady(true)
     })
     
-    map.current = m
+      map.current = m
     return () => m.remove()
-  }, [])
+  }, [deviceType])
 
   // Intro animation sequence
   useEffect(() => {
