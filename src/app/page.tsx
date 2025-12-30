@@ -1147,6 +1147,10 @@ const [windowWidth, setWindowWidth] = useState(() => {
                 key={genre}
                 onClick={() => {
                   setActiveGenre(activeGenre === genre ? null : genre)
+                  setCurrentIndex(0)
+                  setViewMode('map')
+                  setSheetVisible(false)
+                  highlightMarker(null)
                   trackGenreFilter(genre, filtered.length)
                 }}
                 style={{
@@ -1283,7 +1287,7 @@ const [windowWidth, setWindowWidth] = useState(() => {
                         {e.title}
                       </span>
                     </div>
-                    <div style={{ fontSize: '11px', color: '#888', marginBottom: '2px' }}>{e.venue?.name}</div>
+                    <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '2px' }}>{e.venue?.name}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 600 }}>
                         {formatTime(e.start_time)}
@@ -1332,12 +1336,30 @@ const [windowWidth, setWindowWidth] = useState(() => {
           </div>
         ))}
         
-        {filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <p style={{ color: '#555', marginBottom: '12px' }}>No events {filterLabel}</p>
-            <p style={{ color: '#444', fontSize: '13px' }}>Try selecting a different date</p>
-          </div>
-        )}
+       {filtered.length === 0 && (
+  <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+    <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>🌙</div>
+    <p style={{ color: '#888', fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>No events {filterLabel}</p>
+    <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px', lineHeight: 1.5 }}>
+      The dance floor is quiet... for now
+    </p>
+    <button
+      onClick={() => { setDateFilter('today'); setActiveGenre(null); setShowFreeOnly(false) }}
+      style={{
+        padding: '12px 24px',
+        background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+        border: 'none',
+        borderRadius: '12px',
+        color: 'white',
+        fontSize: '14px',
+        fontWeight: 600,
+        cursor: 'pointer',
+      }}
+    >
+      Show Today's Events
+    </button>
+  </div>
+)}
       </div>
     </aside>
   )
@@ -1372,8 +1394,8 @@ const [windowWidth, setWindowWidth] = useState(() => {
           <button
             onClick={() => { setViewMode('map'); setSheetVisible(false); highlightMarker(null) }}
             style={{
-              width: '32px',
-              height: '32px',
+              width: '44px',
+              height: '44px',
               borderRadius: '50%',
               border: 'none',
               background: 'rgba(255,255,255,0.1)',
@@ -1401,19 +1423,23 @@ const [windowWidth, setWindowWidth] = useState(() => {
             </div>
           ) : (
             <div style={{ 
-              width: '100%', 
-              aspectRatio: '16/9', 
-              background: 'linear-gradient(135deg, #252530, #1a1a22)', 
-              borderRadius: '12px', 
-              marginBottom: '16px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              color: '#333' 
-            }}>
-              No image
+                width: '100%', 
+                aspectRatio: '16/9', 
+                background: 'linear-gradient(135deg, #1a1a22 0%, #252530 50%, #1a1a22 100%)', 
+                borderRadius: '12px', 
+                marginBottom: '16px', 
+                display: 'flex', 
+                flexDirection: 'column',
+                alignItems: 'center', 
+                justifyContent: 'center',
+                gap: '8px',
+              }}>
+              <span style={{ fontSize: '32px', opacity: 0.4 }}>🎵</span>
+              <span style={{ fontSize: '12px', color: '#444', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                {current.genres?.split(',')[0]?.trim() || 'Live Event'}
+              </span>
             </div>
-          )}
+)}
           
           {/* Date/Time */}
           <p style={{ 
@@ -1666,9 +1692,70 @@ const [windowWidth, setWindowWidth] = useState(() => {
         <DesktopSidebar />
         
         {/* Map - Full remaining width */}
-        <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
-          <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
-          
+          <div 
+            style={{ flex: 1, position: 'relative', minWidth: 0 }}
+            onClick={() => {
+              if (viewMode === 'preview' || viewMode === 'detail') {
+                setViewMode('map')
+                setSheetVisible(false)
+                highlightMarker(null)
+              }
+            }}
+          >
+            <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
+          {/* Map Controls */}
+<div style={{ position: 'absolute', bottom: '24px', right: '24px', display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 10 }}>
+  {/* Reset View */}
+  <button
+    onClick={(e) => {
+      e.stopPropagation()
+      map.current?.flyTo({ center: [-1.6131, 54.9695], zoom: 13, duration: 800 })
+    }}
+    title="Reset view"
+    style={{
+      width: '44px',
+      height: '44px',
+      borderRadius: '12px',
+      background: 'rgba(0,0,0,0.75)',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      color: '#888',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '18px',
+    }}
+  >
+    ⌖
+  </button>
+  {/* Location */}
+  <button
+    onClick={(e) => { e.stopPropagation(); toggleUserLocation() }}
+    title={showUserLocation ? 'Hide location' : 'Show my location'}
+    style={{
+      width: '44px',
+      height: '44px',
+      borderRadius: '12px',
+      background: showUserLocation ? 'rgba(171,103,247,0.2)' : 'rgba(0,0,0,0.75)',
+      backdropFilter: 'blur(10px)',
+      border: showUserLocation ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.1)',
+      color: showUserLocation ? '#ab67f7' : '#888',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+  >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="4"/>
+      <line x1="12" y1="2" x2="12" y2="6"/>
+      <line x1="12" y1="18" x2="12" y2="22"/>
+      <line x1="2" y1="12" x2="6" y2="12"/>
+      <line x1="18" y1="12" x2="22" y2="12"/>
+    </svg>
+  </button>
+</div>
           {/* Loading */}
           {loading && (
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#888' }}>
@@ -1695,7 +1782,7 @@ const [windowWidth, setWindowWidth] = useState(() => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#ab67f7' }}>{clusterEvents.length} events here</h3>
                 <button onClick={() => { setViewMode('map'); setClusterEvents([]) }} style={{
-                  width: '32px', height: '32px', borderRadius: '50%', border: 'none',
+                  width: '44px', height: '44px', borderRadius: '50%', border: 'none',
                   background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: '16px', cursor: 'pointer',
                 }}>✕</button>
               </div>
@@ -1736,7 +1823,7 @@ const [windowWidth, setWindowWidth] = useState(() => {
                 borderRadius: '10px', background: 'rgba(171,103,247,0.1)',
                 color: 'white', textDecoration: 'none', marginBottom: '4px',
               }}>
-                <span style={{ width: '32px', height: '32px', background: '#ab67f7', borderRadius: '8px',
+                <span style={{ width: '44px', height: '44px', background: '#ab67f7', borderRadius: '8px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>👤</span>
                 <div>
                   <p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>Partner Portal</p>
@@ -1890,7 +1977,7 @@ const [windowWidth, setWindowWidth] = useState(() => {
               padding: '40px 30px', animation: 'fadeIn 300ms ease-out',
             }}
           >
-            <img src="/logo.svg" alt="Sounded Out" style={{ height: '32px', marginBottom: '24px' }} />
+            <img src="/logo.svg" alt="Sounded Out" style={{ height: '44px', marginBottom: '24px' }} />
             <h2 style={{ fontSize: '24px', fontWeight: 700, textAlign: 'center', marginBottom: '12px', lineHeight: 1.3 }}>
               Find the best nights out<br />near you — instantly
             </h2>
@@ -2027,13 +2114,16 @@ const [windowWidth, setWindowWidth] = useState(() => {
                   key={genre}
                   onClick={() => { setActiveGenre(activeGenre === genre ? null : genre); trackGenreFilter(genre, filtered.length) }}
                   style={{
-                    padding: '6px 12px', borderRadius: '16px',
-                    border: activeGenre === genre ? '1px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
-                    fontSize: '12px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap',
-                    background: activeGenre === genre ? 'rgba(171,103,247,0.2)' : 'rgba(0,0,0,0.6)',
-                    backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-                    color: activeGenre === genre ? '#ab67f7' : '#888',
+                    padding: '8px 14px',
+                    borderRadius: '20px',
+                    border: activeGenre === genre ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
+                    fontSize: '12px',
+                    fontWeight: activeGenre === genre ? 700 : 500,
+                    cursor: 'pointer',
+                    background: activeGenre === genre ? '#ab67f7' : 'transparent',
+                    color: activeGenre === genre ? 'white' : '#999',
                     textTransform: 'capitalize',
+                    transition: 'all 150ms ease',
                   }}
                 >
                   {genre}
@@ -2101,9 +2191,9 @@ const [windowWidth, setWindowWidth] = useState(() => {
               style={{ padding: '12px 20px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, cursor: 'grab', touchAction: 'none' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <div style={{ width: '32px' }} />
+                <div style={{ width: '44px' }} />
                 <div onClick={closeSheet} style={{ width: '48px', height: '5px', background: dismissProgress > 0.5 ? '#ab67f7' : '#666', borderRadius: '3px', cursor: 'pointer' }} />
-                <button onClick={closeSheet} style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                <button onClick={closeSheet} style={{ width: '44px', height: '44px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ab67f7', textTransform: 'uppercase' }}>{visibleDayLabel || Object.keys(grouped)[0] || filterLabel}</h3>
@@ -2150,9 +2240,9 @@ const [windowWidth, setWindowWidth] = useState(() => {
             ...getSheetStyle(sheetVisible), ...getDismissTransform(),
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div style={{ width: '32px' }} />
+              <div style={{ width: '44px' }} />
               <div onClick={closeSheet} style={{ width: '48px', height: '5px', background: dismissProgress > 0.5 ? '#ab67f7' : '#666', borderRadius: '3px', cursor: 'pointer' }} />
-              <button onClick={closeSheet} style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+              <button onClick={closeSheet} style={{ width: '44px', height: '44px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
             </div>
             <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#ab67f7', marginBottom: '14px' }}>{clusterEvents.length} events here</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '50vh', overflowY: 'auto' }}>
@@ -2188,12 +2278,12 @@ const [windowWidth, setWindowWidth] = useState(() => {
 
             {/* Handle */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '8px 0' }}>
-              <div style={{ width: '32px' }} />
+              <div style={{ width: '44px' }} />
               <div onClick={closeSheet} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                 <div style={{ width: '48px', height: '5px', background: dismissProgress > 0.8 ? '#ab67f7' : '#666', borderRadius: '3px' }} />
                 <span style={{ fontSize: '10px', color: dismissProgress > 0.8 ? '#ab67f7' : '#555' }}>{dismissProgress > 0.8 ? 'Release to close' : 'Pull down to close'}</span>
               </div>
-              <button onClick={(e) => { e.stopPropagation(); closeSheet() }} style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+              <button onClick={(e) => { e.stopPropagation(); closeSheet() }} style={{ width: '44px', height: '44px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
             </div>
 
             {/* Progress dots */}
@@ -2285,7 +2375,7 @@ const [windowWidth, setWindowWidth] = useState(() => {
               <button onClick={() => setShowMenu(false)} style={{ position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', right: '16px', width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer' }}>✕</button>
               <img src="/logo.svg" alt="Sounded Out" onClick={handleLogoTap} style={{ height: '24px', width: 'auto', marginBottom: '24px', marginTop: '8px', cursor: 'pointer' }} />
               <a href="/portal" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderRadius: '10px', background: 'rgba(171,103,247,0.1)', color: 'white', textDecoration: 'none', marginBottom: '16px' }}>
-                <span style={{ width: '32px', height: '32px', background: '#ab67f7', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>👤</span>
+                <span style={{ width: '44px', height: '44px', background: '#ab67f7', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>👤</span>
                 <div><p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>Partner Portal</p><p style={{ fontSize: '11px', color: '#888' }}>Manage your events</p></div>
               </a>
               <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', marginBottom: '16px' }} />
@@ -2475,7 +2565,7 @@ function ClaimModal({
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '400px', background: '#1a1a1f', borderRadius: '20px', padding: '20px 24px 28px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Claim this {claimType}</h3>
-          <button onClick={onClose} style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: '16px', cursor: 'pointer' }}>✕</button>
+          <button onClick={onClose} style={{ width: '44px', height: '44px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#888', fontSize: '16px', cursor: 'pointer' }}>✕</button>
         </div>
 
         {claimSubmitted ? (
