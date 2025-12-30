@@ -51,7 +51,9 @@ export default function VenuePage() {
         .eq('status', 'published')
         .gte('start_time', new Date().toISOString().split('T')[0])
         .order('start_time')
-    ]).then(([venueRes, eventsRes]) => {
+    ]).then((responses: any[]) => {
+      const venueRes = responses[0]
+      const eventsRes = responses[1]
       if (venueRes.data) setVenue(venueRes.data)
       if (eventsRes.data) setEvents(eventsRes.data)
       setLoading(false)
