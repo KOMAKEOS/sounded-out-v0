@@ -41,37 +41,43 @@ export default function EventPage() {
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then((response) => {
-      if (response.data.user) setUser(response.data.user)
-    })
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser()
+      if (data.user) setUser(data.user)
+    }
+    loadUser()
   }, [])
 
   useEffect(() => {
     if (!params.id) return
     
-    supabase
-      .from('events')
-      .select('*, venue:venues(*)')
-      .eq('id', params.id)
-      .single()
-      .then((response) => {
-        if (response.data) setEvent(response.data as any)
-        setLoading(false)
-      })
+    const loadEvent = async () => {
+      const { data } = await supabase
+        .from('events')
+        .select('*, venue:venues(*)')
+        .eq('id', params.id)
+        .single()
+      
+      if (data) setEvent(data as any)
+      setLoading(false)
+    }
+    loadEvent()
   }, [params.id])
 
   useEffect(() => {
     if (!user || !event) return
     
-    supabase
-      .from('saved_events')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('event_id', event.id)
-      .single()
-      .then((response) => {
-        if (response.data) setSaved(true)
-      })
+    const checkSaved = async () => {
+      const { data } = await supabase
+        .from('saved_events')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('event_id', event.id)
+        .single()
+      
+      if (data) setSaved(true)
+    }
+    checkSaved()
   }, [user, event])
 
   const handleSave = async () => {
