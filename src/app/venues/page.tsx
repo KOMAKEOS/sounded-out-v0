@@ -56,7 +56,7 @@ export default function VenuesPage() {
     loadVenues()
   }, [])
 
-  const venueTypes = [...new Set(venues.map(v => v.venue_type).filter(Boolean))]
+  const venueTypes = Array.from(new Set(venues.map(v => v.venue_type).filter(Boolean)))
 
   const filtered = venues.filter(v => {
     if (search && !v.name.toLowerCase().includes(search.toLowerCase())) return false
