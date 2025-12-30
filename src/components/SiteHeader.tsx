@@ -13,14 +13,15 @@ export default function SiteHeader() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getUser().then((response) => {
-      if (response.data.user) {
-        setUser(response.data.user)
-        // Check role from metadata or profiles table
-        const role = response.data.user.user_metadata?.role || 'user'
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser()
+      if (data.user) {
+        setUser(data.user)
+        const role = data.user.user_metadata?.role || 'user'
         setUserRole(role)
       }
-    })
+    }
+    loadUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user || null)
