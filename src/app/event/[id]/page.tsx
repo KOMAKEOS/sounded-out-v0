@@ -41,8 +41,8 @@ export default function EventPage() {
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setUser(data.user)
+    supabase.auth.getUser().then((response) => {
+      if (response.data.user) setUser(response.data.user)
     })
   }, [])
 
@@ -54,8 +54,8 @@ export default function EventPage() {
       .select('*, venue:venues(*)')
       .eq('id', params.id)
       .single()
-      .then(({ data }) => {
-        if (data) setEvent(data as any)
+      .then((response) => {
+        if (response.data) setEvent(response.data as any)
         setLoading(false)
       })
   }, [params.id])
@@ -69,8 +69,8 @@ export default function EventPage() {
       .eq('user_id', user.id)
       .eq('event_id', event.id)
       .single()
-      .then(({ data }) => {
-        if (data) setSaved(true)
+      .then((response) => {
+        if (response.data) setSaved(true)
       })
   }, [user, event])
 
