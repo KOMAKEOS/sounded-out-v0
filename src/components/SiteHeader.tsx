@@ -5,23 +5,28 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { supabase } from '../lib/supabase'
 
-type UserType = 'anon' | 'user' | 'promoter'
-
 export default function SiteHeader() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
-  const [userType, setUserType] = useState<UserType>('anon')
+  const [userRole, setUserRole] = useState<'user' | 'partner' | 'admin'>('user')
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) {
         setUser(data.user)
-        // Check if promoter (you'd have this in user metadata or a profiles table)
-        setUserType(data.user.user_metadata?.is_promoter ? 'promoter' : 'user')
+        // Check role from metadata or profiles table
+        const role = data.user.user_metadata?.role || 'user'
+        setUserRole(role)
       }
     })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const navLinks = [
@@ -34,6 +39,13 @@ export default function SiteHeader() {
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
     return pathname.startsWith(href)
+  }
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setDropdownOpen(false)
+    window.location.href = '/'
   }
 
   return (
@@ -61,7 +73,7 @@ export default function SiteHeader() {
           </Link>
           
           {/* Desktop Nav */}
-          <nav style={{ display: 'flex', gap: '32px' }}>
+          <nav className="desktop-nav" style={{ display: 'flex', gap: '32px' }}>
             {navLinks.map(link => (
               <Link 
                 key={link.href}
@@ -121,27 +133,33 @@ export default function SiteHeader() {
                     padding: '8px',
                     zIndex: 999,
                   }}>
-                    {userType === 'promoter' ? (
+                    <div style={{ padding: '8px 12px', marginBottom: '4px' }}>
+                      <p style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '2px' }}>
+                        {user.user_metadata?.full_name || 'Account'}
+                      </p>
+                      <p style={{ fontSize: '12px', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {user.email}
+                      </p>
+                    </div>
+                    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '4px 0' }} />
+                    
+                    {userRole === 'partner' || userRole === 'admin' ? (
                       <>
                         <DropdownLink href="/portal" onClick={() => setDropdownOpen(false)}>Dashboard</DropdownLink>
                         <DropdownLink href="/portal/events" onClick={() => setDropdownOpen(false)}>My Events</DropdownLink>
                         <DropdownLink href="/portal/events/new" onClick={() => setDropdownOpen(false)}>Create Event</DropdownLink>
-                        <DropdownLink href="/portal/analytics" onClick={() => setDropdownOpen(false)}>Analytics</DropdownLink>
-                        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '8px 0' }} />
+                        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '4px 0' }} />
                       </>
                     ) : (
                       <>
                         <DropdownLink href="/saved" onClick={() => setDropdownOpen(false)}>Saved</DropdownLink>
                         <DropdownLink href="/following" onClick={() => setDropdownOpen(false)}>Following</DropdownLink>
-                        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '8px 0' }} />
+                        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '4px 0' }} />
                       </>
                     )}
                     <DropdownLink href="/settings" onClick={() => setDropdownOpen(false)}>Settings</DropdownLink>
                     <button
-                      onClick={async () => {
-                        await supabase.auth.signOut()
-                        window.location.href = '/'
-                      }}
+                      onClick={handleSignOut}
                       style={{
                         width: '100%',
                         padding: '10px 12px',
@@ -164,6 +182,7 @@ export default function SiteHeader() {
             <>
               <Link 
                 href="/login"
+                className="desktop-auth"
                 style={{
                   color: '#888',
                   textDecoration: 'none',
@@ -175,6 +194,7 @@ export default function SiteHeader() {
               </Link>
               <Link 
                 href="/signup"
+                className="desktop-auth"
                 style={{
                   padding: '10px 18px',
                   background: '#ab67f7',
@@ -357,8 +377,8 @@ export default function SiteHeader() {
       <style jsx global>{`
         @media (max-width: 768px) {
           .mobile-menu-btn { display: flex !important; }
-          header nav { display: none !important; }
-          header > div:last-child > a { display: none !important; }
+          .desktop-nav { display: none !important; }
+          .desktop-auth { display: none !important; }
         }
       `}</style>
     </>
