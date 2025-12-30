@@ -29,16 +29,18 @@ export default function EventsPage() {
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    supabase
-      .from('events')
-      .select('id, title, start_time, image_url, event_url, genres, price_min, price_max, sold_out, so_pick, venue:venues(id, name)')
-      .eq('status', 'published')
-      .gte('start_time', new Date().toISOString().split('T')[0])
-      .order('start_time')
-      .then((response) => {
-        if (response.data) setEvents(response.data as any)
-        setLoading(false)
-      })
+    const loadEvents = async () => {
+      const { data } = await supabase
+        .from('events')
+        .select('id, title, start_time, image_url, event_url, genres, price_min, price_max, sold_out, so_pick, venue:venues(id, name)')
+        .eq('status', 'published')
+        .gte('start_time', new Date().toISOString().split('T')[0])
+        .order('start_time')
+      
+      if (data) setEvents(data as any)
+      setLoading(false)
+    }
+    loadEvents()
   }, [])
 
   const isToday = (date: string) => new Date(date).toDateString() === new Date().toDateString()
