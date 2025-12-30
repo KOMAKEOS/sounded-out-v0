@@ -415,6 +415,8 @@ const [windowWidth, setWindowWidth] = useState(() => {
       zoom: showIntro ? 2 : 14,
       pitch: 0,
       bearing: 0,
+      minZoom: 10,
+      maxZoom: 18,
       pitchWithRotate: false,
       dragRotate: false,
       touchPitch: false,
@@ -1052,12 +1054,15 @@ const [windowWidth, setWindowWidth] = useState(() => {
             <button 
               key={f} 
               onClick={() => { 
-                if (dateFilter !== f) {
-                  setDateFilter(f)
-                  setCurrentIndex(0)
-                  trackDateFilter(f, filtered.length)
-                }
-              }} 
+            if (dateFilter !== f) {
+                setDateFilter(f)
+                setCurrentIndex(0)
+                setViewMode('map')
+                setSheetVisible(false)
+                highlightMarker(null)
+                trackDateFilter(f, filtered.length)
+                  }
+                }}
               style={{
                 padding: '8px 14px', 
                 borderRadius: '20px', 
