@@ -29,14 +29,16 @@ export default function SavedPage() {
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then((response) => {
-      if (!response.data.user) {
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getUser()
+      if (!data.user) {
         router.push('/login')
       } else {
-        setUser(response.data.user)
-        loadSavedEvents(response.data.user.id)
+        setUser(data.user)
+        loadSavedEvents(data.user.id)
       }
-    })
+    }
+    checkUser()
   }, [router])
 
   const loadSavedEvents = async (userId: string) => {
@@ -91,7 +93,7 @@ export default function SavedPage() {
   const upcomingCount = savedEvents.filter(s => !isPast(s.event.start_time)).length
 
   if (!user && !loading) {
-    return null // Redirecting
+    return null
   }
 
   return (
