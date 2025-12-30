@@ -42,22 +42,23 @@ export default function VenuePage() {
   useEffect(() => {
     if (!params.id) return
     
-    Promise.all([
-      supabase.from('venues').select('*').eq('id', params.id).single(),
-      supabase
-        .from('events')
-        .select('id, title, start_time, image_url, genres, price_min, price_max, sold_out, so_pick')
-        .eq('venue_id', params.id)
-        .eq('status', 'published')
-        .gte('start_time', new Date().toISOString().split('T')[0])
-        .order('start_time')
-    ]).then((responses: any[]) => {
-      const venueRes = responses[0]
-      const eventsRes = responses[1]
-      if (venueRes.data) setVenue(venueRes.data)
-      if (eventsRes.data) setEvents(eventsRes.data)
+    const loadData = async () => {
+      const [venueRes, eventsRes] = await Promise.all([
+        supabase.from('venues').select('*').eq('id', params.id).single(),
+        supabase
+          .from('events')
+          .select('id, title, start_time, image_url, genres, price_min, price_max, sold_out, so_pick')
+          .eq('venue_id', params.id)
+          .eq('status', 'published')
+          .gte('start_time', new Date().toISOString().split('T')[0])
+          .order('start_time')
+      ])
+      
+      if (venueRes.data) setVenue(venueRes.data as any)
+      if (eventsRes.data) setEvents(eventsRes.data as any)
       setLoading(false)
-    })
+    }
+    loadData()
   }, [params.id])
 
   const formatDate = (date: string) => {
