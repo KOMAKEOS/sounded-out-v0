@@ -35,8 +35,8 @@ export default function EventsPage() {
       .eq('status', 'published')
       .gte('start_time', new Date().toISOString().split('T')[0])
       .order('start_time')
-      .then(({ data }) => {
-        if (data) setEvents(data as any)
+      .then((response) => {
+        if (response.data) setEvents(response.data as any)
         setLoading(false)
       })
   }, [])
