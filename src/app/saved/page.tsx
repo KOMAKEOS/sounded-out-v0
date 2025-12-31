@@ -4,28 +4,32 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
 
-type SavedEvent = {
+interface VenueData {
   id: string
-  event: {
-    id: string
-    title: string
-    start_time: string
-    image_url: string | null
-    genres: string | null
-    price_min: number | null
-    price_max: number | null
-    sold_out: boolean
-    venue: {
-      id: string
-      name: string
-    }
-  }
+  name: string
+}
+
+interface EventData {
+  id: string
+  title: string
+  start_time: string
+  image_url: string | null
+  genres: string | null
+  price_min: number | null
+  price_max: number | null
+  sold_out: boolean
+  venue: VenueData | null
+}
+
+interface SavedEventData {
+  id: string
+  event: EventData | null
 }
 
 export default function SavedPage() {
-  const [saved, setSaved] = useState<SavedEvent[]>([])
+  const [saved, setSaved] = useState<SavedEventData[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
 
   useEffect(() => {
     const loadUser = async () => {
@@ -56,8 +60,13 @@ export default function SavedPage() {
         .order('created_at', { ascending: false })
       
       if (data) {
-        // Filter out any null events (deleted events)
-        const valid = data.filter(s => s.event !== null) as SavedEvent[]
+        const typedData = data as unknown as SavedEventData[]
+        const valid: SavedEventData[] = []
+        for (let i = 0; i < typedData.length; i++) {
+          if (typedData[i].event !== null) {
+            valid.push(typedData[i])
+          }
+        }
         setSaved(valid)
       }
       setLoading(false)
@@ -71,10 +80,16 @@ export default function SavedPage() {
       .delete()
       .eq('id', savedId)
     
-    setSaved(saved.filter(s => s.id !== savedId))
+    const newSaved: SavedEventData[] = []
+    for (let i = 0; i < saved.length; i++) {
+      if (saved[i].id !== savedId) {
+        newSaved.push(saved[i])
+      }
+    }
+    setSaved(newSaved)
   }
 
-  const formatDate = (date: string) => {
+  const formatDate = (date: string): string => {
     const d = new Date(date)
     const now = new Date()
     const tomorrow = new Date(now)
@@ -85,15 +100,25 @@ export default function SavedPage() {
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   }
 
-  const formatTime = (date: string) => {
+  const formatTime = (date: string): string => {
     return new Date(date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
   }
 
-  const isPast = (date: string) => new Date(date) < new Date()
+  const isPast = (date: string): boolean => new Date(date) < new Date()
 
-  // Separate upcoming and past
-  const upcoming = saved.filter(s => !isPast(s.event.start_time))
-  const past = saved.filter(s => isPast(s.event.start_time))
+  const upcoming: SavedEventData[] = []
+  const past: SavedEventData[] = []
+  
+  for (let i = 0; i < saved.length; i++) {
+    const item = saved[i]
+    if (item.event) {
+      if (isPast(item.event.start_time)) {
+        past.push(item)
+      } else {
+        upcoming.push(item)
+      }
+    }
+  }
 
   if (!user && !loading) {
     return (
@@ -109,7 +134,7 @@ export default function SavedPage() {
         </header>
         
         <main style={{ maxWidth: '500px', margin: '0 auto', padding: '60px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '20px', opacity: 0.5 }}>♡</div>
+          <div style={{ fontSize: '48px', marginBottom: '20px', opacity: 0.5 }}>&#9825;</div>
           <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '12px' }}>Save events you love</h1>
           <p style={{ fontSize: '15px', color: '#888', marginBottom: '32px', lineHeight: 1.6 }}>
             Sign in to save events and access them from any device.
@@ -136,7 +161,6 @@ export default function SavedPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', paddingBottom: '60px' }}>
-      {/* Header */}
       <header style={{
         padding: '16px 20px',
         paddingTop: 'max(16px, env(safe-area-inset-top))',
@@ -162,7 +186,7 @@ export default function SavedPage() {
       <main style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 20px' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '6px' }}>Saved</h1>
         <p style={{ fontSize: '14px', color: '#666', marginBottom: '24px' }}>
-          Events you've saved
+          Events you have saved
         </p>
 
         {loading ? (
@@ -171,7 +195,7 @@ export default function SavedPage() {
           </div>
         ) : saved.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>♡</div>
+            <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>&#9825;</div>
             <p style={{ fontSize: '16px', color: '#888', marginBottom: '8px' }}>No saved events</p>
             <p style={{ fontSize: '14px', color: '#666', marginBottom: '24px' }}>
               Tap the save button on any event to add it here
@@ -194,7 +218,6 @@ export default function SavedPage() {
           </div>
         ) : (
           <>
-            {/* Upcoming */}
             {upcoming.length > 0 && (
               <div style={{ marginBottom: '32px' }}>
                 <h2 style={{ 
@@ -208,108 +231,111 @@ export default function SavedPage() {
                   Upcoming ({upcoming.length})
                 </h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {upcoming.map(({ id, event }) => (
-                    <div 
-                      key={id}
-                      style={{
-                        display: 'flex',
-                        gap: '14px',
-                        padding: '14px',
-                        background: '#141416',
-                        borderRadius: '12px',
-                        position: 'relative',
-                      }}
-                    >
-                      <Link 
-                        href={`/event/${event.id}`}
+                  {upcoming.map((item: SavedEventData) => {
+                    const event = item.event
+                    if (!event) return null
+                    return (
+                      <div 
+                        key={item.id}
                         style={{
                           display: 'flex',
                           gap: '14px',
-                          flex: 1,
-                          textDecoration: 'none',
-                          color: 'white',
+                          padding: '14px',
+                          background: '#141416',
+                          borderRadius: '12px',
+                          position: 'relative',
                         }}
                       >
-                        {event.image_url ? (
-                          <div style={{
-                            width: '70px',
-                            height: '70px',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            flexShrink: 0,
-                          }}>
-                            <img 
-                              src={event.image_url} 
-                              alt="" 
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                            />
+                        <Link 
+                          href={'/event/' + event.id}
+                          style={{
+                            display: 'flex',
+                            gap: '14px',
+                            flex: 1,
+                            textDecoration: 'none',
+                            color: 'white',
+                          }}
+                        >
+                          {event.image_url ? (
+                            <div style={{
+                              width: '70px',
+                              height: '70px',
+                              borderRadius: '8px',
+                              overflow: 'hidden',
+                              flexShrink: 0,
+                            }}>
+                              <img 
+                                src={event.image_url} 
+                                alt="" 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                              />
+                            </div>
+                          ) : (
+                            <div style={{
+                              width: '70px',
+                              height: '70px',
+                              borderRadius: '8px',
+                              background: 'linear-gradient(135deg, #1e1e24, #252530)',
+                              flexShrink: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#333',
+                              fontSize: '20px',
+                            }}>
+                              &#9835;
+                            </div>
+                          )}
+                          
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 600, marginBottom: '4px' }}>
+                              {formatDate(event.start_time)} · {formatTime(event.start_time)}
+                            </p>
+                            <h3 style={{ 
+                              fontSize: '14px', 
+                              fontWeight: 600, 
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              margin: 0,
+                              marginBottom: '4px',
+                            }}>
+                              {event.title}
+                            </h3>
+                            <p style={{ fontSize: '12px', color: '#888' }}>
+                              {event.venue?.name}
+                            </p>
                           </div>
-                        ) : (
-                          <div style={{
-                            width: '70px',
-                            height: '70px',
-                            borderRadius: '8px',
-                            background: 'linear-gradient(135deg, #1e1e24, #252530)',
-                            flexShrink: 0,
+                        </Link>
+                        
+                        <button
+                          onClick={() => handleRemove(item.id)}
+                          style={{
+                            position: 'absolute',
+                            top: '12px',
+                            right: '12px',
+                            width: '28px',
+                            height: '28px',
+                            background: 'rgba(255,255,255,0.06)',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: '#666',
+                            fontSize: '14px',
+                            cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            color: '#333',
-                            fontSize: '20px',
-                          }}>
-                            ♪
-                          </div>
-                        )}
-                        
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 600, marginBottom: '4px' }}>
-                            {formatDate(event.start_time)} · {formatTime(event.start_time)}
-                          </p>
-                          <h3 style={{ 
-                            fontSize: '14px', 
-                            fontWeight: 600, 
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            margin: 0,
-                            marginBottom: '4px',
-                          }}>
-                            {event.title}
-                          </h3>
-                          <p style={{ fontSize: '12px', color: '#888' }}>
-                            {event.venue?.name}
-                          </p>
-                        </div>
-                      </Link>
-                      
-                      <button
-                        onClick={() => handleRemove(id)}
-                        style={{
-                          position: 'absolute',
-                          top: '12px',
-                          right: '12px',
-                          width: '28px',
-                          height: '28px',
-                          background: 'rgba(255,255,255,0.06)',
-                          border: 'none',
-                          borderRadius: '6px',
-                          color: '#666',
-                          fontSize: '14px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
 
-            {/* Past */}
             {past.length > 0 && (
               <div>
                 <h2 style={{ 
@@ -323,77 +349,81 @@ export default function SavedPage() {
                   Past ({past.length})
                 </h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', opacity: 0.6 }}>
-                  {past.map(({ id, event }) => (
-                    <div 
-                      key={id}
-                      style={{
-                        display: 'flex',
-                        gap: '14px',
-                        padding: '14px',
-                        background: '#141416',
-                        borderRadius: '12px',
-                        position: 'relative',
-                      }}
-                    >
-                      <Link 
-                        href={`/event/${event.id}`}
+                  {past.map((item: SavedEventData) => {
+                    const event = item.event
+                    if (!event) return null
+                    return (
+                      <div 
+                        key={item.id}
                         style={{
                           display: 'flex',
                           gap: '14px',
-                          flex: 1,
-                          textDecoration: 'none',
-                          color: 'white',
+                          padding: '14px',
+                          background: '#141416',
+                          borderRadius: '12px',
+                          position: 'relative',
                         }}
                       >
-                        <div style={{
-                          width: '50px',
-                          height: '50px',
-                          borderRadius: '8px',
-                          background: '#1e1e24',
-                          flexShrink: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#333',
-                          fontSize: '16px',
-                        }}>
-                          ♪
-                        </div>
-                        
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>
-                            {formatDate(event.start_time)}
-                          </p>
-                          <h3 style={{ 
-                            fontSize: '13px', 
-                            fontWeight: 500, 
-                            margin: 0,
-                            color: '#888',
+                        <Link 
+                          href={'/event/' + event.id}
+                          style={{
+                            display: 'flex',
+                            gap: '14px',
+                            flex: 1,
+                            textDecoration: 'none',
+                            color: 'white',
+                          }}
+                        >
+                          <div style={{
+                            width: '50px',
+                            height: '50px',
+                            borderRadius: '8px',
+                            background: '#1e1e24',
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#333',
+                            fontSize: '16px',
                           }}>
-                            {event.title}
-                          </h3>
-                        </div>
-                      </Link>
-                      
-                      <button
-                        onClick={() => handleRemove(id)}
-                        style={{
-                          position: 'absolute',
-                          top: '12px',
-                          right: '12px',
-                          width: '24px',
-                          height: '24px',
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#444',
-                          fontSize: '14px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+                            &#9835;
+                          </div>
+                          
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>
+                              {formatDate(event.start_time)}
+                            </p>
+                            <h3 style={{ 
+                              fontSize: '13px', 
+                              fontWeight: 500, 
+                              margin: 0,
+                              color: '#888',
+                            }}>
+                              {event.title}
+                            </h3>
+                          </div>
+                        </Link>
+                        
+                        <button
+                          onClick={() => handleRemove(item.id)}
+                          style={{
+                            position: 'absolute',
+                            top: '12px',
+                            right: '12px',
+                            width: '24px',
+                            height: '24px',
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#444',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
