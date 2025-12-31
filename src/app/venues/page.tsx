@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
 
-type Venue = {
+interface Venue {
   id: string
   name: string
   address: string
@@ -33,19 +33,19 @@ export default function VenuesPage() {
         .order('name')
       
       if (data) {
-        // Get event counts for each venue
-        const venuesWithCounts = await Promise.all(
-          data.map(async (venue) => {
-            const { count } = await supabase
-              .from('events')
-              .select('id', { count: 'exact', head: true })
-              .eq('venue_id', venue.id)
-              .eq('status', 'published')
-              .gte('start_time', new Date().toISOString().split('T')[0])
-            
-            return { ...venue, event_count: count || 0 }
-          })
-        )
+        const venuesWithCounts: Venue[] = []
+        for (let i = 0; i < data.length; i++) {
+          const venue = data[i] as Venue
+          const { count } = await supabase
+            .from('events')
+            .select('id', { count: 'exact', head: true })
+            .eq('venue_id', venue.id)
+            .eq('status', 'published')
+            .gte('start_time', new Date().toISOString().split('T')[0])
+          
+          venue.event_count = count || 0
+          venuesWithCounts.push(venue)
+        }
         setVenues(venuesWithCounts)
       }
       setLoading(false)
@@ -53,41 +53,55 @@ export default function VenuesPage() {
     loadVenues()
   }, [])
 
-  // Get available venue types (deduplicated and normalized)
   const availableTypes = useMemo(() => {
     const typeSet = new Set<string>()
-    venues.forEach(v => {
+    for (let i = 0; i < venues.length; i++) {
+      const v = venues[i]
       if (v.venue_type) {
-        // Normalize: lowercase, trim, and take first word if comma-separated
         const normalized = v.venue_type.toLowerCase().trim().split(',')[0].trim()
-        if (normalized && VENUE_TYPES.includes(normalized)) {
+        if (normalized && VENUE_TYPES.indexOf(normalized) !== -1) {
           typeSet.add(normalized)
         }
       }
-    })
-    // Return in predefined order
-    return VENUE_TYPES.filter(t => typeSet.has(t))
+    }
+    const result: string[] = []
+    for (let i = 0; i < VENUE_TYPES.length; i++) {
+      if (typeSet.has(VENUE_TYPES[i])) {
+        result.push(VENUE_TYPES[i])
+      }
+    }
+    return result
   }, [venues])
 
   const filtered = useMemo(() => {
     let result = venues
     
     if (typeFilter) {
-      result = result.filter(v => 
-        v.venue_type?.toLowerCase().includes(typeFilter)
-      )
+      const filtered: Venue[] = []
+      for (let i = 0; i < result.length; i++) {
+        const v = result[i]
+        if (v.venue_type && v.venue_type.toLowerCase().indexOf(typeFilter) !== -1) {
+          filtered.push(v)
+        }
+      }
+      result = filtered
     }
     
     if (search) {
       const q = search.toLowerCase()
-      result = result.filter(v => 
-        v.name.toLowerCase().includes(q) || 
-        v.address?.toLowerCase().includes(q)
-      )
+      const searched: Venue[] = []
+      for (let i = 0; i < result.length; i++) {
+        const v = result[i]
+        if (v.name.toLowerCase().indexOf(q) !== -1 || (v.address && v.address.toLowerCase().indexOf(q) !== -1)) {
+          searched.push(v)
+        }
+      }
+      result = searched
     }
     
-    // Sort by event count (venues with upcoming events first)
-    return result.sort((a, b) => (b.event_count || 0) - (a.event_count || 0))
+    // Sort by event count
+    result.sort((a: Venue, b: Venue) => (b.event_count || 0) - (a.event_count || 0))
+    return result
   }, [venues, typeFilter, search])
 
   return (
@@ -97,7 +111,6 @@ export default function VenuesPage() {
       color: 'white',
       paddingBottom: '60px',
     }}>
-      {/* Header */}
       <header style={{
         padding: '16px 20px',
         paddingTop: 'max(16px, env(safe-area-inset-top))',
@@ -126,7 +139,6 @@ export default function VenuesPage() {
           Clubs, bars, and spaces in Newcastle
         </p>
 
-        {/* Search */}
         <div style={{ marginBottom: '16px' }}>
           <input
             type="text"
@@ -146,7 +158,6 @@ export default function VenuesPage() {
           />
         </div>
 
-        {/* Type Filters */}
         {availableTypes.length > 0 && (
           <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '4px' }}>
             <button
@@ -165,7 +176,7 @@ export default function VenuesPage() {
             >
               All
             </button>
-            {availableTypes.map(type => (
+            {availableTypes.map((type: string) => (
               <button
                 key={type}
                 onClick={() => setTypeFilter(typeFilter === type ? null : type)}
@@ -188,7 +199,6 @@ export default function VenuesPage() {
           </div>
         )}
 
-        {/* Results count */}
         <p style={{ fontSize: '13px', color: '#666', marginBottom: '20px' }}>
           {filtered.length} venue{filtered.length !== 1 ? 's' : ''}
         </p>
@@ -199,16 +209,16 @@ export default function VenuesPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>🏢</div>
+            <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>&#127963;</div>
             <p style={{ fontSize: '16px', color: '#888', marginBottom: '8px' }}>No venues found</p>
             <p style={{ fontSize: '14px', color: '#666' }}>Try adjusting your search</p>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-            {filtered.map(venue => (
+            {filtered.map((venue: Venue) => (
               <Link 
                 key={venue.id}
-                href={`/venue/${venue.id}`}
+                href={'/venue/' + venue.id}
                 style={{
                   display: 'block',
                   background: '#141416',
@@ -218,7 +228,6 @@ export default function VenuesPage() {
                   color: 'white',
                 }}
               >
-                {/* Image */}
                 {venue.image_url ? (
                   <div style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
                     <img 
@@ -238,11 +247,10 @@ export default function VenuesPage() {
                     color: '#333',
                     fontSize: '32px',
                   }}>
-                    ♪
+                    &#9835;
                   </div>
                 )}
                 
-                {/* Content */}
                 <div style={{ padding: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                     <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>
@@ -300,3 +308,4 @@ export default function VenuesPage() {
     </div>
   )
 }
+
