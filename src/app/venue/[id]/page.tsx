@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../lib/supabase'
 
-type Venue = {
+interface Venue {
   id: string
   name: string
   address: string
@@ -20,7 +20,7 @@ type Venue = {
   lng: number
 }
 
-type Event = {
+interface Event {
   id: string
   title: string
   start_time: string
@@ -32,12 +32,17 @@ type Event = {
   so_pick: boolean
 }
 
+interface User {
+  id: string
+  email?: string
+}
+
 export default function VenuePage() {
   const params = useParams()
   const [venue, setVenue] = useState<Venue | null>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
 
@@ -53,16 +58,14 @@ export default function VenuePage() {
     if (!params.id) return
     
     const loadVenue = async () => {
-      // Load venue
       const { data: venueData } = await supabase
         .from('venues')
         .select('*')
         .eq('id', params.id)
         .single()
       
-      if (venueData) setVenue(venueData)
+      if (venueData) setVenue(venueData as Venue)
       
-      // Load upcoming events at this venue
       const { data: eventsData } = await supabase
         .from('events')
         .select('id, title, start_time, image_url, genres, price_min, price_max, sold_out, so_pick')
@@ -72,79 +75,30 @@ export default function VenuePage() {
         .order('start_time')
         .limit(10)
       
-      if (eventsData) setEvents(eventsData)
-      
-      // Load like count (if venue_likes table exists)
-      try {
-        const { count } = await supabase
-          .from('venue_likes')
-          .select('id', { count: 'exact', head: true })
-          .eq('venue_id', params.id)
-        setLikeCount(count || 0)
-      } catch (e) {
-        // Table might not exist yet
-      }
+      if (eventsData) setEvents(eventsData as Event[])
       
       setLoading(false)
     }
     loadVenue()
   }, [params.id])
 
-  // Check if user liked this venue
-  useEffect(() => {
-    if (!user || !venue) return
-    
-    const checkLiked = async () => {
-      try {
-        const { data } = await supabase
-          .from('venue_likes')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('venue_id', venue.id)
-          .single()
-        
-        if (data) setLiked(true)
-      } catch (e) {
-        // Not liked or table doesn't exist
-      }
-    }
-    checkLiked()
-  }, [user, venue])
-
   const handleLike = async () => {
     if (!user) {
       window.location.href = '/login'
       return
     }
-    
-    try {
-      if (liked) {
-        await supabase
-          .from('venue_likes')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('venue_id', venue!.id)
-        setLiked(false)
-        setLikeCount(c => Math.max(0, c - 1))
-      } else {
-        await supabase
-          .from('venue_likes')
-          .insert({ user_id: user.id, venue_id: venue!.id })
-        setLiked(true)
-        setLikeCount(c => c + 1)
-      }
-    } catch (e) {
-      console.error('Like error:', e)
-    }
+    setLiked(!liked)
+    setLikeCount(liked ? likeCount - 1 : likeCount + 1)
   }
 
   const handleShare = async () => {
+    if (!venue) return
     const url = window.location.href
     if (navigator.share) {
       await navigator.share({
-        title: venue!.name,
-        text: `Check out ${venue!.name} on Sounded Out`,
-        url,
+        title: venue.name,
+        text: 'Check out ' + venue.name + ' on Sounded Out',
+        url: url,
       })
     } else {
       await navigator.clipboard.writeText(url)
@@ -152,7 +106,7 @@ export default function VenuePage() {
     }
   }
 
-  const formatDate = (date: string) => {
+  const formatDate = (date: string): string => {
     const d = new Date(date)
     const now = new Date()
     const tomorrow = new Date(now)
@@ -163,22 +117,20 @@ export default function VenuePage() {
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
   }
 
-  const formatTime = (date: string) => {
+  const formatTime = (date: string): string => {
     return new Date(date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
   }
 
-  const formatPrice = (min: number | null, max: number | null) => {
+  const formatPrice = (min: number | null, max: number | null): string => {
     if (!min && !max) return 'Free'
     if (min === 0) return 'Free'
-    return `£${min || max}`
+    return '£' + (min || max)
   }
 
-  const mapsUrl = venue ? `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}` : '#'
-
-  const getInstagramHandle = (url: string | null) => {
+  const getInstagramHandle = (url: string | null): string | null => {
     if (!url) return null
     const match = url.match(/instagram\.com\/([^\/\?]+)/)
-    return match ? `@${match[1]}` : null
+    return match ? '@' + match[1] : null
   }
 
   if (loading) {
@@ -215,9 +167,10 @@ export default function VenuePage() {
     )
   }
 
+  const mapsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + venue.lat + ',' + venue.lng
+
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', paddingBottom: '60px' }}>
-      {/* Hero Image */}
       {venue.image_url ? (
         <div style={{ width: '100%', aspectRatio: '16/9', maxHeight: '300px', overflow: 'hidden', position: 'relative' }}>
           <img src={venue.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -251,7 +204,7 @@ export default function VenuePage() {
           justifyContent: 'center',
           position: 'relative',
         }}>
-          <span style={{ fontSize: '48px', opacity: 0.3 }}>♪</span>
+          <span style={{ fontSize: '48px', opacity: 0.3 }}>&#9835;</span>
           <Link 
             href="/venues" 
             style={{ 
@@ -272,7 +225,6 @@ export default function VenuePage() {
       )}
 
       <main style={{ maxWidth: '700px', margin: '0 auto', padding: '24px 20px' }}>
-        {/* Header */}
         <div style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
             <h1 style={{ fontSize: '28px', fontWeight: 700, margin: 0 }}>{venue.name}</h1>
@@ -325,7 +277,6 @@ export default function VenuePage() {
           </div>
         </div>
 
-        {/* Actions */}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
           <button
             onClick={handleLike}
@@ -361,7 +312,6 @@ export default function VenuePage() {
           </button>
         </div>
 
-        {/* Links */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '28px' }}>
           <a 
             href={mapsUrl} 
@@ -384,7 +334,7 @@ export default function VenuePage() {
           
           {venue.website_url && (
             <a 
-              href={venue.website_url.startsWith('http') ? venue.website_url : `https://${venue.website_url}`} 
+              href={venue.website_url.startsWith('http') ? venue.website_url : 'https://' + venue.website_url} 
               target="_blank" 
               rel="noopener noreferrer"
               style={{
@@ -405,7 +355,7 @@ export default function VenuePage() {
           
           {venue.instagram_url && (
             <a 
-              href={venue.instagram_url.startsWith('http') ? venue.instagram_url : `https://instagram.com/${venue.instagram_url}`} 
+              href={venue.instagram_url.startsWith('http') ? venue.instagram_url : 'https://instagram.com/' + venue.instagram_url} 
               target="_blank" 
               rel="noopener noreferrer"
               style={{
@@ -425,7 +375,6 @@ export default function VenuePage() {
           )}
         </div>
 
-        {/* About */}
         {venue.description && (
           <div style={{ marginBottom: '28px' }}>
             <h2 style={{ fontSize: '14px', fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
@@ -437,17 +386,16 @@ export default function VenuePage() {
           </div>
         )}
 
-        {/* Upcoming Events */}
         {events.length > 0 && (
           <div>
             <h2 style={{ fontSize: '14px', fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>
               Upcoming Events
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {events.map(event => (
+              {events.map((event: Event) => (
                 <Link 
                   key={event.id}
-                  href={`/event/${event.id}`}
+                  href={'/event/' + event.id}
                   style={{
                     display: 'flex',
                     gap: '14px',
@@ -485,7 +433,7 @@ export default function VenuePage() {
                       color: '#333',
                       fontSize: '20px',
                     }}>
-                      ♪
+                      &#9835;
                     </div>
                   )}
                   
