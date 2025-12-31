@@ -5,9 +5,18 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
 
+interface User {
+  id: string
+  email?: string
+  created_at?: string
+  app_metadata?: {
+    provider?: string
+  }
+}
+
 export default function SettingsPage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
@@ -15,7 +24,7 @@ export default function SettingsPage() {
     const loadUser = async () => {
       const { data } = await supabase.auth.getUser()
       if (data.user) {
-        setUser(data.user)
+        setUser(data.user as User)
       } else {
         router.push('/login')
       }
@@ -30,11 +39,8 @@ export default function SettingsPage() {
   }
 
   const handleDeleteAccount = async () => {
-    // Delete user data
     if (user) {
       await supabase.from('saved_events').delete().eq('user_id', user.id)
-      await supabase.from('venue_likes').delete().eq('user_id', user.id)
-      // Note: Can't delete auth user from client - would need server function
     }
     await supabase.auth.signOut()
     router.push('/')
@@ -48,9 +54,18 @@ export default function SettingsPage() {
     )
   }
 
+  if (!user) {
+    return null
+  }
+
+  const memberSince = user.created_at 
+    ? new Date(user.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+    : 'Unknown'
+
+  const provider = user.app_metadata?.provider === 'google' ? 'Google' : 'Email'
+
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', paddingBottom: '60px' }}>
-      {/* Header */}
       <header style={{
         padding: '16px 20px',
         paddingTop: 'max(16px, env(safe-area-inset-top))',
@@ -68,7 +83,6 @@ export default function SettingsPage() {
       <main style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 20px' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '32px' }}>Settings</h1>
 
-        {/* Account Section */}
         <section style={{ marginBottom: '32px' }}>
           <h2 style={{ 
             fontSize: '12px', 
@@ -84,26 +98,21 @@ export default function SettingsPage() {
           <div style={{ background: '#141416', borderRadius: '12px', overflow: 'hidden' }}>
             <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <p style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Email</p>
-              <p style={{ fontSize: '14px', color: 'white' }}>{user?.email}</p>
+              <p style={{ fontSize: '14px', color: 'white' }}>{user.email || 'No email'}</p>
             </div>
             
             <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <p style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Signed in via</p>
-              <p style={{ fontSize: '14px', color: 'white' }}>
-                {user?.app_metadata?.provider === 'google' ? 'Google' : 'Email'}
-              </p>
+              <p style={{ fontSize: '14px', color: 'white' }}>{provider}</p>
             </div>
             
             <div style={{ padding: '16px' }}>
               <p style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Member since</p>
-              <p style={{ fontSize: '14px', color: 'white' }}>
-                {new Date(user?.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-              </p>
+              <p style={{ fontSize: '14px', color: 'white' }}>{memberSince}</p>
             </div>
           </div>
         </section>
 
-        {/* Preferences Section */}
         <section style={{ marginBottom: '32px' }}>
           <h2 style={{ 
             fontSize: '12px', 
@@ -146,7 +155,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Links Section */}
         <section style={{ marginBottom: '32px' }}>
           <h2 style={{ 
             fontSize: '12px', 
@@ -209,7 +217,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Actions */}
         <section>
           <button
             onClick={handleSignOut}
