@@ -118,6 +118,29 @@ export default function Home() {
   useEffect(() => {
     initAnalytics()
   }, [])
+
+  // Load user on mount and listen for auth changes
+useEffect(() => {
+  const loadUser = async () => {
+    const { data } = await supabase.auth.getUser()
+    if (data.user) {
+      setUser({ id: data.user.id, email: data.user.email })
+    }
+  }
+  loadUser()
+
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    if (session?.user) {
+      setUser({ id: session.user.id, email: session.user.email })
+    } else {
+      setUser(null)
+    }
+  })
+
+  return () => {
+    subscription.unsubscribe()
+  }
+}, [])
   
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
@@ -133,6 +156,9 @@ export default function Home() {
   const [clusterEvents, setClusterEvents] = useState<Event[]>([])
   const [visibleDayLabel, setVisibleDayLabel] = useState<string>('')
   const [showAdminMenu, setShowAdminMenu] = useState(false)
+
+  // User auth state
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   
   // Responsive state
   const [deviceType, setDeviceType] = useState<DeviceType>(() => {
@@ -519,6 +545,12 @@ const [windowWidth, setWindowWidth] = useState(() => {
       }
     }
   }, [showUserLocation])
+
+  const handleSignOut = async () => {
+  await supabase.auth.signOut()
+  setUser(null)
+  setShowMenu(false)
+}
 
   useEffect(() => {
     if (!map.current || !mapReady || !showUserLocation || !userLocation) return
@@ -1902,7 +1934,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
       background: '#1a1a1f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', 
       padding: '12px', minWidth: '220px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', zIndex: 100,
     }}>
-      <NavigationLinks onClose={() => setShowMenu(false)} />
+      <NavigationLinks onClose={() => setShowMenu(false)} user={user} onSignOut={handleSignOut} />
     </div>
   </>
 )}
@@ -2437,7 +2469,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
       <button onClick={() => setShowMenu(false)} style={{ position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', right: '16px', width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer' }}>✕</button>
       <img src="/logo.svg" alt="Sounded Out" onClick={handleLogoTap} style={{ height: '24px', width: 'auto', marginBottom: '24px', marginTop: '8px', cursor: 'pointer' }} />
       
-      <NavigationLinks onClose={() => setShowMenu(false)} />
+      <NavigationLinks onClose={() => setShowMenu(false)} user={user} onSignOut={handleSignOut} />
     </div>
   </>
 )}
