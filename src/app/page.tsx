@@ -1128,27 +1128,6 @@ const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
   </>
 )
 
-    
-    {/* Partner Section */}
-    <Link href="/portal" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderRadius: '10px', background: 'rgba(171,103,247,0.1)', color: 'white', textDecoration: 'none', marginBottom: '8px' }}>
-      <span style={{ width: '40px', height: '40px', background: '#ab67f7', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>👤</span>
-      <div><p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>Partner Portal</p><p style={{ fontSize: '11px', color: '#888' }}>Manage your events</p></div>
-    </Link>
-    <Link href="/for-promoters" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px', marginBottom: '4px' }}>
-      <span style={{ fontSize: '16px' }}>🎤</span> For Promoters
-    </Link>
-    
-    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '12px 0' }} />
-    
-    <a href="https://instagram.com/sounded.out" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px', marginBottom: '4px' }}>
-      <span style={{ fontSize: '16px' }}>📸</span> Follow us
-    </a>
-    <Link href="/about" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px' }}>
-      <span style={{ fontSize: '16px' }}>ℹ️</span> About
-    </Link>
-  </>
-)
-
   // ============================================================================
   // DESKTOP/TABLET SIDEBAR COMPONENT
   // ============================================================================
