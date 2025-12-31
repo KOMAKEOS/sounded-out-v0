@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import PageLayout from '../../../components/PageLayout'
 import { supabase } from '../../../lib/supabase'
 
 type Event = {
@@ -38,6 +37,7 @@ export default function EventPage() {
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
+  const [interested, setInterested] = useState(false)
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
@@ -101,6 +101,15 @@ export default function EventPage() {
     }
   }
 
+  const handleInterested = async () => {
+    if (!user) {
+      window.location.href = '/login'
+      return
+    }
+    setInterested(!interested)
+    // TODO: Save to event_interest table
+  }
+
   const handleShare = async () => {
     const url = window.location.href
     if (navigator.share) {
@@ -111,7 +120,7 @@ export default function EventPage() {
       })
     } else {
       await navigator.clipboard.writeText(url)
-      alert('Link copied')
+      alert('Link copied!')
     }
   }
 
@@ -151,230 +160,235 @@ export default function EventPage() {
 
   if (loading) {
     return (
-      <PageLayout maxWidth="700px">
-        <div style={{ textAlign: 'center', padding: '60px 0', color: '#666' }}>
-          Loading...
-        </div>
-      </PageLayout>
+      <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        Loading...
+      </div>
     )
   }
 
   if (!event) {
     return (
-      <PageLayout maxWidth="700px">
-        <div style={{ textAlign: 'center', padding: '60px 0' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px' }}>Event not found</h1>
-          <p style={{ fontSize: '14px', color: '#666', marginBottom: '24px' }}>
-            This event may have been removed or the link is incorrect.
-          </p>
-          <Link
-            href="/events"
-            style={{
-              display: 'inline-block',
-              padding: '12px 24px',
-              background: '#ab67f7',
-              borderRadius: '10px',
-              color: 'white',
-              textDecoration: 'none',
-              fontSize: '14px',
-              fontWeight: 600,
-            }}
-          >
-            Browse events
-          </Link>
-        </div>
-      </PageLayout>
+      <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', padding: '60px 20px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px' }}>Event not found</h1>
+        <p style={{ fontSize: '14px', color: '#666', marginBottom: '24px' }}>
+          This event may have been removed or the link is incorrect.
+        </p>
+        <Link
+          href="/events"
+          style={{
+            display: 'inline-block',
+            padding: '12px 24px',
+            background: '#ab67f7',
+            borderRadius: '10px',
+            color: 'white',
+            textDecoration: 'none',
+            fontSize: '14px',
+            fontWeight: 600,
+          }}
+        >
+          Browse events
+        </Link>
+      </div>
     )
   }
 
   return (
-    <PageLayout maxWidth="700px">
-      {/* Back link */}
-      <Link 
-        href="/events" 
-        style={{ 
-          display: 'inline-flex', 
-          alignItems: 'center', 
-          gap: '6px', 
-          color: '#888', 
-          textDecoration: 'none', 
-          fontSize: '14px',
-          marginBottom: '24px',
-        }}
-      >
-        ← All events
-      </Link>
-
-      {/* Image */}
+    <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', paddingBottom: '100px' }}>
+      {/* Hero Image */}
       {event.image_url ? (
-        <div style={{ 
-          width: '100%', 
-          aspectRatio: '16/9', 
-          borderRadius: '16px', 
-          overflow: 'hidden', 
-          marginBottom: '24px',
-        }}>
+        <div style={{ width: '100%', aspectRatio: '16/9', maxHeight: '300px', overflow: 'hidden', position: 'relative' }}>
           <img src={event.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #0a0a0b 0%, transparent 50%)' }} />
+          <Link 
+            href="/events" 
+            style={{ 
+              position: 'absolute', 
+              top: 'max(16px, env(safe-area-inset-top))', 
+              left: '16px', 
+              background: 'rgba(0,0,0,0.5)', 
+              backdropFilter: 'blur(10px)',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              color: 'white',
+              textDecoration: 'none',
+              fontSize: '13px',
+            }}
+          >
+            ← Back
+          </Link>
         </div>
       ) : (
         <div style={{ 
           width: '100%', 
           aspectRatio: '16/9', 
-          borderRadius: '16px', 
-          background: 'linear-gradient(135deg, #1e1e24, #252530)', 
-          marginBottom: '24px',
+          maxHeight: '200px',
+          background: 'linear-gradient(135deg, #1a1a1f 0%, #252530 100%)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           gap: '8px',
+          position: 'relative',
         }}>
-          <span style={{ fontSize: '32px', opacity: 0.4 }}>🎵</span>
+          <span style={{ fontSize: '32px', opacity: 0.4 }}>♪</span>
           <span style={{ fontSize: '12px', color: '#444', textTransform: 'uppercase', letterSpacing: '1px' }}>
             {event.genres?.split(',')[0]?.trim() || 'Event'}
           </span>
-        </div>
-      )}
-
-      {/* Date/Time */}
-      <p style={{ 
-        fontSize: '14px', 
-        color: '#ab67f7', 
-        fontWeight: 600, 
-        textTransform: 'uppercase',
-        marginBottom: '8px',
-      }}>
-        {formatDate(event.start_time)} · {formatTime(event.start_time)}
-        {event.end_time && ` – ${formatTime(event.end_time)}`}
-      </p>
-
-      {/* Title */}
-      <h1 style={{ 
-        fontSize: '32px', 
-        fontWeight: 700, 
-        lineHeight: 1.2, 
-        marginBottom: '12px',
-      }}>
-        {event.title}
-      </h1>
-
-      {/* Badges */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        {event.so_pick && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <img src="/so-icon.png" alt="" style={{ height: '16px' }} />
-            <span style={{ fontSize: '13px', color: '#888' }}>Curated</span>
-          </div>
-        )}
-        {event.is_verified && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ 
-              width: '18px', 
-              height: '18px', 
-              background: '#ab67f7', 
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '10px',
+          <Link 
+            href="/events" 
+            style={{ 
+              position: 'absolute', 
+              top: 'max(16px, env(safe-area-inset-top))', 
+              left: '16px', 
+              background: 'rgba(0,0,0,0.5)', 
+              padding: '8px 12px',
+              borderRadius: '8px',
               color: 'white',
-            }}>✓</span>
-            <span style={{ fontSize: '13px', color: '#ab67f7', fontWeight: 500 }}>Verified</span>
+              textDecoration: 'none',
+              fontSize: '13px',
+            }}
+          >
+            ← Back
+          </Link>
+        </div>
+      )}
+
+      <main style={{ maxWidth: '700px', margin: '0 auto', padding: '24px 20px' }}>
+        {/* Date/Time */}
+        <p style={{ 
+          fontSize: '14px', 
+          color: '#ab67f7', 
+          fontWeight: 600, 
+          textTransform: 'uppercase',
+          marginBottom: '8px',
+        }}>
+          {formatDate(event.start_time)} · {formatTime(event.start_time)}
+          {event.end_time && ` – ${formatTime(event.end_time)}`}
+        </p>
+
+        {/* Title */}
+        <h1 style={{ 
+          fontSize: '28px', 
+          fontWeight: 700, 
+          lineHeight: 1.2, 
+          marginBottom: '12px',
+        }}>
+          {event.title}
+        </h1>
+
+        {/* Badges */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          {event.so_pick && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <img src="/so-icon.png" alt="" style={{ height: '14px' }} />
+              <span style={{ fontSize: '12px', color: '#888' }}>Curated</span>
+            </div>
+          )}
+          {event.is_verified && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ 
+                width: '16px', 
+                height: '16px', 
+                background: '#ab67f7', 
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '9px',
+                color: 'white',
+              }}>✓</span>
+              <span style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 500 }}>Verified</span>
+            </div>
+          )}
+        </div>
+
+        {/* Venue */}
+        <Link 
+          href={`/venue/${event.venue.id}`}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            marginBottom: '20px',
+            textDecoration: 'none',
+          }}
+        >
+          <span style={{ fontSize: '15px', color: '#888' }}>{event.venue.name}</span>
+          <span style={{ color: '#666' }}>→</span>
+        </Link>
+
+        {/* No phones */}
+        {(event.no_phones || event.venue.no_phones) && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '12px 16px',
+            background: 'rgba(255,200,50,0.08)',
+            border: '1px solid rgba(255,200,50,0.15)',
+            borderRadius: '10px',
+            marginBottom: '20px',
+          }}>
+            <span style={{ fontSize: '14px', color: '#ffc832' }}>No phones policy</span>
           </div>
         )}
-      </div>
 
-      {/* Venue */}
-      <Link 
-        href={`/venue/${event.venue.id}`}
-        style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '8px', 
-          marginBottom: '20px',
-          textDecoration: 'none',
-        }}
-      >
-        <span style={{ fontSize: '16px', color: '#888' }}>{event.venue.name}</span>
-        {event.venue.instagram_url && (
-          <span style={{ color: '#666' }}>→</span>
-        )}
-      </Link>
-
-      {/* No phones */}
-      {(event.no_phones || event.venue.no_phones) && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          padding: '14px 16px',
-          background: 'rgba(255,200,50,0.08)',
-          border: '1px solid rgba(255,200,50,0.15)',
-          borderRadius: '12px',
-          marginBottom: '20px',
-        }}>
-          <span style={{ fontSize: '18px' }}>📵</span>
-          <span style={{ fontSize: '14px', color: '#ffc832' }}>No phones policy</span>
+        {/* Tags */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
+          {event.sold_out && (
+            <span style={{ 
+              padding: '6px 12px', 
+              background: 'rgba(248,113,113,0.15)', 
+              borderRadius: '6px', 
+              fontSize: '12px', 
+              fontWeight: 600, 
+              color: '#f87171' 
+            }}>
+              Sold out
+            </span>
+          )}
+          {isFree(event.price_min, event.price_max) && (
+            <span style={{ 
+              padding: '6px 12px', 
+              background: 'rgba(34,197,94,0.15)', 
+              borderRadius: '6px', 
+              fontSize: '12px', 
+              fontWeight: 600, 
+              color: '#22c55e' 
+            }}>
+              Free
+            </span>
+          )}
+          {event.genres?.split(',').map((g, i) => (
+            <span key={i} style={{ 
+              padding: '6px 12px', 
+              background: 'rgba(171,103,247,0.12)', 
+              borderRadius: '6px', 
+              fontSize: '12px', 
+              color: '#ab67f7' 
+            }}>
+              {g.trim()}
+            </span>
+          ))}
         </div>
-      )}
 
-      {/* Tags */}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
-        {event.sold_out && (
-          <span style={{ 
-            padding: '8px 14px', 
-            background: 'rgba(248,113,113,0.15)', 
-            borderRadius: '8px', 
-            fontSize: '13px', 
-            fontWeight: 600, 
-            color: '#f87171' 
-          }}>
-            Sold out
-          </span>
-        )}
-        {isFree(event.price_min, event.price_max) && (
-          <span style={{ 
-            padding: '8px 14px', 
-            background: 'rgba(34,197,94,0.15)', 
-            borderRadius: '8px', 
-            fontSize: '13px', 
-            fontWeight: 600, 
-            color: '#22c55e' 
-          }}>
-            Free
-          </span>
-        )}
-        {event.genres?.split(',').map((g, i) => (
-          <span key={i} style={{ 
-            padding: '8px 14px', 
-            background: 'rgba(171,103,247,0.12)', 
-            borderRadius: '8px', 
-            fontSize: '13px', 
-            color: '#ab67f7' 
-          }}>
-            {g.trim()}
-          </span>
-        ))}
-      </div>
-
-      {/* Price */}
-      {formatPrice(event.price_min, event.price_max) && (
-        <p style={{ fontSize: '24px', fontWeight: 700, marginBottom: '24px' }}>
-          {formatPrice(event.price_min, event.price_max)}
-        </p>
-      )}
-
-      {/* Description */}
-      {event.description && (
-        <div style={{ marginBottom: '24px' }}>
-          <p style={{ fontSize: '15px', color: '#aaa', lineHeight: 1.7 }}>
-            {event.description}
+        {/* Price */}
+        {formatPrice(event.price_min, event.price_max) && (
+          <p style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px' }}>
+            {formatPrice(event.price_min, event.price_max)}
           </p>
-        </div>
-      )}
+        )}
 
-      {/* Actions */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '32px' }}>
+        {/* Description */}
+        {event.description && (
+          <div style={{ marginBottom: '24px' }}>
+            <p style={{ fontSize: '14px', color: '#aaa', lineHeight: 1.7 }}>
+              {event.description}
+            </p>
+          </div>
+        )}
+
+        {/* Primary CTA */}
         {getTicketUrl(event.event_url) && (
           <a 
             href={getTicketUrl(event.event_url)!} 
@@ -390,23 +404,25 @@ export default function EventPage() {
               fontSize: '15px',
               color: event.sold_out ? '#888' : 'white',
               textDecoration: 'none',
+              marginBottom: '12px',
             }}
           >
             {event.sold_out ? 'View page (sold out)' : isFree(event.price_min, event.price_max) ? 'View page' : 'Get tickets'}
           </a>
         )}
-        
-        <div style={{ display: 'flex', gap: '12px' }}>
+
+        {/* Secondary Actions */}
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
           <button
             onClick={handleSave}
             style={{
               flex: 1,
-              padding: '14px',
-              background: saved ? 'rgba(171,103,247,0.15)' : 'rgba(255,255,255,0.08)',
+              padding: '12px',
+              background: saved ? 'rgba(171,103,247,0.15)' : 'rgba(255,255,255,0.06)',
               border: saved ? '1px solid rgba(171,103,247,0.3)' : '1px solid rgba(255,255,255,0.1)',
               borderRadius: '10px',
               color: saved ? '#ab67f7' : '#888',
-              fontSize: '14px',
+              fontSize: '13px',
               fontWeight: 500,
               cursor: 'pointer',
             }}
@@ -414,15 +430,31 @@ export default function EventPage() {
             {saved ? 'Saved' : 'Save'}
           </button>
           <button
+            onClick={handleInterested}
+            style={{
+              flex: 1,
+              padding: '12px',
+              background: interested ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.06)',
+              border: interested ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '10px',
+              color: interested ? '#22c55e' : '#888',
+              fontSize: '13px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            {interested ? 'Interested' : 'Interested?'}
+          </button>
+          <button
             onClick={handleShare}
             style={{
               flex: 1,
-              padding: '14px',
-              background: 'rgba(255,255,255,0.08)',
+              padding: '12px',
+              background: 'rgba(255,255,255,0.06)',
               border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: '10px',
               color: '#888',
-              fontSize: '14px',
+              fontSize: '13px',
               fontWeight: 500,
               cursor: 'pointer',
             }}
@@ -431,6 +463,7 @@ export default function EventPage() {
           </button>
         </div>
 
+        {/* Directions */}
         <a 
           href={mapsUrl(event.venue)} 
           target="_blank" 
@@ -442,41 +475,37 @@ export default function EventPage() {
             gap: '8px',
             padding: '12px',
             color: '#888',
-            fontSize: '14px',
+            fontSize: '13px',
             textDecoration: 'none',
+            marginBottom: '28px',
           }}
         >
           Directions to {event.venue.name}
         </a>
-      </div>
 
-      {/* Venue card */}
-      <div style={{ 
-        padding: '20px', 
-        background: '#141416', 
-        borderRadius: '12px',
-        marginBottom: '24px',
-      }}>
-        <p style={{ fontSize: '12px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-          Venue
-        </p>
+        {/* Venue card */}
         <Link 
           href={`/venue/${event.venue.id}`}
           style={{ 
-            fontSize: '17px', 
-            fontWeight: 600, 
-            color: 'white', 
-            textDecoration: 'none',
             display: 'block',
-            marginBottom: '4px',
+            padding: '16px', 
+            background: '#141416', 
+            borderRadius: '12px',
+            textDecoration: 'none',
+            color: 'white',
           }}
         >
-          {event.venue.name}
+          <p style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+            Venue
+          </p>
+          <p style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>
+            {event.venue.name}
+          </p>
+          <p style={{ fontSize: '13px', color: '#888' }}>
+            {event.venue.address}
+          </p>
         </Link>
-        <p style={{ fontSize: '14px', color: '#888' }}>
-          {event.venue.address}
-        </p>
-      </div>
-    </PageLayout>
+      </main>
+    </div>
   )
 }
