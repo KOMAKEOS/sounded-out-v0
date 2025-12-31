@@ -5,7 +5,17 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../lib/supabase'
 
-type Event = {
+interface Venue {
+  id: string
+  name: string
+  address: string
+  lat: number
+  lng: number
+  instagram_url: string | null
+  no_phones: boolean
+}
+
+interface Event {
   id: string
   title: string
   start_time: string
@@ -21,15 +31,12 @@ type Event = {
   so_pick: boolean
   no_phones: boolean
   is_verified: boolean
-  venue: {
-    id: string
-    name: string
-    address: string
-    lat: number
-    lng: number
-    instagram_url: string | null
-    no_phones: boolean
-  }
+  venue: Venue | null
+}
+
+interface User {
+  id: string
+  email?: string
 }
 
 export default function EventPage() {
@@ -38,7 +45,7 @@ export default function EventPage() {
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const [interested, setInterested] = useState(false)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
     const loadUser = async () => {
@@ -58,7 +65,7 @@ export default function EventPage() {
         .eq('id', params.id)
         .single()
       
-      if (data) setEvent(data as any)
+      if (data) setEvent(data as unknown as Event)
       setLoading(false)
     }
     loadEvent()
@@ -86,17 +93,19 @@ export default function EventPage() {
       return
     }
     
+    if (!event) return
+    
     if (saved) {
       await supabase
         .from('saved_events')
         .delete()
         .eq('user_id', user.id)
-        .eq('event_id', event!.id)
+        .eq('event_id', event.id)
       setSaved(false)
     } else {
       await supabase
         .from('saved_events')
-        .insert({ user_id: user.id, event_id: event!.id })
+        .insert({ user_id: user.id, event_id: event.id })
       setSaved(true)
     }
   }
@@ -107,16 +116,16 @@ export default function EventPage() {
       return
     }
     setInterested(!interested)
-    // TODO: Save to event_interest table
   }
 
   const handleShare = async () => {
+    if (!event) return
     const url = window.location.href
     if (navigator.share) {
       await navigator.share({
-        title: event!.title,
-        text: `${event!.title} at ${event!.venue?.name}`,
-        url,
+        title: event.title,
+        text: event.title + ' at ' + (event.venue?.name || ''),
+        url: url,
       })
     } else {
       await navigator.clipboard.writeText(url)
@@ -124,7 +133,7 @@ export default function EventPage() {
     }
   }
 
-  const formatDate = (date: string) => {
+  const formatDate = (date: string): string => {
     const d = new Date(date)
     const now = new Date()
     const tomorrow = new Date(now)
@@ -135,26 +144,24 @@ export default function EventPage() {
     return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
   }
 
-  const formatTime = (date: string) => {
+  const formatTime = (date: string): string => {
     return new Date(date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
   }
 
-  const formatPrice = (min: number | null, max: number | null) => {
+  const formatPrice = (min: number | null, max: number | null): string | null => {
     if (!min && !max) return null
     if (min === 0) return null
-    if (min && max && min !== max) return `£${min}–£${max}`
-    return `£${min || max}`
+    if (min && max && min !== max) return '£' + min + '–£' + max
+    return '£' + (min || max)
   }
 
-  const isFree = (min: number | null, max: number | null) => min === 0 || (!min && !max)
-
-  const mapsUrl = (venue: Event['venue']) => {
-    return `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`
+  const isFree = (min: number | null, max: number | null): boolean => {
+    return min === 0 || (!min && !max)
   }
 
-  const getTicketUrl = (url: string | null) => {
+  const getTicketUrl = (url: string | null): string | null => {
     if (!url) return null
-    if (!url.startsWith('http://') && !url.startsWith('https://')) return `https://${url}`
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return 'https://' + url
     return url
   }
 
@@ -192,9 +199,10 @@ export default function EventPage() {
     )
   }
 
+  const mapsUrl = event.venue ? 'https://www.google.com/maps/dir/?api=1&destination=' + event.venue.lat + ',' + event.venue.lng : '#'
+
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', paddingBottom: '100px' }}>
-      {/* Hero Image */}
       {event.image_url ? (
         <div style={{ width: '100%', aspectRatio: '16/9', maxHeight: '300px', overflow: 'hidden', position: 'relative' }}>
           <img src={event.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -230,7 +238,7 @@ export default function EventPage() {
           gap: '8px',
           position: 'relative',
         }}>
-          <span style={{ fontSize: '32px', opacity: 0.4 }}>♪</span>
+          <span style={{ fontSize: '32px', opacity: 0.4 }}>&#9835;</span>
           <span style={{ fontSize: '12px', color: '#444', textTransform: 'uppercase', letterSpacing: '1px' }}>
             {event.genres?.split(',')[0]?.trim() || 'Event'}
           </span>
@@ -254,7 +262,6 @@ export default function EventPage() {
       )}
 
       <main style={{ maxWidth: '700px', margin: '0 auto', padding: '24px 20px' }}>
-        {/* Date/Time */}
         <p style={{ 
           fontSize: '14px', 
           color: '#ab67f7', 
@@ -263,10 +270,9 @@ export default function EventPage() {
           marginBottom: '8px',
         }}>
           {formatDate(event.start_time)} · {formatTime(event.start_time)}
-          {event.end_time && ` – ${formatTime(event.end_time)}`}
+          {event.end_time && ' – ' + formatTime(event.end_time)}
         </p>
 
-        {/* Title */}
         <h1 style={{ 
           fontSize: '28px', 
           fontWeight: 700, 
@@ -276,7 +282,6 @@ export default function EventPage() {
           {event.title}
         </h1>
 
-        {/* Badges */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
           {event.so_pick && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -287,38 +292,31 @@ export default function EventPage() {
           {event.is_verified && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ 
-                width: '16px', 
-                height: '16px', 
-                background: '#ab67f7', 
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '9px',
-                color: 'white',
+                width: '16px', height: '16px', background: '#ab67f7', borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: 'white'
               }}>✓</span>
               <span style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 500 }}>Verified</span>
             </div>
           )}
         </div>
 
-        {/* Venue */}
-        <Link 
-          href={`/venue/${event.venue.id}`}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            marginBottom: '20px',
-            textDecoration: 'none',
-          }}
-        >
-          <span style={{ fontSize: '15px', color: '#888' }}>{event.venue.name}</span>
-          <span style={{ color: '#666' }}>→</span>
-        </Link>
+        {event.venue && (
+          <Link 
+            href={'/venue/' + event.venue.id}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px', 
+              marginBottom: '20px',
+              textDecoration: 'none',
+            }}
+          >
+            <span style={{ fontSize: '15px', color: '#888' }}>{event.venue.name}</span>
+            <span style={{ color: '#666' }}>→</span>
+          </Link>
+        )}
 
-        {/* No phones */}
-        {(event.no_phones || event.venue.no_phones) && (
+        {(event.no_phones || event.venue?.no_phones) && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -333,7 +331,6 @@ export default function EventPage() {
           </div>
         )}
 
-        {/* Tags */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
           {event.sold_out && (
             <span style={{ 
@@ -359,7 +356,7 @@ export default function EventPage() {
               Free
             </span>
           )}
-          {event.genres?.split(',').map((g, i) => (
+          {event.genres && event.genres.split(',').map((g: string, i: number) => (
             <span key={i} style={{ 
               padding: '6px 12px', 
               background: 'rgba(171,103,247,0.12)', 
@@ -372,14 +369,12 @@ export default function EventPage() {
           ))}
         </div>
 
-        {/* Price */}
         {formatPrice(event.price_min, event.price_max) && (
           <p style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px' }}>
             {formatPrice(event.price_min, event.price_max)}
           </p>
         )}
 
-        {/* Description */}
         {event.description && (
           <div style={{ marginBottom: '24px' }}>
             <p style={{ fontSize: '14px', color: '#aaa', lineHeight: 1.7 }}>
@@ -388,7 +383,6 @@ export default function EventPage() {
           </div>
         )}
 
-        {/* Primary CTA */}
         {getTicketUrl(event.event_url) && (
           <a 
             href={getTicketUrl(event.event_url)!} 
@@ -411,7 +405,6 @@ export default function EventPage() {
           </a>
         )}
 
-        {/* Secondary Actions */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
           <button
             onClick={handleSave}
@@ -463,9 +456,8 @@ export default function EventPage() {
           </button>
         </div>
 
-        {/* Directions */}
         <a 
-          href={mapsUrl(event.venue)} 
+          href={mapsUrl} 
           target="_blank" 
           rel="noopener noreferrer"
           style={{
@@ -480,31 +472,32 @@ export default function EventPage() {
             marginBottom: '28px',
           }}
         >
-          Directions to {event.venue.name}
+          Directions to {event.venue?.name}
         </a>
 
-        {/* Venue card */}
-        <Link 
-          href={`/venue/${event.venue.id}`}
-          style={{ 
-            display: 'block',
-            padding: '16px', 
-            background: '#141416', 
-            borderRadius: '12px',
-            textDecoration: 'none',
-            color: 'white',
-          }}
-        >
-          <p style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-            Venue
-          </p>
-          <p style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>
-            {event.venue.name}
-          </p>
-          <p style={{ fontSize: '13px', color: '#888' }}>
-            {event.venue.address}
-          </p>
-        </Link>
+        {event.venue && (
+          <Link 
+            href={'/venue/' + event.venue.id}
+            style={{ 
+              display: 'block',
+              padding: '16px', 
+              background: '#141416', 
+              borderRadius: '12px',
+              textDecoration: 'none',
+              color: 'white',
+            }}
+          >
+            <p style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+              Venue
+            </p>
+            <p style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>
+              {event.venue.name}
+            </p>
+            <p style={{ fontSize: '13px', color: '#888' }}>
+              {event.venue.address}
+            </p>
+          </Link>
+        )}
       </main>
     </div>
   )
