@@ -968,10 +968,10 @@ const [windowWidth, setWindowWidth] = useState(() => {
   const showPrevPeek = dragX > 20 && currentIndex > 0
   const dismissProgress = Math.min(dragY / GESTURE.dismissThreshold, 1)
 
- // ============================================================================
+// ============================================================================
 // NAVIGATION MENU COMPONENT (Shared between desktop/mobile)
 // ============================================================================
-const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
+const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; user?: { id: string; email?: string } | null; onSignOut?: () => void }) => (
   <>
     {/* Discover Section */}
     <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>
@@ -1001,24 +1001,46 @@ const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
       Partner Portal
     </Link>
 
-    <Link href="/for-promoters" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
-      For Promoters
-    </Link>
-
     <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
 
-    {/* Account Section */}
+    {/* Account Section - Dynamic based on login state */}
     <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>
       Account
     </p>
 
-    <Link href="/login" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: '#ab67f7', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 600, marginBottom: '8px', textAlign: 'center' }}>
-      Sign In
-    </Link>
+    {user ? (
+      <>
+        <div style={{ padding: '12px 16px', background: 'rgba(171,103,247,0.1)', borderRadius: '10px', marginBottom: '8px', border: '1px solid rgba(171,103,247,0.2)' }}>
+          <p style={{ fontSize: '13px', color: '#ab67f7', fontWeight: 600 }}>Signed in as</p>
+          <p style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>{user.email}</p>
+        </div>
 
-    <Link href="/signup" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(171,103,247,0.15)', border: '1px solid rgba(171,103,247,0.3)', borderRadius: '10px', color: '#ab67f7', textDecoration: 'none', fontSize: '15px', fontWeight: 600, textAlign: 'center' }}>
-      Create Account
-    </Link>
+        <Link href="/profile" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
+          👤 Profile
+        </Link>
+
+        <Link href="/settings" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
+          ⚙️ Settings
+        </Link>
+
+        <button
+          onClick={() => { if (onSignOut) onSignOut(); if (onClose) onClose(); }}
+          style={{ display: 'block', width: '100%', padding: '14px 16px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '10px', color: '#f87171', fontSize: '15px', fontWeight: 500, marginBottom: '8px', cursor: 'pointer', textAlign: 'left' }}
+        >
+          Sign Out
+        </button>
+      </>
+    ) : (
+      <>
+        <Link href="/login" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: '#ab67f7', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 600, marginBottom: '8px', textAlign: 'center' }}>
+          Sign In
+        </Link>
+
+        <Link href="/signup" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(171,103,247,0.15)', border: '1px solid rgba(171,103,247,0.3)', borderRadius: '10px', color: '#ab67f7', textDecoration: 'none', fontSize: '15px', fontWeight: 600, textAlign: 'center' }}>
+          Create Account
+        </Link>
+      </>
+    )}
 
     <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
 
@@ -1033,7 +1055,6 @@ const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
     </div>
   </>
 )
-  
 
   // ============================================================================
   // DESKTOP/TABLET SIDEBAR COMPONENT
