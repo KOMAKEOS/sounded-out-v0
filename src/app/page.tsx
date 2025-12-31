@@ -985,6 +985,8 @@ const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
     <Link href="/saved" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
       Saved
     </Link>
+  </>
+)
     
     <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
     
