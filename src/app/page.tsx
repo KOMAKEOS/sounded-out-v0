@@ -968,281 +968,72 @@ const [windowWidth, setWindowWidth] = useState(() => {
   const showPrevPeek = dragX > 20 && currentIndex > 0
   const dismissProgress = Math.min(dragY / GESTURE.dismissThreshold, 1)
 
-  // ============================================================================
+ // ============================================================================
 // NAVIGATION MENU COMPONENT (Shared between desktop/mobile)
 // ============================================================================
 const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
   <>
     {/* Discover Section */}
-    <p
-      style={{
-        fontSize: '11px',
-        color: '#555',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px',
-        marginBottom: '12px',
-        paddingLeft: '4px',
-      }}
-    >
+    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>
       Discover
     </p>
 
-    <Link
-      href="/events"
-      onClick={onClose}
-      style={{
-        display: 'block',
-        padding: '14px 16px',
-        background: 'rgba(255,255,255,0.04)',
-        borderRadius: '10px',
-        color: 'white',
-        textDecoration: 'none',
-        fontSize: '15px',
-        fontWeight: 500,
-        marginBottom: '8px',
-      }}
-    >
-      All Events
-    </Link>
-
-    <Link
-      href="/venues"
-      onClick={onClose}
-      style={{
-        display: 'block',
-        padding: '14px 16px',
-        background: 'rgba(255,255,255,0.04)',
-        borderRadius: '10px',
-        color: 'white',
-        textDecoration: 'none',
-        fontSize: '15px',
-        fontWeight: 500,
-        marginBottom: '8px',
-      }}
-    >
-      Venues
-    </Link>
-
-    <Link
-      href="/saved"
-      onClick={onClose}
-      style={{
-        display: 'block',
-        padding: '14px 16px',
-        background: 'rgba(255,255,255,0.04)',
-        borderRadius: '10px',
-        color: 'white',
-        textDecoration: 'none',
-        fontSize: '15px',
-        fontWeight: 500,
-        marginBottom: '8px',
-      }}
-    >
-      Saved
-    </Link>
-
-    <div
-      style={{
-        height: '1px',
-        background: 'rgba(255,255,255,0.08)',
-        margin: '16px 0',
-      }}
-    />
-
-    {/* Partner Section */}
-    <p
-      style={{
-        fontSize: '11px',
-        color: '#555',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px',
-        marginBottom: '12px',
-        paddingLeft: '4px',
-      }}
-    >
-      Partner
-    </p>
-
-    <Link
-      href="/portal"
-      onClick={onClose}
-      style={{
-        display: 'block',
-        padding: '14px 16px',
-        background: 'rgba(255,255,255,0.04)',
-        borderRadius: '10px',
-        color: 'white',
-        textDecoration: 'none',
-        fontSize: '15px',
-        fontWeight: 500,
-        marginBottom: '8px',
-      }}
-    >
-      Partner Portal
-    </Link>
-
-    <Link
-      href="/for-promoters"
-      onClick={onClose}
-      style={{
-        display: 'block',
-        padding: '14px 16px',
-        background: 'rgba(255,255,255,0.04)',
-        borderRadius: '10px',
-        color: '#888',
-        textDecoration: 'none',
-        fontSize: '14px',
-        fontWeight: 500,
-        marginBottom: '8px',
-      }}
-    >
-      For Promoters
-    </Link>
-
-    <div
-      style={{
-        height: '1px',
-        background: 'rgba(255,255,255,0.08)',
-        margin: '16px 0',
-      }}
-    />
-
-    {/* Footer Links */}
-    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-      <a
-        href="https://instagram.com/sounded.out"
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ fontSize: '13px', color: '#666', textDecoration: 'none' }}
-      >
-        Instagram
-      </a>
-      <Link
-        href="/about"
-        onClick={onClose}
-        style={{ fontSize: '13px', color: '#666', textDecoration: 'none' }}
-      >
-        About
-      </Link>
-    </div>
-
-const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
-  <>
-    {/* Discover Section */}
-    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>Discover</p>
-    
     <Link href="/events" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
       All Events
     </Link>
+
     <Link href="/venues" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
       Venues
     </Link>
+
     <Link href="/saved" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
       Saved
     </Link>
-    
+
     <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
-    
+
     {/* Partner Section */}
-    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>Partner</p>
-    
+    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>
+      Partner
+    </p>
+
     <Link href="/portal" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
       Partner Portal
     </Link>
+
     <Link href="/for-promoters" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
       For Promoters
     </Link>
 
-    {/* ========== ADD THIS SECTION ========== */}
     <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
-    
-    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>Account</p>
-    
+
+    {/* Account Section */}
+    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>
+      Account
+    </p>
+
     <Link href="/login" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: '#ab67f7', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 600, marginBottom: '8px', textAlign: 'center' }}>
       Sign In
     </Link>
+
     <Link href="/signup" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(171,103,247,0.15)', border: '1px solid rgba(171,103,247,0.3)', borderRadius: '10px', color: '#ab67f7', textDecoration: 'none', fontSize: '15px', fontWeight: 600, textAlign: 'center' }}>
       Create Account
     </Link>
-    {/* ========== END OF NEW SECTION ========== */}
+
+    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
+
+    {/* Footer Links */}
+    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+      <a href="https://instagram.com/sounded.out" target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: '#666', textDecoration: 'none' }}>
+        Instagram
+      </a>
+      <Link href="/about" onClick={onClose} style={{ fontSize: '13px', color: '#666', textDecoration: 'none' }}>
+        About
+      </Link>
+    </div>
   </>
 )
-```
-
-## BETTER: Make it dynamic (shows profile when logged in)
-
-Replace the entire NavigationLinks with this smarter version that checks if user is logged in:
-
-```tsx
-const NavigationLinks = ({ onClose, user }: { onClose?: () => void, user?: { id: string; email?: string } | null }) => (
-  <>
-    {/* Discover Section */}
-    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>Discover</p>
-    
-    <Link href="/events" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
-      All Events
-    </Link>
-    <Link href="/venues" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
-      Venues
-    </Link>
-    <Link href="/saved" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
-      Saved
-    </Link>
-    
-    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
-    
-    {/* Partner Section */}
-    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>Partner</p>
-    
-    <Link href="/portal" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
-      Partner Portal
-    </Link>
-    
-    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
-    
-    {/* Account Section - Dynamic based on login state */}
-    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>Account</p>
-    
-    {user ? (
-      <>
-        <Link href="/profile" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
-           Profile
-        </Link>
-        <Link href="/settings" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
-           Settings
-        </Link>
-      </>
-    ) : (
-      <>
-        <Link href="/login" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: '#ab67f7', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 600, marginBottom: '8px', textAlign: 'center' }}>
-          Sign In
-        </Link>
-        <Link href="/signup" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(171,103,247,0.15)', border: '1px solid rgba(171,103,247,0.3)', borderRadius: '10px', color: '#ab67f7', textDecoration: 'none', fontSize: '15px', fontWeight: 600, textAlign: 'center' }}>
-          Create Account
-        </Link>
-      </>
-    )}
-
-Then when you use it, pass the user:
-```tsx
-<NavigationLinks onClose={() => setShowMenu(false)} user={user} />
-```
-
-And make sure you have the user state in your main page:
-```tsx
-const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
-
-useEffect(() => {
-  const loadUser = async () => {
-    const { data } = await supabase.auth.getUser()
-    if (data.user) setUser(data.user)
-  }
-  loadUser()
-}, [])
-```
-  </>
-)
-    
+  
 
   // ============================================================================
   // DESKTOP/TABLET SIDEBAR COMPONENT
