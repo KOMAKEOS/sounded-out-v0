@@ -10,22 +10,27 @@
   --border: rgba(255, 255, 255, 0.1);
 }
 
+/* Reset */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html, body {
+/* ✅ Allow scrolling globally */
+html,
+body {
   height: 100%;
   width: 100%;
-  overflow: hidden;
+  overflow-y: auto;   /* <-- FIX: pages can scroll */
+  overflow-x: hidden; /* prevents sideways jiggle */
   font-family: 'Space Mono', monospace;
   background: var(--bg-dark);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
 }
 
+/* Mapbox */
 .mapboxgl-map {
   font-family: 'Space Mono', monospace;
 }
@@ -35,6 +40,7 @@ html, body {
   display: none;
 }
 
+/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 4px;
 }
@@ -50,4 +56,9 @@ html, body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
+}
+
+/* ✅ Optional: utility class for pages (like /map) that should NOT scroll */
+body.lock-scroll {
+  overflow: hidden;
 }
