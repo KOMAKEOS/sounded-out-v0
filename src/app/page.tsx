@@ -973,19 +973,40 @@ const [windowWidth, setWindowWidth] = useState(() => {
 // ============================================================================
 const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
   <>
-    {/* Browse Section */}
-    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px', paddingLeft: '4px' }}>Browse</p>
-    <Link href="/events" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#ccc', textDecoration: 'none', fontSize: '14px', marginBottom: '4px' }}>
-      <span style={{ fontSize: '16px' }}>🎵</span> All Events
+    {/* Discover Section */}
+    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>Discover</p>
+    
+    <Link href="/events" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
+      All Events
     </Link>
-    <Link href="/venues" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#ccc', textDecoration: 'none', fontSize: '14px', marginBottom: '4px' }}>
-      <span style={{ fontSize: '16px' }}>📍</span> Venues
+    <Link href="/venues" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
+      Venues
     </Link>
-    <Link href="/saved" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '10px', color: '#ccc', textDecoration: 'none', fontSize: '14px', marginBottom: '4px' }}>
-      <span style={{ fontSize: '16px' }}>💜</span> Saved
+    <Link href="/saved" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
+      Saved
     </Link>
     
-    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '12px 0' }} />
+    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
+    
+    {/* Partner Section */}
+    <p style={{ fontSize: '11px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>Partner</p>
+    
+    <Link href="/portal" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
+      Partner Portal
+    </Link>
+    <Link href="/for-promoters" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: '#888', textDecoration: 'none', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
+      For Promoters
+    </Link>
+    
+    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
+    
+    {/* Footer Links */}
+    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+      <a href="https://instagram.com/sounded.out" target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: '#666', textDecoration: 'none' }}>Instagram</a>
+      <Link href="/about" onClick={onClose} style={{ fontSize: '13px', color: '#666', textDecoration: 'none' }}>About</Link>
+    </div>
+  </>
+)
     
     {/* Partner Section */}
     <Link href="/portal" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderRadius: '10px', background: 'rgba(171,103,247,0.1)', color: 'white', textDecoration: 'none', marginBottom: '8px' }}>
@@ -1036,30 +1057,6 @@ const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
             style={{ height: '28px', width: 'auto', cursor: 'pointer' }}
           />
           <div style={{ display: 'flex', gap: '8px' }}>
-            {/* Location button */}
-            <button
-              onClick={toggleUserLocation}
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                border: showUserLocation ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
-                background: showUserLocation ? 'rgba(171,103,247,0.15)' : 'rgba(255,255,255,0.08)',
-                color: showUserLocation ? '#ab67f7' : '#888',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="4"/>
-                <line x1="12" y1="2" x2="12" y2="6"/>
-                <line x1="12" y1="18" x2="12" y2="22"/>
-                <line x1="2" y1="12" x2="6" y2="12"/>
-                <line x1="18" y1="12" x2="22" y2="12"/>
-              </svg>
-            </button>
             {/* Menu button */}
             <button
               onClick={() => { setShowMenu(!showMenu); trackMenuOpen() }}
@@ -1765,12 +1762,12 @@ const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
           {/* Map Controls */}
 <div style={{ position: 'absolute', bottom: '24px', right: '24px', display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 10 }}>
   {/* Reset View */}
-  <button
-    onClick={(e) => {
-      e.stopPropagation()
-      map.current?.flyTo({ center: [-1.6131, 54.9695], zoom: 13, duration: 800 })
-    }}
-    title="Reset view"
+ <button
+  onClick={(e) => {
+    e.stopPropagation()
+    map.current?.flyTo({ center: [-1.6131, 54.9695], zoom: 13, duration: 800 })
+  }}
+  title="Reset view"
     style={{
       width: '44px',
       height: '44px',
@@ -1789,10 +1786,10 @@ const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
     ⌖
   </button>
   {/* Location */}
-  <button
-    onClick={(e) => { e.stopPropagation(); toggleUserLocation() }}
-    title={showUserLocation ? 'Hide location' : 'Show my location'}
-    style={{
+ <button
+  onClick={(e) => { e.stopPropagation(); toggleUserLocation() }}
+  title={showUserLocation ? 'Hide my location' : 'Show my location'}
+  style={{
       width: '44px',
       height: '44px',
       borderRadius: '12px',
@@ -2169,9 +2166,10 @@ const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
         </div>
 
         {/* Floating Location Button */}
-        <button
-          onClick={toggleUserLocation}
-          style={{
+       <button
+  onClick={toggleUserLocation}
+  title={showUserLocation ? 'Hide my location' : 'Show my location'}
+  style={{
             position: 'absolute', bottom: '180px', right: '16px', zIndex: 15,
             width: '44px', height: '44px', borderRadius: '50%',
             background: showUserLocation ? 'rgba(171,103,247,0.2)' : 'rgba(0,0,0,0.75)',
@@ -2301,8 +2299,9 @@ const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
             onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
             onClick={(e) => e.stopPropagation()}
             style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, background: '#141416', borderRadius: '24px 24px 0 0',
-              padding: '12px 20px 40px', paddingBottom: 'max(40px, env(safe-area-inset-bottom))', zIndex: 30,
+  position: 'absolute', bottom: 0, left: 0, right: 0, background: '#141416', borderRadius: '24px 24px 0 0',
+  padding: '12px 20px 40px', paddingBottom: 'max(40px, env(safe-area-inset-bottom))', zIndex: 30,
+  minHeight: '320px', maxHeight: '380px',
               ...noSelectStyle, ...getSheetStyle(sheetVisible),
               ...(dragDirection === 'horizontal' ? getCardTransform() : getDismissTransform()),
             }}
@@ -2360,8 +2359,8 @@ const NavigationLinks = ({ onClose }: { onClose?: () => void }) => (
               >📤</button>
             </div>
 
-            {/* Navigation */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px' }}>
+            {/* Navigation - Always at bottom */}
+<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '14px' }}>
               <button onClick={(e) => { e.stopPropagation(); navigate('prev') }} disabled={currentIndex === 0} style={{ background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.2)', border: currentIndex === 0 ? 'none' : '1px solid rgba(171,103,247,0.3)', borderRadius: '12px', padding: '12px 18px', color: currentIndex === 0 ? '#333' : '#ab67f7', fontSize: '14px', fontWeight: 600, cursor: currentIndex === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', ...noSelectStyle }}><span style={{ fontSize: '18px' }}>←</span> Prev</button>
               <span style={{ fontSize: '13px', color: '#555' }}>{currentIndex + 1} / {filtered.length}</span>
               <button onClick={(e) => { e.stopPropagation(); navigate('next') }} disabled={currentIndex === filtered.length - 1} style={{ background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.2)', border: currentIndex === filtered.length - 1 ? 'none' : '1px solid rgba(171,103,247,0.3)', borderRadius: '12px', padding: '12px 18px', color: currentIndex === filtered.length - 1 ? '#333' : '#ab67f7', fontSize: '14px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', ...noSelectStyle }}>Next <span style={{ fontSize: '18px' }}>→</span></button>
