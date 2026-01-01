@@ -2507,6 +2507,46 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
           />
         )}
 
+        {/* Footer for Privacy/Terms - Required for Google OAuth */}
+<footer style={{
+  position: 'fixed',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  padding: '8px 16px',
+  paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
+  background: 'linear-gradient(transparent, rgba(10,10,11,0.95))',
+  display: 'flex',
+  justifyContent: 'center',
+  gap: '16px',
+  zIndex: 5,
+  pointerEvents: 'none',
+}}>
+  <Link 
+    href="/privacy" 
+    style={{ 
+      fontSize: '11px', 
+      color: '#555', 
+      textDecoration: 'none',
+      pointerEvents: 'auto',
+    }}
+  >
+    Privacy Policy
+  </Link>
+  <span style={{ color: '#333', fontSize: '11px' }}>·</span>
+  <Link 
+    href="/terms" 
+    style={{ 
+      fontSize: '11px', 
+      color: '#555', 
+      textDecoration: 'none',
+      pointerEvents: 'auto',
+    }}
+  >
+    Terms of Service
+  </Link>
+</footer>
+
         <style jsx global>{globalStyles}</style>
       </main>
     </div>
