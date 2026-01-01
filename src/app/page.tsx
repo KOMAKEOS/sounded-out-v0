@@ -2530,7 +2530,15 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
           />
         )}
 
-       
+        <style jsx global>{globalStyles}</style>
+      </main>
+    </div>
+  )
+}
+
+// ============================================================================
+// MOBILE DETAIL SHEET COMPONENT
+// ============================================================================
 
 // ============================================================================
 // MOBILE DETAIL SHEET COMPONENT
