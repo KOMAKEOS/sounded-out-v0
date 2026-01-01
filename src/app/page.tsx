@@ -1084,6 +1084,12 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
       <Link href="/about" onClick={onClose} style={{ fontSize: '13px', color: '#666', textDecoration: 'none' }}>
         About
       </Link>
+      <Link href="/privacy" onClick={onClose} style={{ fontSize: '13px', color: '#666', textDecoration: 'none' }}>
+        Privacy
+      </Link>
+      <Link href="/terms" onClick={onClose} style={{ fontSize: '13px', color: '#666', textDecoration: 'none' }}>
+        Terms
+      </Link>
     </div>
   </>
 )
@@ -1464,6 +1470,25 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
   </div>
 )}
       </div>
+      {/* Footer with Privacy/Terms */}
+      <div style={{
+        padding: '16px 20px',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        display: 'flex',
+        justifyContent: 'center',
+        gap: '16px',
+        flexShrink: 0,
+      }}>
+        <Link href="/privacy" style={{ fontSize: '11px', color: '#555', textDecoration: 'none' }}>
+          Privacy Policy
+        </Link>
+        <span style={{ color: '#333', fontSize: '11px' }}>·</span>
+        <Link href="/terms" style={{ fontSize: '11px', color: '#555', textDecoration: 'none' }}>
+          Terms of Service
+        </Link>
+      </div>
+    </aside>
+  )
     </aside>
   )
 
@@ -2507,51 +2532,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
           />
         )}
 
-        {/* Footer for Privacy/Terms - Required for Google OAuth */}
-<footer style={{
-  position: 'fixed',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  padding: '8px 16px',
-  paddingBottom: 'max(8px, env(safe-area-inset-bottom))',
-  background: 'linear-gradient(transparent, rgba(10,10,11,0.95))',
-  display: 'flex',
-  justifyContent: 'center',
-  gap: '16px',
-  zIndex: 5,
-  pointerEvents: 'none',
-}}>
-  <Link 
-    href="/privacy" 
-    style={{ 
-      fontSize: '11px', 
-      color: '#555', 
-      textDecoration: 'none',
-      pointerEvents: 'auto',
-    }}
-  >
-    Privacy Policy
-  </Link>
-  <span style={{ color: '#333', fontSize: '11px' }}>·</span>
-  <Link 
-    href="/terms" 
-    style={{ 
-      fontSize: '11px', 
-      color: '#555', 
-      textDecoration: 'none',
-      pointerEvents: 'auto',
-    }}
-  >
-    Terms of Service
-  </Link>
-</footer>
-
-        <style jsx global>{globalStyles}</style>
-      </main>
-    </div>
-  )
-}
+       
 
 // ============================================================================
 // MOBILE DETAIL SHEET COMPONENT
