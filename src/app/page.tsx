@@ -2079,7 +2079,8 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               transition: 'all 600ms cubic-bezier(0.4, 0, 0.2, 1)',
             }}>Newcastle</p>
           </div>
-        )}
+        )
+      }
 
         {/* Welcome Overlay */}
         {showWelcome && !showIntro && (
