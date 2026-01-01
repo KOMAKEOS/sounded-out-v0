@@ -2036,11 +2036,9 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             getDateLabel={getDateLabel}
           />
         )}
-        
         <style jsx global>{globalStyles}</style>
       </div>
-    )
-  }
+    )}
 
   // ============================================================================
   // RENDER - MOBILE LAYOUT (Pull-up sheet pattern)
