@@ -1489,8 +1489,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
       </div>
     </aside>
   )
-    </aside>
-  )
+
 
   // ============================================================================
   // DESKTOP/TABLET DETAIL PANEL
