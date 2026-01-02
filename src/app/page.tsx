@@ -541,7 +541,7 @@ export default function Home() {
   // ============================================================================
   // LOGO TAP HANDLER (Admin access)
   // ============================================================================
-  const handleLogoTap = useCallback((): void => {
+   const handleLogoTap = useCallback((): void => {
     if (logoTapTimer.current) {
       clearTimeout(logoTapTimer.current)
     }
@@ -559,6 +559,29 @@ export default function Home() {
       setLogoTapCount(0)
     }, 2000)
   }, [logoTapCount])
+
+  // ============================================================================
+  // LIST SCROLL HANDLER (Day label tracking)
+  // ============================================================================
+  const handleListScroll = useCallback((): void => {
+    if (!listScrollRef.current) return
+    
+    const scrollTop: number = listScrollRef.current.scrollTop
+    const labels: string[] = Object.keys(grouped)
+    
+    for (let i = 0; i < labels.length; i++) {
+      const label: string = labels[i]
+      const el: HTMLDivElement | undefined = daySectionRefs.current.get(label)
+      if (el) {
+        const rect: DOMRect = el.getBoundingClientRect()
+        const containerRect: DOMRect = listScrollRef.current.getBoundingClientRect()
+        if (rect.top <= containerRect.top + 50 && rect.bottom > containerRect.top) {
+          setVisibleDayLabel(label)
+          break
+        }
+      }
+    }
+  }, [grouped])
 
   // ============================================================================
   // DATA LOADING
