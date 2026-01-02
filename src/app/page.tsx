@@ -836,6 +836,115 @@ export default function Home() {
   }, [currentIndex, filtered, highlightMarker, isAnimating])
 
   // ============================================================================
+  // SHEET CONTROLS
+  // ============================================================================
+  const openSheet = useCallback((mode: ViewMode): void => {
+    setViewMode(mode)
+    requestAnimationFrame(() => {
+      setSheetVisible(true)
+    })
+  }, [])
+
+  const closeSheet = useCallback((): void => {
+    setSheetVisible(false)
+    setTimeout(() => {
+      setViewMode('map')
+      setClusterEvents([])
+      highlightMarker(null)
+    }, SPRING.sheetDuration)
+  }, [highlightMarker])
+
+  // ============================================================================
+  // TOUCH/GESTURE HANDLERS
+  // ============================================================================
+  const onTouchStart = useCallback((e: React.TouchEvent): void => {
+    const touch = e.touches[0]
+    setStartX(touch.clientX)
+    setStartY(touch.clientY)
+    setDragX(0)
+    setDragY(0)
+    setIsDragging(true)
+    setDragDirection(null)
+    lastPos.current = { x: touch.clientX, y: touch.clientY, time: Date.now() }
+  }, [])
+
+  const onTouchMove = useCallback((e: React.TouchEvent): void => {
+    if (!isDragging) return
+    const touch = e.touches[0]
+    const dx = touch.clientX - startX
+    const dy = touch.clientY - startY
+    if (!dragDirection) {
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        setDragDirection(Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical')
+      }
+    }
+    if (dragDirection === 'horizontal') {
+      setDragX(dx)
+    } else if (dragDirection === 'vertical') {
+      setDragY(Math.max(0, dy))
+    }
+    const now = Date.now()
+    const dt = now - lastPos.current.time
+    if (dt > 0) {
+      setVelocity({
+        x: (touch.clientX - lastPos.current.x) / dt * 1000,
+        y: (touch.clientY - lastPos.current.y) / dt * 1000,
+      })
+    }
+    lastPos.current = { x: touch.clientX, y: touch.clientY, time: now }
+  }, [isDragging, startX, startY, dragDirection])
+
+  const onTouchEnd = useCallback((): void => {
+    setIsDragging(false)
+    if (dragDirection === 'vertical') {
+      if (dragY > GESTURE.dismissThreshold || velocity.y > GESTURE.dismissVelocity) {
+        closeSheet()
+      }
+    } else if (dragDirection === 'horizontal' && viewMode === 'preview') {
+      if (dragX < -GESTURE.swipeThreshold || velocity.x < -GESTURE.velocityThreshold) {
+        navigate('next')
+      } else if (dragX > GESTURE.swipeThreshold || velocity.x > GESTURE.velocityThreshold) {
+        navigate('prev')
+      }
+    }
+    setDragX(0)
+    setDragY(0)
+    setDragDirection(null)
+  }, [dragDirection, dragX, dragY, velocity, viewMode, closeSheet, navigate])
+
+  // ============================================================================
+  // TRANSFORM HELPERS
+  // ============================================================================
+  const getSheetStyle = (visible: boolean): React.CSSProperties => ({
+    transform: visible ? 'translateY(0)' : 'translateY(100%)',
+    transition: isDragging ? 'none' : `transform ${SPRING.sheetDuration}ms ${SPRING.sheet}`,
+  })
+
+  const getCardTransform = (): React.CSSProperties => ({
+    transform: `translateX(${dragX * 0.5}px)`,
+    transition: isDragging ? 'none' : `transform ${SPRING.springBackDuration}ms ${SPRING.springBack}`,
+  })
+
+  const getDismissTransform = (): React.CSSProperties => ({
+    transform: `translateY(${dragY}px) scale(${1 - dragY * 0.0005})`,
+    transition: isDragging ? 'none' : `transform ${SPRING.springBackDuration}ms ${SPRING.springBack}`,
+    opacity: 1 - dragY * 0.002,
+  })
+
+  // ============================================================================
+  // COMPUTED VALUES
+  // ============================================================================
+  const noSelectStyle: React.CSSProperties = {
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
+  }
+
+  const peekProgress: number = Math.min(Math.abs(dragX) / GESTURE.swipeThreshold, 1)
+  const dismissProgress: number = Math.min(dragY / GESTURE.dismissThreshold, 1)
+  const showPrevPeek: boolean = dragX > 20 && currentIndex > 0
+  const showNextPeek: boolean = dragX < -20 && currentIndex < filtered.length - 1
+
+  // ============================================================================
   // MARKERS
   // ============================================================================
   useEffect(() => {
