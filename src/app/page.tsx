@@ -584,37 +584,6 @@ export default function Home() {
   }, [grouped])
 
   // ============================================================================
-  // SELECT EVENT
-  // ============================================================================
-  const selectEvent = useCallback((event: Event): void => {
-    let idx: number = -1
-    for (let i = 0; i < filtered.length; i++) {
-      if (filtered[i].id === event.id) {
-        idx = i
-        break
-      }
-    }
-    if (idx !== -1) {
-      setCurrentIndex(idx)
-      setViewMode('preview')
-      setSheetVisible(true)
-      setClusterEvents([])
-      highlightMarker(event.id)
-      
-      if (event.venue && map.current) {
-        const currentZoom: number = map.current.getZoom() || 14
-        map.current.easeTo({
-          center: [event.venue.lng, event.venue.lat],
-          zoom: Math.max(currentZoom, 14.5),
-          duration: 300,
-        })
-      }
-      
-      trackEventView(event.id, event.title, event.venue?.name || '', 'list')
-    }
-  }, [filtered, highlightMarker])
-
-  // ============================================================================
   // DATA LOADING
   // ============================================================================
   useEffect(() => {
@@ -805,6 +774,37 @@ export default function Home() {
       data.el.style.zIndex = selected ? '5' : '1'
     })
   }, [])
+
+  // ============================================================================
+  // SELECT EVENT
+  // ============================================================================
+  const selectEvent = useCallback((event: Event): void => {
+    let idx: number = -1
+    for (let i = 0; i < filtered.length; i++) {
+      if (filtered[i].id === event.id) {
+        idx = i
+        break
+      }
+    }
+    if (idx !== -1) {
+      setCurrentIndex(idx)
+      setViewMode('preview')
+      setSheetVisible(true)
+      setClusterEvents([])
+      highlightMarker(event.id)
+      
+      if (event.venue && map.current) {
+        const currentZoom: number = map.current.getZoom() || 14
+        map.current.easeTo({
+          center: [event.venue.lng, event.venue.lat],
+          zoom: Math.max(currentZoom, 14.5),
+          duration: 300,
+        })
+      }
+      
+      trackEventView(event.id, event.title, event.venue?.name || '', 'list')
+    }
+  }, [filtered, highlightMarker])
 
   // ============================================================================
   // MARKERS
