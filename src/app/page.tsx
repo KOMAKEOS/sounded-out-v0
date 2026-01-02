@@ -539,6 +539,28 @@ export default function Home() {
   }, [savedEventIds])
 
   // ============================================================================
+  // LOGO TAP HANDLER (Admin access)
+  // ============================================================================
+  const handleLogoTap = useCallback((): void => {
+    if (logoTapTimer.current) {
+      clearTimeout(logoTapTimer.current)
+    }
+    
+    const newCount: number = logoTapCount + 1
+    setLogoTapCount(newCount)
+    
+    if (newCount >= 5) {
+      setShowAdminMenu(true)
+      setLogoTapCount(0)
+      return
+    }
+    
+    logoTapTimer.current = setTimeout(() => {
+      setLogoTapCount(0)
+    }, 2000)
+  }, [logoTapCount])
+
+  // ============================================================================
   // DATA LOADING
   // ============================================================================
   useEffect(() => {
