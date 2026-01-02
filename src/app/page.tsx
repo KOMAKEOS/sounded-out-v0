@@ -807,6 +807,35 @@ export default function Home() {
   }, [filtered, highlightMarker])
 
   // ============================================================================
+  // NAVIGATE (Prev/Next)
+  // ============================================================================
+  const navigate = useCallback((direction: 'prev' | 'next'): void => {
+    if (isAnimating) return
+    
+    setIsAnimating(true)
+    
+    const newIndex: number = direction === 'next' 
+      ? Math.min(currentIndex + 1, filtered.length - 1)
+      : Math.max(currentIndex - 1, 0)
+    
+    if (newIndex !== currentIndex) {
+      setCurrentIndex(newIndex)
+      const newEvent: Event = filtered[newIndex]
+      highlightMarker(newEvent.id)
+      
+      if (newEvent.venue && map.current) {
+        map.current.easeTo({
+          center: [newEvent.venue.lng, newEvent.venue.lat],
+          zoom: 14.5,
+          duration: 300,
+        })
+      }
+    }
+    
+    setTimeout(() => setIsAnimating(false), 300)
+  }, [currentIndex, filtered, highlightMarker, isAnimating])
+
+  // ============================================================================
   // MARKERS
   // ============================================================================
   useEffect(() => {
