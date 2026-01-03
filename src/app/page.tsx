@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import mapboxgl from 'mapbox-gl'
 import { supabase } from '../lib/supabase'
 import Link from 'next/link'
+import EventActions from '../components/EventActions'
+import LoginPromptModal from '../components/LoginPromptModal'
 import { 
   initAnalytics, 
   trackEventView, 
@@ -22,6 +24,7 @@ import {
   trackLocationDenied,
   trackCTAClick,
 } from '../lib/analytics'
+
 
 // ============================================================================
 // APPLE-GRADE MOTION CONSTANTS
@@ -279,6 +282,9 @@ export default function Home() {
   const [claimSubmitting, setClaimSubmitting] = useState(false)
   const [claimSubmitted, setClaimSubmitted] = useState(false)
   const [claimError, setClaimError] = useState('')
+
+  // Login prompt modal state
+  const [showLoginModal, setShowLoginModal] = useState(false)
   
   // Menu state
   const [showMenu, setShowMenu] = useState(false)
@@ -1999,117 +2005,26 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             </div>
           )}
           
-          {/* Actions */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {getTicketUrl(current.event_url) && (
-              <a 
-                href={getTicketUrl(current.event_url)!} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                onClick={() => { trackTicketClick(current.id, current.title, current.event_url || '', current.venue?.name || ''); trackCTAClick('tickets', current.id) }}
-                style={{
-                  display: 'block', padding: '14px', borderRadius: '12px', textAlign: 'center',
-                  fontWeight: 700, fontSize: '14px', textDecoration: 'none',
-                  background: current.sold_out ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
-                  color: current.sold_out ? '#999' : 'white',
-                }}
-              >
-                {current.sold_out ? 'VIEW PAGE (SOLD OUT)' : isFree(current.price_min, current.price_max) ? 'VIEW PAGE' : 'GET TICKETS'}
-              </a>
-            )}
-            
-            {/* P1 FIX: Save button with label */}
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                onClick={() => toggleSaveEvent(current.id)}
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  padding: '12px',
-                  background: isEventSaved(current.id) ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '10px',
-                  color: isEventSaved(current.id) ? '#f87171' : '#999',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill={isEventSaved(current.id) ? '#f87171' : 'none'} stroke={isEventSaved(current.id) ? '#f87171' : '#999'} strokeWidth="2">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-                {isEventSaved(current.id) ? 'Saved' : 'Save'}
-              </button>
-            </div>
-            
-            {current.venue && (
-              <a 
-                href={mapsUrl(current.venue)} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                onClick={() => trackDirectionsClick(current.venue!.name, current.venue!.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                  padding: '12px', color: '#999', fontSize: '13px', textDecoration: 'none'
-                }}
-              >
-                📍 Take me there
-              </a>
-            )}
-            <button
-              onClick={async () => {
-                const shareUrl = `${window.location.origin}/event/${current.id}`
-                trackShareClick(current.id, current.title, 'share_button')
-                try {
-                  if (navigator.share) {
-                    await navigator.share({
-                      title: current.title,
-                      text: `${current.title} at ${current.venue?.name} - ${getDateLabel(current.start_time)}`,
-                      url: shareUrl,
-                    })
-                  } else {
-                    await navigator.clipboard.writeText(shareUrl)
-                    alert('Link copied!')
-                  }
-                } catch (err) { console.log('Share failed:', err) }
-              }}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                padding: '12px', background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px',
-                color: '#999', fontSize: '13px', cursor: 'pointer',
-              }}
-            >
-              📤 Share event
-            </button>
-            <button
-              onClick={() => { setClaimType('event'); setShowClaimModal(true); trackClaimStart('event', current.title, current.id) }}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                padding: '10px', background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px',
-                color: '#777', fontSize: '12px', cursor: 'pointer',
-              }}
-            >
-              ⋯ Claim this event
-            </button>
-          </div>
-
-          {/* View full page link */}
-          <Link 
-            href={`/event/${current.id}`}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              padding: '12px', background: 'rgba(171,103,247,0.1)', marginTop: '10px',
-              border: '1px solid rgba(171,103,247,0.2)', borderRadius: '10px',
-              color: '#ab67f7', fontSize: '13px', textDecoration: 'none', fontWeight: 600,
-            }}
-          >
-            🔗 View shareable page
-          </Link>
+         {/* Actions - 2x3 Grid */}
+<EventActions
+  event={{
+    id: current.id,
+    title: current.title,
+    start_time: current.start_time,
+    event_url: current.event_url,
+    sold_out: current.sold_out,
+    price_min: current.price_min,
+    price_max: current.price_max,
+    venue: current.venue,
+  }}
+  isSaved={isEventSaved(current.id)}
+  isLoggedIn={!!user}
+  onSave={toggleSaveEvent}
+  onShowLoginModal={() => setShowLoginModal(true)}
+  onClaim={() => { setClaimType('event'); setShowClaimModal(true); trackClaimStart('event', current.title, current.id) }}
+  formatPrice={formatPrice}
+  getDateLabel={getDateLabel}
+/>
           
           {/* Navigation - P1 FIX: 44px buttons */}
           <div style={{ 
@@ -3087,50 +3002,25 @@ function MobileDetailSheet({
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {getTicketUrl(current.event_url) && (
-          <a href={getTicketUrl(current.event_url)!} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '16px', minHeight: '52px', background: current.sold_out ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #ab67f7, #d7b3ff)', borderRadius: '14px', textAlign: 'center', fontWeight: 700, fontSize: '15px', color: current.sold_out ? '#999' : 'white', textDecoration: 'none' }}>
-            {current.sold_out ? 'VIEW PAGE (SOLD OUT)' : isFree(current.price_min, current.price_max) ? 'VIEW PAGE' : 'GET TICKETS'}
-          </a>
-        )}
-        
-        {/* P1 FIX: Save button with label */}
-        <button
-          onClick={() => toggleSaveEvent(current.id)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            padding: '14px',
-            minHeight: '48px',
-            background: isEventSaved(current.id) ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '12px',
-            color: isEventSaved(current.id) ? '#f87171' : '#999',
-            fontSize: '14px',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill={isEventSaved(current.id) ? '#f87171' : 'none'} stroke={isEventSaved(current.id) ? '#f87171' : '#999'} strokeWidth="2">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-          </svg>
-          {isEventSaved(current.id) ? 'Saved' : 'Save Event'}
-        </button>
-        
-        {current.venue && (
-          <a href={mapsUrl(current.venue)} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', minHeight: '48px', color: '#999', fontSize: '14px', textDecoration: 'none' }}>📍 Take me there</a>
-        )}
-        <button
-          onClick={async () => {
-            const shareUrl = `${window.location.origin}/event/${current.id}`
-            try { if (navigator.share) { await navigator.share({ title: current.title, text: `${current.title} at ${current.venue?.name} - ${getDateLabel(current.start_time)}`, url: shareUrl }) } else { await navigator.clipboard.writeText(shareUrl); alert('Link copied!') } } catch (err) { console.log('Share failed:', err) }
-          }}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', minHeight: '48px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#999', fontSize: '14px', cursor: 'pointer' }}
-        >📤 Share event</button>
-        <button onClick={() => { setClaimType('event'); setShowClaimModal(true) }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', minHeight: '44px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: '#777', fontSize: '13px', cursor: 'pointer' }}>⋯ Claim this event</button>
-      </div>
+    <EventActions
+  event={{
+    id: current.id,
+    title: current.title,
+    start_time: current.start_time,
+    event_url: current.event_url,
+    sold_out: current.sold_out,
+    price_min: current.price_min,
+    price_max: current.price_max,
+    venue: current.venue,
+  }}
+  isSaved={isEventSaved(current.id)}
+  isLoggedIn={!!user}
+  onSave={toggleSaveEvent}
+  onShowLoginModal={() => setShowLoginModal(true)}
+  onClaim={() => { setClaimType('event'); setShowClaimModal(true) }}
+  formatPrice={formatPrice}
+  getDateLabel={getDateLabel}
+/>
 
       {/* P1 FIX: 44px navigation buttons */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
