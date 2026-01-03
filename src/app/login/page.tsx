@@ -1,26 +1,25 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-    // Check for errors in URL and existing session
+  // Check for errors in URL and existing session
   useEffect(() => {
-    // Check URL for error params
     const errorParam = searchParams.get('error')
     if (errorParam) {
       setError('Sign in failed. Please try again.')
     }
 
-    // Check if already logged in
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
@@ -30,7 +29,7 @@ export default function LoginPage() {
     checkSession()
   }, [searchParams, router])
 
-  // Listen for auth changes (handles the OAuth redirect)
+  // Listen for auth changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
@@ -57,6 +56,7 @@ export default function LoginPage() {
       setLoading(false)
     } else {
       router.push('/')
+      router.refresh()
     }
   }
   
@@ -68,6 +68,10 @@ export default function LoginPage() {
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
       },
     })
     
@@ -80,7 +84,6 @@ export default function LoginPage() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        {/* Logo */}
         <Link href="/" style={styles.logo}>
           Sounded Out
         </Link>
@@ -88,14 +91,12 @@ export default function LoginPage() {
         <h1 style={styles.title}>Welcome back</h1>
         <p style={styles.subtitle}>Sign in to continue</p>
         
-        {/* Error */}
         {error && (
           <div style={styles.error}>
             {error}
           </div>
         )}
         
-        {/* Google Login */}
         <button
           onClick={handleGoogleLogin}
           disabled={loading}
@@ -116,7 +117,6 @@ export default function LoginPage() {
           <span style={styles.dividerLine} />
         </div>
         
-        {/* Email/Password Form */}
         <form onSubmit={handleEmailLogin} style={styles.form}>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Email</label>
@@ -164,7 +164,6 @@ export default function LoginPage() {
           </Link>
         </p>
         
-        {/* Promoter CTA */}
         <div style={styles.promoterCta}>
           <p style={styles.promoterText}>Are you a promoter?</p>
           <Link href="/signup?type=promoter" style={styles.promoterLink}>
