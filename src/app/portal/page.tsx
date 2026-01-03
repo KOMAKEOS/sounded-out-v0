@@ -1,19 +1,27 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '../../lib/supabase'
 import Link from 'next/link'
 
 // ============================================================================
 // TYPES
 // ============================================================================
+type Profile = {
+  id: string
+  email: string
+  full_name: string | null
+  phone: string | null
+  role: 'admin' | 'partner'
+}
+
 type Brand = {
   id: string
   name: string
-  slug: string
-  profile_image_url: string | null
+  slug: string | null
+  logo_url: string | null
+  instagram_url: string | null
   is_verified: boolean
-  follower_count: number
 }
 
 type Venue = {
@@ -29,7 +37,8 @@ type Event = {
   end_time: string | null
   venue_id: string
   brand_id: string | null
-  status: string
+  is_claimed: boolean
+  is_verified: boolean
   sold_out: boolean
   price_min: number | null
   price_max: number | null
@@ -37,46 +46,55 @@ type Event = {
 }
 
 // ============================================================================
-// MAIN COMPONENT
+// PARTNER PORTAL
 // ============================================================================
 export default function PortalPage() {
   const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [myBrand, setMyBrand] = useState<Brand | null>(null)
+  const [myBrands, setMyBrands] = useState<Brand[]>([])
   const [myEvents, setMyEvents] = useState<Event[]>([])
   const [venues, setVenues] = useState<Venue[]>([])
+  const [activeTab, setActiveTab] = useState<'events' | 'add'>('events')
   
-  // Auth
+  // Auth state - NOW WITH PASSWORD
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [fullName, setFullName] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
-  const [authMessage, setAuthMessage] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [authSuccess, setAuthSuccess] = useState('')
   
-  // Add event
+  // Add event form
   const [showAddEvent, setShowAddEvent] = useState(false)
-  const [eventForm, setEventForm] = useState({
+  const [addEventForm, setAddEventForm] = useState({
     title: '',
     venue_id: '',
+    brand_id: '',
     start_date: '',
     start_time: '22:00',
-    end_time: '03:00',
+    end_time: '',
+    genres: '',
     description: '',
     event_url: '',
-    image_url: '',
     price_min: '',
     price_max: '',
-    genres: '',
   })
-  const [addingEvent, setAddingEvent] = useState(false)
-  const [eventMessage, setEventMessage] = useState('')
-
+  const [addEventLoading, setAddEventLoading] = useState(false)
+  const [addEventMessage, setAddEventMessage] = useState('')
+  
   // ============================================================================
-  // LOAD DATA
+  // AUTH & DATA LOADING
   // ============================================================================
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       if (session?.user) {
-        loadData(session.user.id)
+        loadProfile(session.user.id)
+        loadMyData(session.user.id)
+        loadVenues()
       }
       setLoading(false)
     })
@@ -84,62 +102,156 @@ export default function PortalPage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       if (session?.user) {
-        loadData(session.user.id)
+        loadProfile(session.user.id)
+        loadMyData(session.user.id)
+        loadVenues()
       }
     })
     
     return () => subscription.unsubscribe()
   }, [])
   
-  const loadData = async (userId: string) => {
-    // Load user's brand
-    const { data: brand } = await supabase
-      .from('brands')
+  const loadProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from('profiles')
       .select('*')
-      .eq('owner_user_id', userId)
+      .eq('id', userId)
       .single()
     
-    if (brand) {
-      setMyBrand(brand)
-      
-      // Load events for this brand
-      const { data: events } = await supabase
-        .from('events')
-        .select('*, venue:venues(id, name, address)')
-        .eq('brand_id', brand.id)
-        .order('start_time', { ascending: false })
-      
-      if (events) setMyEvents(events)
-    }
-    
-    // Load venues
-    const { data: venueList } = await supabase
+    if (data) setProfile(data)
+  }
+  
+  const loadVenues = async () => {
+    const { data } = await supabase
       .from('venues')
       .select('id, name, address')
       .order('name')
     
-    if (venueList) setVenues(venueList)
+    if (data) setVenues(data)
+  }
+  
+  const loadMyData = async (userId: string) => {
+    // Load brands I'm a member of
+    const { data: brandMemberships } = await supabase
+      .from('brand_members')
+      .select('brand_id, brands(*)')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+    
+    if (brandMemberships && brandMemberships.length > 0) {
+      const brands = brandMemberships.map((bm: any) => bm.brands).filter(Boolean)
+      setMyBrands(brands)
+      
+      // Load events for all my brands
+      if (brands.length > 0) {
+        const brandIds = brands.map((b: Brand) => b.id)
+        const { data: brandEvents } = await supabase
+          .from('events')
+          .select('*, venue:venues(id, name, address)')
+          .in('brand_id', brandIds)
+          .order('start_time', { ascending: false })
+        
+        if (brandEvents) {
+          setMyEvents(brandEvents)
+          // Set default brand for add event form
+          if (brands.length > 0) {
+            setAddEventForm(prev => ({ ...prev, brand_id: brands[0].id }))
+          }
+          return
+        }
+      }
+    }
+    
+    // Fallback: Load events I own directly (legacy)
+    const { data: directEvents } = await supabase
+      .from('entity_claims')
+      .select('event_id, events(*, venue:venues(id, name, address))')
+      .eq('user_id', userId)
+      .eq('claim_type', 'event')
+      .eq('is_active', true)
+    
+    if (directEvents) {
+      setMyEvents(directEvents.map((e: any) => e.events).filter(Boolean))
+    }
   }
   
   // ============================================================================
-  // AUTH
+  // AUTH HANDLERS - EMAIL/PASSWORD
   // ============================================================================
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setAuthLoading(true)
-    setAuthMessage('')
+    setAuthError('')
+    setAuthSuccess('')
     
-    const { error } = await supabase.auth.signInWithOtp({
+    if (!email || !password) {
+      setAuthError('Please enter both email and password')
+      setAuthLoading(false)
+      return
+    }
+    
+    const { error } = await supabase.auth.signInWithPassword({
       email,
+      password,
+    })
+    
+    if (error) {
+      if (error.message.includes('Invalid login credentials')) {
+        setAuthError('Invalid email or password. Please try again.')
+      } else {
+        setAuthError(error.message)
+      }
+    } else {
+      setAuthSuccess('Signed in successfully!')
+      setEmail('')
+      setPassword('')
+    }
+    setAuthLoading(false)
+  }
+  
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setAuthLoading(true)
+    setAuthError('')
+    setAuthSuccess('')
+    
+    if (!email || !password || !confirmPassword) {
+      setAuthError('Please fill in all fields')
+      setAuthLoading(false)
+      return
+    }
+    
+    if (password !== confirmPassword) {
+      setAuthError('Passwords do not match')
+      setAuthLoading(false)
+      return
+    }
+    
+    if (password.length < 6) {
+      setAuthError('Password must be at least 6 characters')
+      setAuthLoading(false)
+      return
+    }
+    
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
       options: {
+        data: {
+          full_name: fullName,
+        },
         emailRedirectTo: `${window.location.origin}/portal`,
       },
     })
     
     if (error) {
-      setAuthMessage(`Error: ${error.message}`)
+      setAuthError(error.message)
     } else {
-      setAuthMessage('✓ Check your email for the login link!')
+      setAuthSuccess('Account created! Please check your email to verify your account.')
+      setEmail('')
+      setPassword('')
+      setConfirmPassword('')
+      setFullName('')
     }
     setAuthLoading(false)
   }
@@ -147,758 +259,608 @@ export default function PortalPage() {
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     setUser(null)
-    setMyBrand(null)
+    setProfile(null)
+    setMyBrands([])
     setMyEvents([])
   }
   
   // ============================================================================
-  // ADD EVENT
+  // EVENT HANDLERS
   // ============================================================================
   const handleAddEvent = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!myBrand) {
-      setEventMessage('Please create your brand first')
+    setAddEventLoading(true)
+    setAddEventMessage('')
+    
+    if (!addEventForm.title || !addEventForm.venue_id || !addEventForm.start_date) {
+      setAddEventMessage('Please fill in required fields')
+      setAddEventLoading(false)
       return
     }
     
-    setAddingEvent(true)
-    setEventMessage('')
+    const startDateTime = `${addEventForm.start_date}T${addEventForm.start_time}:00`
+    const endDateTime = addEventForm.end_time ? `${addEventForm.start_date}T${addEventForm.end_time}:00` : null
     
-    // Combine date and time
-    const startDateTime = `${eventForm.start_date}T${eventForm.start_time}:00`
-    let endDateTime = null
-    if (eventForm.end_time) {
-      // Handle end time on next day if it's before start time
-      const endDate = eventForm.end_time < eventForm.start_time
-        ? new Date(new Date(eventForm.start_date).getTime() + 86400000).toISOString().split('T')[0]
-        : eventForm.start_date
-      endDateTime = `${endDate}T${eventForm.end_time}:00`
-    }
-    
-    const { error } = await supabase
-      .from('events')
-      .insert({
-        title: eventForm.title,
-        venue_id: eventForm.venue_id || null,
-        brand_id: myBrand.id,
-        start_time: startDateTime,
-        end_time: endDateTime,
-        description: eventForm.description || null,
-        event_url: eventForm.event_url || null,
-        image_url: eventForm.image_url || null,
-        price_min: eventForm.price_min ? parseFloat(eventForm.price_min) : null,
-        price_max: eventForm.price_max ? parseFloat(eventForm.price_max) : null,
-        genres: eventForm.genres || null,
-        status: 'published',
-      })
+    const { error } = await supabase.from('events').insert({
+      title: addEventForm.title,
+      venue_id: addEventForm.venue_id,
+      brand_id: addEventForm.brand_id || null,
+      start_time: startDateTime,
+      end_time: endDateTime,
+      genres: addEventForm.genres || null,
+      description: addEventForm.description || null,
+      event_url: addEventForm.event_url || null,
+      price_min: addEventForm.price_min ? parseFloat(addEventForm.price_min) : null,
+      price_max: addEventForm.price_max ? parseFloat(addEventForm.price_max) : null,
+      status: 'pending',
+      is_claimed: true,
+    })
     
     if (error) {
-      setEventMessage(`Error: ${error.message}`)
+      setAddEventMessage(`Error: ${error.message}`)
     } else {
-      setEventMessage('✓ Event added!')
-      setShowAddEvent(false)
-      setEventForm({
+      setAddEventMessage('Event submitted! It will be reviewed shortly.')
+      setAddEventForm({
         title: '',
         venue_id: '',
+        brand_id: myBrands[0]?.id || '',
         start_date: '',
         start_time: '22:00',
-        end_time: '03:00',
+        end_time: '',
+        genres: '',
         description: '',
         event_url: '',
-        image_url: '',
         price_min: '',
         price_max: '',
-        genres: '',
       })
-      loadData(user.id)
+      setShowAddEvent(false)
+      // Reload events
+      if (user) loadMyData(user.id)
     }
-    setAddingEvent(false)
+    setAddEventLoading(false)
   }
   
   // ============================================================================
-  // RENDER - Loading
+  // RENDER - LOADING
   // ============================================================================
   if (loading) {
     return (
-      <div style={styles.loadingContainer}>
-        <div style={styles.spinner} />
+      <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        Loading...
       </div>
     )
   }
   
   // ============================================================================
-  // RENDER - Login
+  // RENDER - AUTH SCREEN
   // ============================================================================
   if (!user) {
     return (
-      <div style={styles.container}>
-        <div style={styles.loginBox}>
-          <h1 style={styles.logo}>Sounded Out</h1>
-          <h2 style={styles.loginTitle}>Partner Portal</h2>
-          <p style={styles.loginSubtitle}>
-            Sign in to manage your events and brand profile
-          </p>
-          
-          <form onSubmit={handleLogin} style={styles.form}>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              required
-              style={styles.input}
-            />
-            <button
-              type="submit"
-              disabled={authLoading}
-              style={styles.primaryButton}
-            >
-              {authLoading ? 'Sending...' : 'Send Login Link'}
-            </button>
-          </form>
-          
-          {authMessage && (
-            <p style={{
-              ...styles.message,
-              color: authMessage.includes('Error') ? '#f87171' : '#22c55e',
-            }}>
-              {authMessage}
+      <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+        <Link href="/" style={{ position: 'absolute', top: '20px', left: '20px', display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+          <img src="/logo.svg" alt="Sounded Out" style={{ height: '24px' }} />
+        </Link>
+        
+        <div style={{ width: '100%', maxWidth: '360px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px' }}>Partner Portal</h1>
+            <p style={{ fontSize: '14px', color: '#888' }}>
+              {authMode === 'signin' ? 'Sign in to manage your events' : 'Create an account to get started'}
             </p>
+          </div>
+          
+          {/* Auth Mode Toggle */}
+          <div style={{ display: 'flex', marginBottom: '24px', background: '#141416', borderRadius: '10px', padding: '4px' }}>
+            <button
+              onClick={() => { setAuthMode('signin'); setAuthError(''); setAuthSuccess('') }}
+              style={{
+                flex: 1,
+                padding: '10px',
+                background: authMode === 'signin' ? '#ab67f7' : 'transparent',
+                border: 'none',
+                borderRadius: '8px',
+                color: authMode === 'signin' ? 'white' : '#888',
+                fontSize: '14px',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => { setAuthMode('signup'); setAuthError(''); setAuthSuccess('') }}
+              style={{
+                flex: 1,
+                padding: '10px',
+                background: authMode === 'signup' ? '#ab67f7' : 'transparent',
+                border: 'none',
+                borderRadius: '8px',
+                color: authMode === 'signup' ? 'white' : '#888',
+                fontSize: '14px',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              Sign Up
+            </button>
+          </div>
+          
+          {/* Messages */}
+          {authError && (
+            <div style={{ padding: '12px 16px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '10px', marginBottom: '16px' }}>
+              <p style={{ fontSize: '13px', color: '#f87171' }}>{authError}</p>
+            </div>
           )}
+          
+          {authSuccess && (
+            <div style={{ padding: '12px 16px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '10px', marginBottom: '16px' }}>
+              <p style={{ fontSize: '13px', color: '#22c55e' }}>{authSuccess}</p>
+            </div>
+          )}
+          
+          {/* Sign In Form */}
+          {authMode === 'signin' && (
+            <form onSubmit={handleSignIn}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@email.com"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: '#141416',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '15px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: '#141416',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '15px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              
+              <button
+                type="submit"
+                disabled={authLoading}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  background: '#ab67f7',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: 'white',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: authLoading ? 'not-allowed' : 'pointer',
+                  opacity: authLoading ? 0.7 : 1,
+                }}
+              >
+                {authLoading ? 'Signing in...' : 'Sign In'}
+              </button>
+            </form>
+          )}
+          
+          {/* Sign Up Form */}
+          {authMode === 'signup' && (
+            <form onSubmit={handleSignUp}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Full Name</label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Your name"
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: '#141416',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '15px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@email.com"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: '#141416',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '15px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: '#141416',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '15px',
+                    outline: 'none',
+                  }}
+                />
+                <p style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>At least 6 characters</p>
+              </div>
+              
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Confirm Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: '#141416',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '15px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              
+              <button
+                type="submit"
+                disabled={authLoading}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  background: '#ab67f7',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: 'white',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: authLoading ? 'not-allowed' : 'pointer',
+                  opacity: authLoading ? 0.7 : 1,
+                }}
+              >
+                {authLoading ? 'Creating account...' : 'Create Account'}
+              </button>
+            </form>
+          )}
+          
+          <p style={{ fontSize: '12px', color: '#666', textAlign: 'center', marginTop: '24px' }}>
+            By signing in, you agree to our{' '}
+            <Link href="/terms" style={{ color: '#ab67f7', textDecoration: 'none' }}>Terms</Link>
+            {' '}and{' '}
+            <Link href="/privacy" style={{ color: '#ab67f7', textDecoration: 'none' }}>Privacy Policy</Link>
+          </p>
         </div>
       </div>
     )
   }
   
   // ============================================================================
-  // RENDER - Dashboard
+  // RENDER - PORTAL DASHBOARD
   // ============================================================================
+  const formatDate = (d: string): string => {
+    return new Date(d).toLocaleDateString('en-GB', { 
+      weekday: 'short', 
+      day: 'numeric', 
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+  
   return (
-    <div style={styles.container}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white' }}>
       {/* Header */}
-      <header style={styles.header}>
-        <div>
-          <h1 style={styles.headerTitle}>Partner Portal</h1>
-          <p style={styles.headerEmail}>{user.email}</p>
+      <header style={{
+        padding: '16px 20px',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+          <img src="/logo.svg" alt="Sounded Out" style={{ height: '24px' }} />
+        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <span style={{ fontSize: '13px', color: '#888' }}>{user?.email}</span>
+          <button
+            onClick={handleSignOut}
+            style={{
+              padding: '8px 16px',
+              background: 'rgba(255,255,255,0.06)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#888',
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            Sign out
+          </button>
         </div>
-        <button onClick={handleSignOut} style={styles.signOutButton}>
-          Sign Out
-        </button>
       </header>
       
-      {/* Brand Section */}
-      <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>Your Brand</h2>
+      <main style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 20px' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '24px' }}>Partner Dashboard</h1>
         
-        {myBrand ? (
-          <div style={styles.brandCard}>
-            <div style={styles.brandInfo}>
-              <div style={styles.brandAvatar}>
-                {myBrand.profile_image_url ? (
-                  <img
-                    src={myBrand.profile_image_url}
-                    alt={myBrand.name}
-                    style={styles.brandAvatarImg}
-                  />
-                ) : (
-                  <span style={styles.brandAvatarLetter}>
-                    {myBrand.name.charAt(0)}
-                  </span>
-                )}
-              </div>
-              <div>
-                <p style={styles.brandName}>
-                  {myBrand.name}
-                  {myBrand.is_verified && <span style={styles.verifiedBadge}>✓</span>}
-                </p>
-                <p style={styles.brandUrl}>soundedout.com/brand/{myBrand.slug}</p>
-                <p style={styles.brandFollowers}>{myBrand.follower_count} followers</p>
-              </div>
-            </div>
-            <div style={styles.brandActions}>
-              <Link href={`/brand/${myBrand.slug}`} target="_blank" style={styles.secondaryButton}>
-                View Page
-              </Link>
-              <Link href={`/portal/brand/${myBrand.id}`} style={styles.primaryButtonSmall}>
-                Edit Profile
-              </Link>
+        {/* Brands */}
+        {myBrands.length > 0 && (
+          <div style={{ marginBottom: '24px', padding: '16px', background: '#141416', borderRadius: '12px' }}>
+            <h2 style={{ fontSize: '14px', fontWeight: 600, color: '#888', marginBottom: '12px' }}>Your Brands</h2>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              {myBrands.map((brand: Brand) => (
+                <div key={brand.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'rgba(171,103,247,0.1)', borderRadius: '8px' }}>
+                  {brand.logo_url && <img src={brand.logo_url} alt="" style={{ width: '20px', height: '20px', borderRadius: '4px' }} />}
+                  <span style={{ fontSize: '13px', fontWeight: 500 }}>{brand.name}</span>
+                  {brand.is_verified && <span style={{ color: '#ab67f7' }}>✓</span>}
+                </div>
+              ))}
             </div>
           </div>
-        ) : (
-          <Link href="/portal/brand/new" style={styles.createBrandCard}>
-            <span style={styles.createBrandIcon}>+</span>
-            <div>
-              <p style={styles.createBrandTitle}>Create Your Brand Profile</p>
-              <p style={styles.createBrandSubtitle}>
-                Set up your page so people can follow you and discover your events
-              </p>
-            </div>
-          </Link>
         )}
-      </section>
-      
-      {/* Events Section */}
-      <section style={styles.section}>
-        <div style={styles.sectionHeader}>
-          <h2 style={styles.sectionTitle}>Your Events</h2>
-          {myBrand && (
-            <button
-              onClick={() => setShowAddEvent(!showAddEvent)}
-              style={styles.addButton}
-            >
-              {showAddEvent ? 'Cancel' : '+ Add Event'}
-            </button>
-          )}
+        
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+          <button
+            onClick={() => setActiveTab('events')}
+            style={{
+              padding: '10px 20px',
+              background: activeTab === 'events' ? '#ab67f7' : 'rgba(255,255,255,0.06)',
+              border: 'none',
+              borderRadius: '8px',
+              color: activeTab === 'events' ? 'white' : '#888',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            My Events ({myEvents.length})
+          </button>
+          <button
+            onClick={() => setShowAddEvent(true)}
+            style={{
+              padding: '10px 20px',
+              background: 'rgba(171,103,247,0.15)',
+              border: '1px solid rgba(171,103,247,0.3)',
+              borderRadius: '8px',
+              color: '#ab67f7',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            + Add Event
+          </button>
         </div>
         
-        {!myBrand && (
-          <p style={styles.hint}>Create your brand first to add events</p>
-        )}
-        
-        {/* Add Event Form */}
-        {showAddEvent && myBrand && (
-          <form onSubmit={handleAddEvent} style={styles.addEventForm}>
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Event Title *</label>
-                <input
-                  type="text"
-                  value={eventForm.title}
-                  onChange={e => setEventForm({...eventForm, title: e.target.value})}
-                  placeholder="e.g. Techno Tuesday"
-                  required
-                  style={styles.input}
-                />
+        {/* Events List */}
+        {myEvents.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <p style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }}>📅</p>
+            <p style={{ fontSize: '16px', color: '#888', marginBottom: '8px' }}>No events yet</p>
+            <p style={{ fontSize: '14px', color: '#666', marginBottom: '24px' }}>Add your first event to get started</p>
+            <button
+              onClick={() => setShowAddEvent(true)}
+              style={{
+                padding: '12px 24px',
+                background: '#ab67f7',
+                border: 'none',
+                borderRadius: '10px',
+                color: 'white',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Add Event
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {myEvents.map((event: Event) => (
+              <div key={event.id} style={{ padding: '16px', background: '#141416', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>{event.title}</h3>
+                    <p style={{ fontSize: '13px', color: '#888' }}>{event.venue?.name}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {event.is_verified && <span style={{ padding: '4px 8px', background: 'rgba(34,197,94,0.15)', borderRadius: '4px', fontSize: '11px', color: '#22c55e' }}>Verified</span>}
+                    {event.sold_out && <span style={{ padding: '4px 8px', background: 'rgba(248,113,113,0.15)', borderRadius: '4px', fontSize: '11px', color: '#f87171' }}>Sold Out</span>}
+                  </div>
+                </div>
+                <p style={{ fontSize: '12px', color: '#ab67f7' }}>{formatDate(event.start_time)}</p>
               </div>
+            ))}
+          </div>
+        )}
+      </main>
+      
+      {/* Add Event Modal */}
+      {showAddEvent && (
+        <div 
+          onClick={() => setShowAddEvent(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: '#141416', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700 }}>Add New Event</h2>
+              <button onClick={() => setShowAddEvent(false)} style={{ width: '32px', height: '32px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', color: '#888', fontSize: '16px', cursor: 'pointer' }}>×</button>
             </div>
             
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Venue</label>
+            {addEventMessage && (
+              <div style={{ padding: '12px', background: addEventMessage.includes('Error') ? 'rgba(248,113,113,0.1)' : 'rgba(34,197,94,0.1)', borderRadius: '8px', marginBottom: '16px' }}>
+                <p style={{ fontSize: '13px', color: addEventMessage.includes('Error') ? '#f87171' : '#22c55e' }}>{addEventMessage}</p>
+              </div>
+            )}
+            
+            <form onSubmit={handleAddEvent}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Event Title *</label>
+                <input
+                  type="text"
+                  value={addEventForm.title}
+                  onChange={(e) => setAddEventForm({ ...addEventForm, title: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                />
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Venue *</label>
                 <select
-                  value={eventForm.venue_id}
-                  onChange={e => setEventForm({...eventForm, venue_id: e.target.value})}
-                  style={styles.input}
+                  value={addEventForm.venue_id}
+                  onChange={(e) => setAddEventForm({ ...addEventForm, venue_id: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
                 >
-                  <option value="">Select venue...</option>
-                  {venues.map(v => (
+                  <option value="">Select venue</option>
+                  {venues.map((v: Venue) => (
                     <option key={v.id} value={v.id}>{v.name}</option>
                   ))}
                 </select>
               </div>
-            </div>
-            
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Date *</label>
-                <input
-                  type="date"
-                  value={eventForm.start_date}
-                  onChange={e => setEventForm({...eventForm, start_date: e.target.value})}
-                  required
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Start Time *</label>
-                <input
-                  type="time"
-                  value={eventForm.start_time}
-                  onChange={e => setEventForm({...eventForm, start_time: e.target.value})}
-                  required
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>End Time</label>
-                <input
-                  type="time"
-                  value={eventForm.end_time}
-                  onChange={e => setEventForm({...eventForm, end_time: e.target.value})}
-                  style={styles.input}
-                />
-              </div>
-            </div>
-            
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Ticket Link</label>
-                <input
-                  type="url"
-                  value={eventForm.event_url}
-                  onChange={e => setEventForm({...eventForm, event_url: e.target.value})}
-                  placeholder="https://..."
-                  style={styles.input}
-                />
-              </div>
-            </div>
-            
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Event Image URL</label>
-                <input
-                  type="url"
-                  value={eventForm.image_url}
-                  onChange={e => setEventForm({...eventForm, image_url: e.target.value})}
-                  placeholder="https://..."
-                  style={styles.input}
-                />
-              </div>
-            </div>
-            
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Min Price (£)</label>
-                <input
-                  type="number"
-                  value={eventForm.price_min}
-                  onChange={e => setEventForm({...eventForm, price_min: e.target.value})}
-                  placeholder="0"
-                  min="0"
-                  step="0.01"
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Max Price (£)</label>
-                <input
-                  type="number"
-                  value={eventForm.price_max}
-                  onChange={e => setEventForm({...eventForm, price_max: e.target.value})}
-                  placeholder="20"
-                  min="0"
-                  step="0.01"
-                  style={styles.input}
-                />
-              </div>
-            </div>
-            
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Description</label>
-                <textarea
-                  value={eventForm.description}
-                  onChange={e => setEventForm({...eventForm, description: e.target.value})}
-                  placeholder="What's this event about?"
-                  rows={3}
-                  style={{...styles.input, resize: 'vertical'}}
-                />
-              </div>
-            </div>
-            
-            {eventMessage && (
-              <p style={{
-                ...styles.message,
-                color: eventMessage.includes('Error') ? '#f87171' : '#22c55e',
-              }}>
-                {eventMessage}
-              </p>
-            )}
-            
-            <button
-              type="submit"
-              disabled={addingEvent}
-              style={styles.primaryButton}
-            >
-              {addingEvent ? 'Adding...' : 'Add Event'}
-            </button>
-          </form>
-        )}
-        
-        {/* Events List */}
-        {myEvents.length > 0 ? (
-          <div style={styles.eventsList}>
-            {myEvents.map(event => (
-              <div key={event.id} style={styles.eventCard}>
-                <div style={styles.eventInfo}>
-                  <p style={styles.eventDate}>
-                    {new Date(event.start_time).toLocaleDateString('en-GB', {
-                      weekday: 'short',
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
-                  <p style={styles.eventTitle}>{event.title}</p>
-                  <p style={styles.eventVenue}>{event.venue?.name || 'No venue'}</p>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Date *</label>
+                  <input
+                    type="date"
+                    value={addEventForm.start_date}
+                    onChange={(e) => setAddEventForm({ ...addEventForm, start_date: e.target.value })}
+                    required
+                    style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                  />
                 </div>
-                <div style={styles.eventStatus}>
-                  <span style={{
-                    ...styles.statusBadge,
-                    background: event.status === 'published' 
-                      ? 'rgba(34,197,94,0.15)' 
-                      : 'rgba(255,255,255,0.08)',
-                    color: event.status === 'published' ? '#22c55e' : '#888',
-                  }}>
-                    {event.status}
-                  </span>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Start Time *</label>
+                  <input
+                    type="time"
+                    value={addEventForm.start_time}
+                    onChange={(e) => setAddEventForm({ ...addEventForm, start_time: e.target.value })}
+                    required
+                    style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                  />
                 </div>
               </div>
-            ))}
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Genres (comma separated)</label>
+                <input
+                  type="text"
+                  value={addEventForm.genres}
+                  onChange={(e) => setAddEventForm({ ...addEventForm, genres: e.target.value })}
+                  placeholder="e.g. techno, house"
+                  style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                />
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Price Min (£)</label>
+                  <input
+                    type="number"
+                    value={addEventForm.price_min}
+                    onChange={(e) => setAddEventForm({ ...addEventForm, price_min: e.target.value })}
+                    placeholder="0 for free"
+                    style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Price Max (£)</label>
+                  <input
+                    type="number"
+                    value={addEventForm.price_max}
+                    onChange={(e) => setAddEventForm({ ...addEventForm, price_max: e.target.value })}
+                    style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                  />
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Ticket URL</label>
+                <input
+                  type="url"
+                  value={addEventForm.event_url}
+                  onChange={(e) => setAddEventForm({ ...addEventForm, event_url: e.target.value })}
+                  placeholder="https://..."
+                  style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                />
+              </div>
+              
+              <button
+                type="submit"
+                disabled={addEventLoading}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  background: '#ab67f7',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: 'white',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: addEventLoading ? 'not-allowed' : 'pointer',
+                  opacity: addEventLoading ? 0.7 : 1,
+                }}
+              >
+                {addEventLoading ? 'Submitting...' : 'Submit Event'}
+              </button>
+            </form>
           </div>
-        ) : myBrand ? (
-          <p style={styles.emptyState}>No events yet. Add your first event above!</p>
-        ) : null}
-      </section>
-      
-      {/* Quick Links */}
-      <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>Quick Links</h2>
-        <div style={styles.quickLinks}>
-          <Link href="/" style={styles.quickLink}>
-            <span>🗺</span> View Map
-          </Link>
-          <Link href="/coming-up" style={styles.quickLink}>
-            <span>📅</span> Coming Up Feed
-          </Link>
-          {myBrand && (
-            <Link href={`/brand/${myBrand.slug}`} style={styles.quickLink}>
-              <span>👤</span> Your Public Page
-            </Link>
-          )}
         </div>
-      </section>
-      
-      <div style={{ height: '40px' }} />
-      
-      <style jsx global>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #0a0a0b; color: white; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-      `}</style>
+      )}
     </div>
   )
-}
-
-// ============================================================================
-// STYLES
-// ============================================================================
-const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    minHeight: '100vh',
-    background: '#0a0a0b',
-    color: 'white',
-  },
-  loadingContainer: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#0a0a0b',
-  },
-  spinner: {
-    width: '40px',
-    height: '40px',
-    border: '3px solid rgba(171,103,247,0.2)',
-    borderTopColor: '#ab67f7',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-  },
-  
-  // Login
-  loginBox: {
-    maxWidth: '400px',
-    margin: '0 auto',
-    padding: '60px 20px',
-    textAlign: 'center' as const,
-  },
-  logo: {
-    fontSize: '24px',
-    fontWeight: 800,
-    color: '#ab67f7',
-    marginBottom: '8px',
-  },
-  loginTitle: {
-    fontSize: '28px',
-    fontWeight: 700,
-    marginBottom: '8px',
-  },
-  loginSubtitle: {
-    fontSize: '15px',
-    color: '#888',
-    marginBottom: '32px',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '12px',
-  },
-  input: {
-    width: '100%',
-    padding: '14px 16px',
-    background: 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '10px',
-    color: 'white',
-    fontSize: '15px',
-    outline: 'none',
-  },
-  primaryButton: {
-    padding: '14px 24px',
-    background: '#ab67f7',
-    border: 'none',
-    borderRadius: '10px',
-    color: 'white',
-    fontSize: '15px',
-    fontWeight: 700,
-    cursor: 'pointer',
-  },
-  message: {
-    marginTop: '16px',
-    fontSize: '14px',
-  },
-  
-  // Header
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '20px',
-    borderBottom: '1px solid rgba(255,255,255,0.08)',
-  },
-  headerTitle: {
-    fontSize: '20px',
-    fontWeight: 700,
-  },
-  headerEmail: {
-    fontSize: '13px',
-    color: '#888',
-    marginTop: '4px',
-  },
-  signOutButton: {
-    padding: '8px 16px',
-    background: 'rgba(255,255,255,0.08)',
-    border: 'none',
-    borderRadius: '8px',
-    color: '#888',
-    fontSize: '13px',
-    cursor: 'pointer',
-  },
-  
-  // Sections
-  section: {
-    padding: '24px 20px',
-    borderBottom: '1px solid rgba(255,255,255,0.08)',
-  },
-  sectionHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '16px',
-  },
-  sectionTitle: {
-    fontSize: '14px',
-    fontWeight: 700,
-    color: '#888',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.05em',
-  },
-  
-  // Brand
-  brandCard: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px',
-    background: 'rgba(255,255,255,0.03)',
-    borderRadius: '12px',
-    flexWrap: 'wrap' as const,
-    gap: '16px',
-  },
-  brandInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '14px',
-  },
-  brandAvatar: {
-    width: '56px',
-    height: '56px',
-    borderRadius: '12px',
-    overflow: 'hidden',
-    background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandAvatarImg: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover' as const,
-  },
-  brandAvatarLetter: {
-    fontSize: '24px',
-    fontWeight: 700,
-    color: 'white',
-  },
-  brandName: {
-    fontSize: '16px',
-    fontWeight: 700,
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-  },
-  verifiedBadge: {
-    width: '16px',
-    height: '16px',
-    background: '#ab67f7',
-    borderRadius: '50%',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '10px',
-  },
-  brandUrl: {
-    fontSize: '13px',
-    color: '#888',
-    marginTop: '2px',
-  },
-  brandFollowers: {
-    fontSize: '12px',
-    color: '#666',
-    marginTop: '2px',
-  },
-  brandActions: {
-    display: 'flex',
-    gap: '8px',
-  },
-  secondaryButton: {
-    padding: '10px 16px',
-    background: 'rgba(255,255,255,0.08)',
-    borderRadius: '8px',
-    color: '#888',
-    textDecoration: 'none',
-    fontSize: '13px',
-  },
-  primaryButtonSmall: {
-    padding: '10px 16px',
-    background: '#ab67f7',
-    borderRadius: '8px',
-    color: 'white',
-    textDecoration: 'none',
-    fontSize: '13px',
-    fontWeight: 600,
-  },
-  createBrandCard: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    padding: '24px',
-    background: 'rgba(171,103,247,0.1)',
-    border: '2px dashed rgba(171,103,247,0.3)',
-    borderRadius: '12px',
-    textDecoration: 'none',
-    color: '#ab67f7',
-  },
-  createBrandIcon: {
-    fontSize: '32px',
-    fontWeight: 300,
-  },
-  createBrandTitle: {
-    fontSize: '16px',
-    fontWeight: 700,
-  },
-  createBrandSubtitle: {
-    fontSize: '13px',
-    opacity: 0.8,
-    marginTop: '4px',
-  },
-  
-  // Events
-  addButton: {
-    padding: '8px 16px',
-    background: '#ab67f7',
-    border: 'none',
-    borderRadius: '8px',
-    color: 'white',
-    fontSize: '13px',
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  hint: {
-    fontSize: '14px',
-    color: '#666',
-  },
-  addEventForm: {
-    padding: '20px',
-    background: 'rgba(255,255,255,0.03)',
-    borderRadius: '12px',
-    marginBottom: '20px',
-  },
-  formRow: {
-    display: 'flex',
-    gap: '12px',
-    marginBottom: '16px',
-  },
-  formGroup: {
-    flex: 1,
-  },
-  label: {
-    display: 'block',
-    fontSize: '12px',
-    fontWeight: 600,
-    color: '#888',
-    marginBottom: '6px',
-  },
-  eventsList: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '8px',
-  },
-  eventCard: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '14px 16px',
-    background: 'rgba(255,255,255,0.03)',
-    borderRadius: '10px',
-  },
-  eventInfo: {},
-  eventDate: {
-    fontSize: '12px',
-    color: '#ab67f7',
-    fontWeight: 600,
-    marginBottom: '4px',
-  },
-  eventTitle: {
-    fontSize: '15px',
-    fontWeight: 600,
-    marginBottom: '2px',
-  },
-  eventVenue: {
-    fontSize: '13px',
-    color: '#888',
-  },
-  eventStatus: {},
-  statusBadge: {
-    padding: '4px 10px',
-    borderRadius: '6px',
-    fontSize: '11px',
-    fontWeight: 600,
-    textTransform: 'capitalize' as const,
-  },
-  emptyState: {
-    padding: '40px 20px',
-    textAlign: 'center' as const,
-    color: '#666',
-    fontSize: '14px',
-  },
-  
-  // Quick Links
-  quickLinks: {
-    display: 'flex',
-    gap: '12px',
-    flexWrap: 'wrap' as const,
-  },
-  quickLink: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '12px 16px',
-    background: 'rgba(255,255,255,0.05)',
-    borderRadius: '10px',
-    color: '#888',
-    textDecoration: 'none',
-    fontSize: '14px',
-  },
 }
