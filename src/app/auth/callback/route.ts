@@ -6,7 +6,7 @@ import type { NextRequest } from 'next/server'
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const type = requestUrl.searchParams.get('type') // promoter or user
+  const type = requestUrl.searchParams.get('type')
 
   if (code) {
     const cookieStore = cookies()
@@ -20,22 +20,21 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(new URL('/login?error=auth_failed', requestUrl.origin))
       }
 
-      // If we have a session, create/update profile
       if (data.session) {
         const user = data.session.user
         
-        // Upsert to user_profiles (not profiles)
-        await supabase.from('user_profiles').upsert({
+        // Upsert to profiles table
+        await supabase.from('profiles').upsert({
           id: user.id,
           email: user.email,
-          display_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0],
+          full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0],
           avatar_url: user.user_metadata?.avatar_url,
+          role: type === 'promoter' ? 'partner' : 'user',
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'id'
         })
 
-        // Redirect based on type
         if (type === 'promoter') {
           return NextResponse.redirect(new URL('/portal', requestUrl.origin))
         }
@@ -46,6 +45,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Default redirect to home
   return NextResponse.redirect(new URL('/', requestUrl.origin))
 }
