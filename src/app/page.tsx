@@ -1129,7 +1129,7 @@ const OnboardingModal = ({ onComplete }: OnboardingModalProps): JSX.Element => (
         fontWeight: 800,
         lineHeight: 1.2,
         marginBottom: '12px',
-        background: 'linear-gradient(135deg, #ffffff 0%, #ab67f7 100%)',
+        background: '#ab67f7',
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
       }}>
