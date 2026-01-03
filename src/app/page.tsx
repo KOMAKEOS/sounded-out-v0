@@ -2907,7 +2907,7 @@ function MobileDetailSheet({
   current, currentIndex, filtered, showAllGenres, setShowAllGenres, showDescription, setShowDescription,
   setClaimType, setShowClaimModal, navigate, formatTime, formatPrice, getDateLabel, getGenres, getTicketUrl,
   isFree, mapsUrl, noSelectStyle, onTouchStart, onTouchMove, onTouchEnd, dragDirection, getCardTransform,
-  getDismissTransform, dismissProgress, getGenreStyle, isEventSaved, toggleSaveEvent,
+  getDismissTransform, dismissProgress, getGenreStyle, isEventSaved, toggleSaveEvent, user, 
 }: any) {
   return (
     <div
