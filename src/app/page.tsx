@@ -2343,6 +2343,13 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         
         {/* P1 FIX: Onboarding Modal */}
         {showOnboarding && <OnboardingModal onComplete={completeOnboarding} />}
+
+        {/* Login Prompt Modal */}
+<LoginPromptModal
+  isOpen={showLoginModal}
+  onClose={() => setShowLoginModal(false)}
+  action="save"
+/>
         
         <style jsx global>{globalStyles}</style>
       </div>
@@ -2877,6 +2884,13 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 
         {/* P1 FIX: Onboarding Modal */}
         {showOnboarding && <OnboardingModal onComplete={completeOnboarding} />}
+
+        {/* Login Prompt Modal */}
+<LoginPromptModal
+  isOpen={showLoginModal}
+  onClose={() => setShowLoginModal(false)}
+  action="save"
+/>
 
         <style jsx global>{globalStyles}</style>
       </main>
