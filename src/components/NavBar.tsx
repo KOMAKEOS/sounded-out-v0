@@ -117,7 +117,6 @@ export default function NavBar({ showBackToMap = true }: NavBarProps) {
                 transition: 'all 200ms ease',
               }}
             >
-              <span style={{ fontSize: '14px' }}>{tab.icon}</span>
               {tab.label}
             </Link>
           ))}
