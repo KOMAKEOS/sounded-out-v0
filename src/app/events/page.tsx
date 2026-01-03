@@ -76,7 +76,10 @@ export default function EventsPage() {
           .eq('user_id', authUser.id)
         
         if (savedData) {
-          const ids = new Set(savedData.map(s => s.event_id))
+          const ids = new Set<string>()
+          for (let i = 0; i < savedData.length; i++) {
+            ids.add(savedData[i].event_id as string)
+          }
           setSavedEventIds(ids)
         }
       }
@@ -103,49 +106,72 @@ export default function EventsPage() {
   const sortedGenres = useMemo(() => {
     const genreCount = new Map<string, number>()
     
-    for (const event of events) {
+    for (let i = 0; i < events.length; i++) {
+      const event: Event = events[i]
       if (event.genres) {
-        const genres = event.genres.split(',')
-        for (const genre of genres) {
-          const normalized = genre.trim().toLowerCase()
+        const genres: string[] = event.genres.split(',')
+        for (let j = 0; j < genres.length; j++) {
+          const normalized: string = genres[j].trim().toLowerCase()
           genreCount.set(normalized, (genreCount.get(normalized) || 0) + 1)
         }
       }
     }
 
     // Sort by count descending
-    const sorted = Array.from(genreCount.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([genre, count]) => ({ genre, count }))
+    const entries: [string, number][] = Array.from(genreCount.entries())
+    entries.sort((a: [string, number], b: [string, number]) => b[1] - a[1])
+    
+    const sorted: { genre: string; count: number }[] = []
+    for (let i = 0; i < entries.length; i++) {
+      sorted.push({ genre: entries[i][0], count: entries[i][1] })
+    }
 
     return sorted
   }, [events])
 
   // Filter events
   const filteredEvents = useMemo(() => {
-    let result = events
+    let result: Event[] = events
 
     if (showForYou && user) {
       // Filter to saved genres (simplified - would be smarter with real preference data)
       const savedGenres = new Set<string>()
-      for (const event of events) {
+      for (let i = 0; i < events.length; i++) {
+        const event: Event = events[i]
         if (savedEventIds.has(event.id) && event.genres) {
-          event.genres.split(',').forEach(g => savedGenres.add(g.trim().toLowerCase()))
+          const genreList: string[] = event.genres.split(',')
+          for (let j = 0; j < genreList.length; j++) {
+            savedGenres.add(genreList[j].trim().toLowerCase())
+          }
         }
       }
       
       if (savedGenres.size > 0) {
-        result = events.filter(e => {
-          if (!e.genres) return false
-          return e.genres.split(',').some(g => savedGenres.has(g.trim().toLowerCase()))
-        })
+        const filtered: Event[] = []
+        for (let i = 0; i < events.length; i++) {
+          const e: Event = events[i]
+          if (!e.genres) continue
+          const eventGenres: string[] = e.genres.split(',')
+          for (let j = 0; j < eventGenres.length; j++) {
+            if (savedGenres.has(eventGenres[j].trim().toLowerCase())) {
+              filtered.push(e)
+              break
+            }
+          }
+        }
+        result = filtered
       }
     }
 
     if (activeGenre) {
-      result = result.filter(e => 
-        e.genres?.toLowerCase().includes(activeGenre.toLowerCase())
-      )
+      const filtered: Event[] = []
+      for (let i = 0; i < result.length; i++) {
+        const e: Event = result[i]
+        if (e.genres?.toLowerCase().includes(activeGenre.toLowerCase())) {
+          filtered.push(e)
+        }
+      }
+      result = filtered
     }
 
     return result
@@ -155,9 +181,10 @@ export default function EventsPage() {
   const groupedEvents = useMemo(() => {
     const groups: Record<string, Event[]> = {}
     
-    for (const event of filteredEvents) {
+    for (let i = 0; i < filteredEvents.length; i++) {
+      const event: Event = filteredEvents[i]
       const date = new Date(event.start_time)
-      const label = date.toLocaleDateString('en-GB', { 
+      const label: string = date.toLocaleDateString('en-GB', { 
         weekday: 'short', 
         day: 'numeric', 
         month: 'short' 
@@ -247,7 +274,7 @@ export default function EventsPage() {
           </button>
 
           {/* Genres sorted by count */}
-          {sortedGenres.map(({ genre, count }) => (
+          {sortedGenres.map(({ genre, count }: { genre: string; count: number }) => (
             <button
               key={genre}
               onClick={() => { setActiveGenre(genre); setShowForYou(false) }}
@@ -292,7 +319,7 @@ export default function EventsPage() {
             <p style={{ fontSize: '14px', color: '#555' }}>Try a different filter</p>
           </div>
         ) : (
-          Object.entries(groupedEvents).map(([date, dateEvents]) => (
+          Object.entries(groupedEvents).map(([date, dateEvents]: [string, Event[]]) => (
             <section key={date} style={{ marginBottom: '32px' }}>
               <h2 style={{ 
                 fontSize: '12px', 
@@ -311,7 +338,7 @@ export default function EventsPage() {
                 gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
                 gap: '16px' 
               }}>
-                {dateEvents.map((event) => (
+                {dateEvents.map((event: Event) => (
                   <Link 
                     key={event.id}
                     href={`/event/${event.id}`}
@@ -419,7 +446,7 @@ export default function EventsPage() {
                             textOverflow: 'ellipsis',
                             maxWidth: '60%',
                           }}>
-                            {event.genres.split(',').slice(0, 2).map(g => g.trim()).join(' · ')}
+                          {event.genres.split(',').slice(0, 2).map((g: string) => g.trim()).join(' · ')}
                           </span>
                         )}
                         <span style={{ 
