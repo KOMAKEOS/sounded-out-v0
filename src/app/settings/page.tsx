@@ -13,6 +13,7 @@ interface UserProfile {
   profile_public: boolean
   show_activity: boolean
   show_saved_events: boolean
+  created_at: string
 }
 
 interface User {
@@ -30,24 +31,16 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [savingKey, setSavingKey] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     const loadUser = async () => {
       const { data } = await supabase.auth.getUser()
       if (data.user) {
         setUser(data.user as User)
-        
-        // Load profile settings
-        const { data: profileData } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single()
-        
-        if (profileData) {
-          setProfile(profileData as UserProfile)
-        }
+        await loadProfile(data.user.id)
       } else {
         router.push('/login')
       }
@@ -56,21 +49,79 @@ export default function SettingsPage() {
     loadUser()
   }, [router])
 
+  const loadProfile = async (userId: string) => {
+    // Try to get existing profile
+    let { data: profileData, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    // If no profile exists, create one with defaults
+    if (profileError && profileError.code === 'PGRST116') {
+      const { data: newProfile, error: insertError } = await supabase
+        .from('user_profiles')
+        .insert({ 
+          id: userId,
+          email_notifications: true,
+          push_notifications: true,
+          weekly_digest: true,
+          profile_public: true,
+          show_activity: true,
+          show_saved_events: false,
+        })
+        .select()
+        .single()
+      
+      if (!insertError && newProfile) {
+        profileData = newProfile
+      }
+    }
+    
+    if (profileData) {
+      // Set defaults for any missing fields
+      setProfile({
+        id: profileData.id,
+        email_notifications: profileData.email_notifications ?? true,
+        push_notifications: profileData.push_notifications ?? true,
+        weekly_digest: profileData.weekly_digest ?? true,
+        profile_public: profileData.profile_public ?? true,
+        show_activity: profileData.show_activity ?? true,
+        show_saved_events: profileData.show_saved_events ?? false,
+        created_at: profileData.created_at || user?.created_at || new Date().toISOString(),
+      })
+    }
+  }
+
   const updateSetting = async (key: string, value: boolean) => {
     if (!user || !profile) return
     
-    setSaving(true)
+    setSavingKey(key)
+    setError(null)
+    setSuccess(null)
     
     const updates: Record<string, boolean> = {}
     updates[key] = value
     
-    await supabase
+    const { error: updateError } = await supabase
       .from('user_profiles')
-      .update(updates)
-      .eq('id', user.id)
+      .upsert({
+        id: user.id,
+        [key]: value
+      }, {
+        onConflict: 'id'
+      })
     
-    setProfile({ ...profile, [key]: value })
-    setSaving(false)
+    if (updateError) {
+      console.error('Settings update error:', updateError)
+      setError('Failed to save setting. Please try again.')
+    } else {
+      setProfile({ ...profile, [key]: value })
+      setSuccess('Saved!')
+      setTimeout(() => setSuccess(null), 2000)
+    }
+    
+    setSavingKey(null)
   }
 
   const handleSignOut = async () => {
@@ -79,8 +130,10 @@ export default function SettingsPage() {
   }
 
   const handleDeleteAccount = async () => {
-    if (user) {
-      // Delete user data
+    if (!user) return
+    
+    try {
+      // Delete user data in order
       await supabase.from('saved_events').delete().eq('user_id', user.id)
       await supabase.from('event_interests').delete().eq('user_id', user.id)
       await supabase.from('user_interactions').delete().eq('user_id', user.id)
@@ -90,9 +143,13 @@ export default function SettingsPage() {
       await supabase.from('user_follows').delete().eq('following_id', user.id)
       await supabase.from('user_hidden_items').delete().eq('user_id', user.id)
       await supabase.from('user_profiles').delete().eq('id', user.id)
+      
+      await supabase.auth.signOut()
+      router.push('/')
+    } catch (err) {
+      console.error('Delete account error:', err)
+      setError('Failed to delete account. Please contact support.')
     }
-    await supabase.auth.signOut()
-    router.push('/')
   }
 
   if (loading) {
@@ -107,11 +164,63 @@ export default function SettingsPage() {
     return null
   }
 
-  const memberSince = user.created_at 
-    ? new Date(user.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+  const memberSince = profile?.created_at || user.created_at
+    ? new Date(profile?.created_at || user.created_at!).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
     : 'Unknown'
 
   const provider = user.app_metadata?.provider === 'google' ? 'Google' : 'Email'
+
+  // Toggle switch component
+  const ToggleSwitch = ({ 
+    settingKey, 
+    value, 
+    label, 
+    description 
+  }: { 
+    settingKey: string
+    value: boolean
+    label: string
+    description: string 
+  }) => (
+    <div style={{ 
+      padding: '16px', 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center',
+      borderBottom: '1px solid rgba(255,255,255,0.06)',
+    }}>
+      <div>
+        <p style={{ fontSize: '14px', color: 'white', marginBottom: '2px' }}>{label}</p>
+        <p style={{ fontSize: '12px', color: '#666' }}>{description}</p>
+      </div>
+      <button
+        onClick={() => updateSetting(settingKey, !value)}
+        disabled={savingKey === settingKey}
+        style={{
+          width: '50px',
+          height: '28px',
+          borderRadius: '14px',
+          background: value ? '#ab67f7' : 'rgba(255,255,255,0.1)',
+          border: 'none',
+          cursor: savingKey === settingKey ? 'wait' : 'pointer',
+          position: 'relative',
+          transition: 'background 0.2s',
+          opacity: savingKey === settingKey ? 0.7 : 1,
+        }}
+      >
+        <div style={{
+          width: '24px',
+          height: '24px',
+          borderRadius: '12px',
+          background: 'white',
+          position: 'absolute',
+          top: '2px',
+          left: value ? '24px' : '2px',
+          transition: 'left 0.2s',
+        }} />
+      </button>
+    </div>
+  )
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', paddingBottom: '60px' }}>
@@ -130,6 +239,31 @@ export default function SettingsPage() {
       </header>
 
       <main style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 20px' }}>
+        {/* Messages */}
+        {error && (
+          <div style={{
+            padding: '12px 16px',
+            background: 'rgba(248,113,113,0.1)',
+            border: '1px solid rgba(248,113,113,0.2)',
+            borderRadius: '10px',
+            marginBottom: '16px',
+          }}>
+            <p style={{ fontSize: '13px', color: '#f87171' }}>{error}</p>
+          </div>
+        )}
+        
+        {success && (
+          <div style={{
+            padding: '12px 16px',
+            background: 'rgba(34,197,94,0.1)',
+            border: '1px solid rgba(34,197,94,0.2)',
+            borderRadius: '10px',
+            marginBottom: '16px',
+          }}>
+            <p style={{ fontSize: '13px', color: '#22c55e' }}>{success}</p>
+          </div>
+        )}
+
         {/* Account Section */}
         <section style={{ marginBottom: '32px' }}>
           <h2 style={{ 
@@ -175,81 +309,19 @@ export default function SettingsPage() {
           </h2>
           
           <div style={{ background: '#141416', borderRadius: '12px', overflow: 'hidden' }}>
-            <div style={{ 
-              padding: '16px', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
-            }}>
-              <div>
-                <p style={{ fontSize: '14px', color: 'white', marginBottom: '2px' }}>Email notifications</p>
-                <p style={{ fontSize: '12px', color: '#666' }}>Updates about saved events</p>
-              </div>
-              <button
-                onClick={() => updateSetting('email_notifications', !profile?.email_notifications)}
-                disabled={saving}
-                style={{
-                  width: '50px',
-                  height: '28px',
-                  borderRadius: '14px',
-                  background: profile?.email_notifications ? '#ab67f7' : 'rgba(255,255,255,0.1)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  transition: 'background 0.2s',
-                }}
-              >
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '12px',
-                  background: 'white',
-                  position: 'absolute',
-                  top: '2px',
-                  left: profile?.email_notifications ? '24px' : '2px',
-                  transition: 'left 0.2s',
-                }} />
-              </button>
-            </div>
+            <ToggleSwitch
+              settingKey="email_notifications"
+              value={profile?.email_notifications ?? true}
+              label="Email notifications"
+              description="Updates about saved events"
+            />
             
-            <div style={{ 
-              padding: '16px', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
-            }}>
-              <div>
-                <p style={{ fontSize: '14px', color: 'white', marginBottom: '2px' }}>Weekly digest</p>
-                <p style={{ fontSize: '12px', color: '#666' }}>Personalized event recommendations</p>
-              </div>
-              <button
-                onClick={() => updateSetting('weekly_digest', !profile?.weekly_digest)}
-                disabled={saving}
-                style={{
-                  width: '50px',
-                  height: '28px',
-                  borderRadius: '14px',
-                  background: profile?.weekly_digest ? '#ab67f7' : 'rgba(255,255,255,0.1)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  transition: 'background 0.2s',
-                }}
-              >
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '12px',
-                  background: 'white',
-                  position: 'absolute',
-                  top: '2px',
-                  left: profile?.weekly_digest ? '24px' : '2px',
-                  transition: 'left 0.2s',
-                }} />
-              </button>
-            </div>
+            <ToggleSwitch
+              settingKey="weekly_digest"
+              value={profile?.weekly_digest ?? true}
+              label="Weekly digest"
+              description="Personalized event recommendations"
+            />
             
             <div style={{ 
               padding: '16px', 
@@ -259,33 +331,20 @@ export default function SettingsPage() {
             }}>
               <div>
                 <p style={{ fontSize: '14px', color: 'white', marginBottom: '2px' }}>Push notifications</p>
-                <p style={{ fontSize: '12px', color: '#666' }}>Event reminders and updates</p>
+                <p style={{ fontSize: '12px', color: '#666' }}>Coming soon</p>
               </div>
               <button
-                onClick={() => updateSetting('push_notifications', !profile?.push_notifications)}
-                disabled={saving}
+                disabled
                 style={{
                   width: '50px',
                   height: '28px',
                   borderRadius: '14px',
-                  background: profile?.push_notifications ? '#ab67f7' : 'rgba(255,255,255,0.1)',
+                  background: 'rgba(255,255,255,0.05)',
                   border: 'none',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  transition: 'background 0.2s',
+                  cursor: 'not-allowed',
+                  opacity: 0.5,
                 }}
-              >
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '12px',
-                  background: 'white',
-                  position: 'absolute',
-                  top: '2px',
-                  left: profile?.push_notifications ? '24px' : '2px',
-                  transition: 'left 0.2s',
-                }} />
-              </button>
+              />
             </div>
           </div>
         </section>
@@ -304,81 +363,19 @@ export default function SettingsPage() {
           </h2>
           
           <div style={{ background: '#141416', borderRadius: '12px', overflow: 'hidden' }}>
-            <div style={{ 
-              padding: '16px', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
-            }}>
-              <div>
-                <p style={{ fontSize: '14px', color: 'white', marginBottom: '2px' }}>Public profile</p>
-                <p style={{ fontSize: '12px', color: '#666' }}>Others can see your profile</p>
-              </div>
-              <button
-                onClick={() => updateSetting('profile_public', !profile?.profile_public)}
-                disabled={saving}
-                style={{
-                  width: '50px',
-                  height: '28px',
-                  borderRadius: '14px',
-                  background: profile?.profile_public ? '#ab67f7' : 'rgba(255,255,255,0.1)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  transition: 'background 0.2s',
-                }}
-              >
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '12px',
-                  background: 'white',
-                  position: 'absolute',
-                  top: '2px',
-                  left: profile?.profile_public ? '24px' : '2px',
-                  transition: 'left 0.2s',
-                }} />
-              </button>
-            </div>
+            <ToggleSwitch
+              settingKey="profile_public"
+              value={profile?.profile_public ?? true}
+              label="Public profile"
+              description="Others can find and view your profile"
+            />
             
-            <div style={{ 
-              padding: '16px', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
-            }}>
-              <div>
-                <p style={{ fontSize: '14px', color: 'white', marginBottom: '2px' }}>Show activity</p>
-                <p style={{ fontSize: '12px', color: '#666' }}>Friends can see events you&apos;re going to</p>
-              </div>
-              <button
-                onClick={() => updateSetting('show_activity', !profile?.show_activity)}
-                disabled={saving}
-                style={{
-                  width: '50px',
-                  height: '28px',
-                  borderRadius: '14px',
-                  background: profile?.show_activity ? '#ab67f7' : 'rgba(255,255,255,0.1)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  transition: 'background 0.2s',
-                }}
-              >
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '12px',
-                  background: 'white',
-                  position: 'absolute',
-                  top: '2px',
-                  left: profile?.show_activity ? '24px' : '2px',
-                  transition: 'left 0.2s',
-                }} />
-              </button>
-            </div>
+            <ToggleSwitch
+              settingKey="show_activity"
+              value={profile?.show_activity ?? true}
+              label="Show activity"
+              description="Friends can see events you're going to"
+            />
             
             <div style={{ 
               padding: '16px', 
@@ -391,17 +388,18 @@ export default function SettingsPage() {
                 <p style={{ fontSize: '12px', color: '#666' }}>Others can see your saved events</p>
               </div>
               <button
-                onClick={() => updateSetting('show_saved_events', !profile?.show_saved_events)}
-                disabled={saving}
+                onClick={() => updateSetting('show_saved_events', !(profile?.show_saved_events ?? false))}
+                disabled={savingKey === 'show_saved_events'}
                 style={{
                   width: '50px',
                   height: '28px',
                   borderRadius: '14px',
                   background: profile?.show_saved_events ? '#ab67f7' : 'rgba(255,255,255,0.1)',
                   border: 'none',
-                  cursor: 'pointer',
+                  cursor: savingKey === 'show_saved_events' ? 'wait' : 'pointer',
                   position: 'relative',
                   transition: 'background 0.2s',
+                  opacity: savingKey === 'show_saved_events' ? 0.7 : 1,
                 }}
               >
                 <div style={{
