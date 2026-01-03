@@ -11,6 +11,36 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+    // Check for errors in URL and existing session
+  useEffect(() => {
+    // Check URL for error params
+    const errorParam = searchParams.get('error')
+    if (errorParam) {
+      setError('Sign in failed. Please try again.')
+    }
+
+    // Check if already logged in
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.push('/')
+      }
+    }
+    checkSession()
+  }, [searchParams, router])
+
+  // Listen for auth changes (handles the OAuth redirect)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        router.push('/')
+        router.refresh()
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
   
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
