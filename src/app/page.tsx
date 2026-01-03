@@ -2020,8 +2020,8 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
   isSaved={isEventSaved(current.id)}
   isLoggedIn={!!user}
   onSave={toggleSaveEvent}
-  onShowLoginModal={() => setShowLoginModal(true)}
-  onClaim={() => { setClaimType('event'); setShowClaimModal(true); trackClaimStart('event', current.title, current.id) }}
+  onShowLoginModal={setShowLoginModal}
+  onClaim={() => { setClaimType('event'); setShowClaimModal(true) }}
   formatPrice={formatPrice}
   getDateLabel={getDateLabel}
 />
@@ -2804,35 +2804,37 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         {viewMode === 'detail' && current && (
           <div onClick={() => setViewMode('preview')} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }}>
             <MobileDetailSheet 
-              current={current}
-              currentIndex={currentIndex}
-              filtered={filtered}
-              showAllGenres={showAllGenres}
-              setShowAllGenres={setShowAllGenres}
-              showDescription={showDescription}
-              setShowDescription={setShowDescription}
-              setClaimType={setClaimType}
-              setShowClaimModal={setShowClaimModal}
-              navigate={navigate}
-              formatTime={formatTime}
-              formatPrice={formatPrice}
-              getDateLabel={getDateLabel}
-              getGenres={getGenres}
-              getTicketUrl={getTicketUrl}
-              isFree={isFree}
-              mapsUrl={mapsUrl}
-              noSelectStyle={noSelectStyle}
-              onTouchStart={onTouchStart}
-              onTouchMove={onTouchMove}
-              onTouchEnd={onTouchEnd}
-              dragDirection={dragDirection}
-              getCardTransform={getCardTransform}
-              getDismissTransform={getDismissTransform}
-              dismissProgress={dismissProgress}
-              getGenreStyle={getGenreStyle}
-              isEventSaved={isEventSaved}
-              toggleSaveEvent={toggleSaveEvent}
-            />
+  current={current}
+  currentIndex={currentIndex}
+  filtered={filtered}
+  showAllGenres={showAllGenres}
+  setShowAllGenres={setShowAllGenres}
+  showDescription={showDescription}
+  setShowDescription={setShowDescription}
+  setClaimType={setClaimType}
+  setShowClaimModal={setShowClaimModal}
+  setShowLoginModal={setShowLoginModal}
+  navigate={navigate}
+  formatTime={formatTime}
+  formatPrice={formatPrice}
+  getDateLabel={getDateLabel}
+  getGenres={getGenres}
+  getTicketUrl={getTicketUrl}
+  isFree={isFree}
+  mapsUrl={mapsUrl}
+  noSelectStyle={noSelectStyle}
+  onTouchStart={onTouchStart}
+  onTouchMove={onTouchMove}
+  onTouchEnd={onTouchEnd}
+  dragDirection={dragDirection}
+  getCardTransform={getCardTransform}
+  getDismissTransform={getDismissTransform}
+  dismissProgress={dismissProgress}
+  getGenreStyle={getGenreStyle}
+  isEventSaved={isEventSaved}
+  toggleSaveEvent={toggleSaveEvent}
+  user={user}
+/>
           </div>
         )}
 
