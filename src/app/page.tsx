@@ -2020,7 +2020,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
   isSaved={isEventSaved(current.id)}
   isLoggedIn={!!user}
   onSave={toggleSaveEvent}
-  onShowLoginModal={setShowLoginModal}
+  onShowLoginModal={() => setShowLoginModal(true)}
   onClaim={() => { setClaimType('event'); setShowClaimModal(true) }}
   formatPrice={formatPrice}
   getDateLabel={getDateLabel}
