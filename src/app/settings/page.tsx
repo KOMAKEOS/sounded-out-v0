@@ -1,127 +1,176 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
+import { MinimalNavBar } from '../../components/NavBar'
+
+// ============================================================================
+// SETTINGS PAGE - With honest "Coming Soon" labels
+// Only shows toggles that actually work
+// ============================================================================
 
 interface UserProfile {
   id: string
   email_notifications: boolean
-  push_notifications: boolean
   weekly_digest: boolean
   profile_public: boolean
   show_activity: boolean
   show_saved_events: boolean
-  created_at: string
 }
 
-interface User {
-  id: string
-  email?: string
-  created_at?: string
-  app_metadata?: {
-    provider?: string
-  }
+interface ToggleProps {
+  label: string
+  description: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+  disabled?: boolean
+  comingSoon?: boolean
+}
+
+function Toggle({ label, description, checked, onChange, disabled, comingSoon }: ToggleProps) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: '16px',
+        padding: '16px 0',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        opacity: comingSoon ? 0.5 : 1,
+      }}
+    >
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <span style={{ fontSize: '15px', fontWeight: 600, color: 'white' }}>{label}</span>
+          {comingSoon && (
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                color: '#ab67f7',
+                background: 'rgba(171,103,247,0.15)',
+                padding: '2px 8px',
+                borderRadius: '10px',
+                textTransform: 'uppercase',
+              }}
+            >
+              Coming Soon
+            </span>
+          )}
+        </div>
+        <p style={{ fontSize: '13px', color: '#777', lineHeight: 1.4 }}>{description}</p>
+      </div>
+      
+      <button
+        onClick={() => !disabled && !comingSoon && onChange(!checked)}
+        disabled={disabled || comingSoon}
+        style={{
+          width: '52px',
+          height: '32px',
+          borderRadius: '16px',
+          border: 'none',
+          background: checked ? '#ab67f7' : 'rgba(255,255,255,0.15)',
+          cursor: disabled || comingSoon ? 'not-allowed' : 'pointer',
+          position: 'relative',
+          transition: 'background 200ms ease',
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            width: '26px',
+            height: '26px',
+            borderRadius: '50%',
+            background: 'white',
+            position: 'absolute',
+            top: '3px',
+            left: checked ? '23px' : '3px',
+            transition: 'left 200ms ease',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+          }}
+        />
+      </button>
+    </div>
+  )
 }
 
 export default function SettingsPage() {
   const router = useRouter()
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [savingKey, setSavingKey] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
 
   useEffect(() => {
     const loadUser = async () => {
-      const { data } = await supabase.auth.getUser()
-      if (data.user) {
-        setUser(data.user as User)
-        await loadProfile(data.user.id)
-      } else {
-        router.push('/login')
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      
+      if (!authUser) {
+        router.push('/login?redirect=/settings')
+        return
       }
+
+      setUser({ id: authUser.id, email: authUser.email })
+
+      // Load or create profile
+      const { data: profileData, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single()
+
+      if (error && error.code === 'PGRST116') {
+        // Profile doesn't exist, create one
+        const { data: newProfile } = await supabase
+          .from('user_profiles')
+          .upsert({
+            id: authUser.id,
+            email_notifications: true,
+            weekly_digest: true,
+            profile_public: true,
+            show_activity: true,
+            show_saved_events: false,
+          })
+          .select()
+          .single()
+        
+        if (newProfile) {
+          setProfile(newProfile as UserProfile)
+        }
+      } else if (profileData) {
+        setProfile(profileData as UserProfile)
+      }
+
       setLoading(false)
     }
+
     loadUser()
   }, [router])
 
-  const loadProfile = async (userId: string) => {
-    // Try to get existing profile
-    let { data: profileData, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-
-    // If no profile exists, create one with defaults
-    if (profileError && profileError.code === 'PGRST116') {
-      const { data: newProfile, error: insertError } = await supabase
-        .from('user_profiles')
-        .insert({ 
-          id: userId,
-          email_notifications: true,
-          push_notifications: true,
-          weekly_digest: true,
-          profile_public: true,
-          show_activity: true,
-          show_saved_events: false,
-        })
-        .select()
-        .single()
-      
-      if (!insertError && newProfile) {
-        profileData = newProfile
-      }
-    }
-    
-    if (profileData) {
-      // Set defaults for any missing fields
-      setProfile({
-        id: profileData.id,
-        email_notifications: profileData.email_notifications ?? true,
-        push_notifications: profileData.push_notifications ?? true,
-        weekly_digest: profileData.weekly_digest ?? true,
-        profile_public: profileData.profile_public ?? true,
-        show_activity: profileData.show_activity ?? true,
-        show_saved_events: profileData.show_saved_events ?? false,
-        created_at: profileData.created_at || user?.created_at || new Date().toISOString(),
-      })
-    }
-  }
-
-  const updateSetting = async (key: string, value: boolean) => {
+  const updateSetting = async (key: keyof UserProfile, value: boolean) => {
     if (!user || !profile) return
-    
-    setSavingKey(key)
-    setError(null)
-    setSuccess(null)
-    
-    const updates: Record<string, boolean> = {}
-    updates[key] = value
-    
-    const { error: updateError } = await supabase
+
+    setSaving(true)
+    setMessage('')
+
+    const { error } = await supabase
       .from('user_profiles')
-      .upsert({
-        id: user.id,
-        [key]: value
-      }, {
-        onConflict: 'id'
-      })
-    
-    if (updateError) {
-      console.error('Settings update error:', updateError)
-      setError('Failed to save setting. Please try again.')
+      .update({ [key]: value })
+      .eq('id', user.id)
+
+    if (error) {
+      setMessage('Failed to save. Please try again.')
     } else {
       setProfile({ ...profile, [key]: value })
-      setSuccess('Saved!')
-      setTimeout(() => setSuccess(null), 2000)
+      setMessage('Saved!')
+      setTimeout(() => setMessage(''), 2000)
     }
-    
-    setSavingKey(null)
+
+    setSaving(false)
   }
 
   const handleSignOut = async () => {
@@ -129,443 +178,214 @@ export default function SettingsPage() {
     router.push('/')
   }
 
-  const handleDeleteAccount = async () => {
-    if (!user) return
-    
-    try {
-      // Delete user data in order
-      await supabase.from('saved_events').delete().eq('user_id', user.id)
-      await supabase.from('event_interests').delete().eq('user_id', user.id)
-      await supabase.from('user_interactions').delete().eq('user_id', user.id)
-      await supabase.from('user_genre_preferences').delete().eq('user_id', user.id)
-      await supabase.from('user_venue_preferences').delete().eq('user_id', user.id)
-      await supabase.from('user_follows').delete().eq('follower_id', user.id)
-      await supabase.from('user_follows').delete().eq('following_id', user.id)
-      await supabase.from('user_hidden_items').delete().eq('user_id', user.id)
-      await supabase.from('user_profiles').delete().eq('id', user.id)
-      
-      await supabase.auth.signOut()
-      router.push('/')
-    } catch (err) {
-      console.error('Delete account error:', err)
-      setError('Failed to delete account. Please contact support.')
-    }
-  }
-
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        Loading...
+      <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white' }}>
+        <MinimalNavBar />
+        <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+          <p style={{ color: '#999' }}>Loading...</p>
+        </div>
       </div>
     )
   }
 
-  if (!user) {
-    return null
-  }
-
-  const memberSince = profile?.created_at || user.created_at
-    ? new Date(profile?.created_at || user.created_at!).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-    : 'Unknown'
-
-  const provider = user.app_metadata?.provider === 'google' ? 'Google' : 'Email'
-
-  // Toggle switch component
-  const ToggleSwitch = ({ 
-    settingKey, 
-    value, 
-    label, 
-    description 
-  }: { 
-    settingKey: string
-    value: boolean
-    label: string
-    description: string 
-  }) => (
-    <div style={{ 
-      padding: '16px', 
-      display: 'flex', 
-      justifyContent: 'space-between', 
-      alignItems: 'center',
-      borderBottom: '1px solid rgba(255,255,255,0.06)',
-    }}>
-      <div>
-        <p style={{ fontSize: '14px', color: 'white', marginBottom: '2px' }}>{label}</p>
-        <p style={{ fontSize: '12px', color: '#666' }}>{description}</p>
-      </div>
-      <button
-        onClick={() => updateSetting(settingKey, !value)}
-        disabled={savingKey === settingKey}
-        style={{
-          width: '50px',
-          height: '28px',
-          borderRadius: '14px',
-          background: value ? '#ab67f7' : 'rgba(255,255,255,0.1)',
-          border: 'none',
-          cursor: savingKey === settingKey ? 'wait' : 'pointer',
-          position: 'relative',
-          transition: 'background 0.2s',
-          opacity: savingKey === settingKey ? 0.7 : 1,
-        }}
-      >
-        <div style={{
-          width: '24px',
-          height: '24px',
-          borderRadius: '12px',
-          background: 'white',
-          position: 'absolute',
-          top: '2px',
-          left: value ? '24px' : '2px',
-          transition: 'left 0.2s',
-        }} />
-      </button>
-    </div>
-  )
-
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', paddingBottom: '60px' }}>
-      <header style={{
-        padding: '16px 20px',
-        paddingTop: 'max(16px, env(safe-area-inset-top))',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '16px',
-      }}>
-        <Link href="/profile" style={{ color: '#888', textDecoration: 'none', fontSize: '14px' }}>
-          ← Back
-        </Link>
-        <h1 style={{ fontSize: '16px', fontWeight: 600 }}>Settings</h1>
-      </header>
+    <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white' }}>
+      <MinimalNavBar />
+      
+      <main style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 20px 100px' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>Settings</h1>
+        <p style={{ fontSize: '14px', color: '#777', marginBottom: '32px' }}>
+          Manage your account preferences
+        </p>
 
-      <main style={{ maxWidth: '600px', margin: '0 auto', padding: '24px 20px' }}>
-        {/* Messages */}
-        {error && (
-          <div style={{
-            padding: '12px 16px',
-            background: 'rgba(248,113,113,0.1)',
-            border: '1px solid rgba(248,113,113,0.2)',
-            borderRadius: '10px',
-            marginBottom: '16px',
-          }}>
-            <p style={{ fontSize: '13px', color: '#f87171' }}>{error}</p>
-          </div>
-        )}
-        
-        {success && (
-          <div style={{
-            padding: '12px 16px',
-            background: 'rgba(34,197,94,0.1)',
-            border: '1px solid rgba(34,197,94,0.2)',
-            borderRadius: '10px',
-            marginBottom: '16px',
-          }}>
-            <p style={{ fontSize: '13px', color: '#22c55e' }}>{success}</p>
+        {/* Save indicator */}
+        {message && (
+          <div
+            style={{
+              position: 'fixed',
+              top: '80px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              padding: '10px 20px',
+              background: message === 'Saved!' ? 'rgba(34,197,94,0.9)' : 'rgba(248,113,113,0.9)',
+              borderRadius: '20px',
+              fontSize: '13px',
+              fontWeight: 600,
+              zIndex: 100,
+            }}
+          >
+            {message}
           </div>
         )}
 
         {/* Account Section */}
         <section style={{ marginBottom: '32px' }}>
-          <h2 style={{ 
-            fontSize: '12px', 
-            fontWeight: 600, 
-            color: '#888', 
-            textTransform: 'uppercase', 
-            letterSpacing: '0.5px',
-            marginBottom: '16px',
-          }}>
+          <h2 style={{ fontSize: '12px', fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>
             Account
           </h2>
           
-          <div style={{ background: '#141416', borderRadius: '12px', overflow: 'hidden' }}>
-            <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <p style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Email</p>
-              <p style={{ fontSize: '14px', color: 'white' }}>{user.email || 'No email'}</p>
+          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '16px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontSize: '13px', color: '#777' }}>Email</span>
+              <span style={{ fontSize: '14px', color: 'white' }}>{user?.email}</span>
             </div>
             
-            <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <p style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Signed in via</p>
-              <p style={{ fontSize: '14px', color: 'white' }}>{provider}</p>
-            </div>
-            
-            <div style={{ padding: '16px' }}>
-              <p style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Member since</p>
-              <p style={{ fontSize: '14px', color: 'white' }}>{memberSince}</p>
-            </div>
+            <Link
+              href="/profile/edit"
+              style={{
+                display: 'block',
+                padding: '12px 0',
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+                color: '#ab67f7',
+                fontSize: '14px',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
+              Edit Profile →
+            </Link>
           </div>
         </section>
 
         {/* Notifications Section */}
         <section style={{ marginBottom: '32px' }}>
-          <h2 style={{ 
-            fontSize: '12px', 
-            fontWeight: 600, 
-            color: '#888', 
-            textTransform: 'uppercase', 
-            letterSpacing: '0.5px',
-            marginBottom: '16px',
-          }}>
+          <h2 style={{ fontSize: '12px', fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>
             Notifications
           </h2>
           
-          <div style={{ background: '#141416', borderRadius: '12px', overflow: 'hidden' }}>
-            <ToggleSwitch
-              settingKey="email_notifications"
-              value={profile?.email_notifications ?? true}
+          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '4px 20px' }}>
+            <Toggle
               label="Email notifications"
-              description="Updates about saved events"
+              description="Get updates about saved events and recommendations"
+              checked={profile?.email_notifications ?? true}
+              onChange={(val) => updateSetting('email_notifications', val)}
+              disabled={saving}
             />
             
-            <ToggleSwitch
-              settingKey="weekly_digest"
-              value={profile?.weekly_digest ?? true}
+            <Toggle
               label="Weekly digest"
-              description="Personalized event recommendations"
+              description="Curated events for your week ahead"
+              checked={profile?.weekly_digest ?? true}
+              onChange={(val) => updateSetting('weekly_digest', val)}
+              disabled={saving}
             />
             
-            <div style={{ 
-              padding: '16px', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-            }}>
-              <div>
-                <p style={{ fontSize: '14px', color: 'white', marginBottom: '2px' }}>Push notifications</p>
-                <p style={{ fontSize: '12px', color: '#666' }}>Coming soon</p>
-              </div>
-              <button
-                disabled
-                style={{
-                  width: '50px',
-                  height: '28px',
-                  borderRadius: '14px',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: 'none',
-                  cursor: 'not-allowed',
-                  opacity: 0.5,
-                }}
-              />
-            </div>
+            <Toggle
+              label="Push notifications"
+              description="Real-time updates on your phone"
+              checked={false}
+              onChange={() => {}}
+              comingSoon
+            />
           </div>
         </section>
 
         {/* Privacy Section */}
         <section style={{ marginBottom: '32px' }}>
-          <h2 style={{ 
-            fontSize: '12px', 
-            fontWeight: 600, 
-            color: '#888', 
-            textTransform: 'uppercase', 
-            letterSpacing: '0.5px',
-            marginBottom: '16px',
-          }}>
+          <h2 style={{ fontSize: '12px', fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>
             Privacy
           </h2>
           
-          <div style={{ background: '#141416', borderRadius: '12px', overflow: 'hidden' }}>
-            <ToggleSwitch
-              settingKey="profile_public"
-              value={profile?.profile_public ?? true}
+          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '4px 20px' }}>
+            <Toggle
               label="Public profile"
               description="Others can find and view your profile"
+              checked={profile?.profile_public ?? true}
+              onChange={(val) => updateSetting('profile_public', val)}
+              disabled={saving}
+              comingSoon
             />
             
-            <ToggleSwitch
-              settingKey="show_activity"
-              value={profile?.show_activity ?? true}
+            <Toggle
               label="Show activity"
               description="Friends can see events you're going to"
+              checked={profile?.show_activity ?? true}
+              onChange={(val) => updateSetting('show_activity', val)}
+              disabled={saving}
+              comingSoon
             />
             
-            <div style={{ 
-              padding: '16px', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-            }}>
-              <div>
-                <p style={{ fontSize: '14px', color: 'white', marginBottom: '2px' }}>Show saved events</p>
-                <p style={{ fontSize: '12px', color: '#666' }}>Others can see your saved events</p>
-              </div>
-              <button
-                onClick={() => updateSetting('show_saved_events', !(profile?.show_saved_events ?? false))}
-                disabled={savingKey === 'show_saved_events'}
-                style={{
-                  width: '50px',
-                  height: '28px',
-                  borderRadius: '14px',
-                  background: profile?.show_saved_events ? '#ab67f7' : 'rgba(255,255,255,0.1)',
-                  border: 'none',
-                  cursor: savingKey === 'show_saved_events' ? 'wait' : 'pointer',
-                  position: 'relative',
-                  transition: 'background 0.2s',
-                  opacity: savingKey === 'show_saved_events' ? 0.7 : 1,
-                }}
-              >
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '12px',
-                  background: 'white',
-                  position: 'absolute',
-                  top: '2px',
-                  left: profile?.show_saved_events ? '24px' : '2px',
-                  transition: 'left 0.2s',
-                }} />
-              </button>
-            </div>
+            <Toggle
+              label="Show saved events"
+              description="Others can see your saved events"
+              checked={profile?.show_saved_events ?? false}
+              onChange={(val) => updateSetting('show_saved_events', val)}
+              disabled={saving}
+              comingSoon
+            />
           </div>
+          
+          <p style={{ fontSize: '12px', color: '#555', marginTop: '12px', lineHeight: 1.5 }}>
+            💡 Social features are coming soon. These settings will apply once launched.
+          </p>
         </section>
 
-        {/* About Section */}
+        {/* Links Section */}
         <section style={{ marginBottom: '32px' }}>
-          <h2 style={{ 
-            fontSize: '12px', 
-            fontWeight: 600, 
-            color: '#888', 
-            textTransform: 'uppercase', 
-            letterSpacing: '0.5px',
-            marginBottom: '16px',
-          }}>
+          <h2 style={{ fontSize: '12px', fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>
             About
           </h2>
           
-          <div style={{ background: '#141416', borderRadius: '12px', overflow: 'hidden' }}>
-            <Link 
-              href="/about"
-              style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                padding: '16px', 
-                borderBottom: '1px solid rgba(255,255,255,0.06)',
-                textDecoration: 'none',
-                color: 'white',
-              }}
-            >
-              <span style={{ fontSize: '14px' }}>About Sounded Out</span>
-              <span style={{ color: '#666' }}>→</span>
+          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '16px', overflow: 'hidden' }}>
+            <Link href="/about" style={{ display: 'block', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', color: 'white', textDecoration: 'none', fontSize: '15px' }}>
+              About Sounded Out
             </Link>
-            
-            <Link 
-              href="/terms"
-              style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                padding: '16px', 
-                borderBottom: '1px solid rgba(255,255,255,0.06)',
-                textDecoration: 'none',
-                color: 'white',
-              }}
-            >
-              <span style={{ fontSize: '14px' }}>Terms of Service</span>
-              <span style={{ color: '#666' }}>→</span>
+            <Link href="/privacy" style={{ display: 'block', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', color: 'white', textDecoration: 'none', fontSize: '15px' }}>
+              Privacy Policy
             </Link>
-            
-            <Link 
-              href="/privacy"
-              style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                padding: '16px', 
-                textDecoration: 'none',
-                color: 'white',
-              }}
-            >
-              <span style={{ fontSize: '14px' }}>Privacy Policy</span>
-              <span style={{ color: '#666' }}>→</span>
+            <Link href="/terms" style={{ display: 'block', padding: '16px 20px', color: 'white', textDecoration: 'none', fontSize: '15px' }}>
+              Terms of Service
             </Link>
           </div>
         </section>
 
-        {/* Actions */}
+        {/* Danger Zone */}
         <section>
-          <button
-            onClick={handleSignOut}
-            style={{
-              width: '100%',
-              padding: '14px',
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '10px',
-              color: 'white',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              marginBottom: '12px',
-            }}
-          >
-            Sign out
-          </button>
+          <h2 style={{ fontSize: '12px', fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>
+            Account Actions
+          </h2>
           
-          {!showDeleteConfirm ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <button
-              onClick={() => setShowDeleteConfirm(true)}
+              onClick={handleSignOut}
               style={{
                 width: '100%',
                 padding: '14px',
-                background: 'transparent',
-                border: 'none',
-                color: '#f87171',
-                fontSize: '14px',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '12px',
+                color: '#999',
+                fontSize: '15px',
+                fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
-              Delete account
+              Sign Out
             </button>
-          ) : (
-            <div style={{ 
-              padding: '16px', 
-              background: 'rgba(248,113,113,0.1)', 
-              border: '1px solid rgba(248,113,113,0.2)',
-              borderRadius: '10px',
-            }}>
-              <p style={{ fontSize: '14px', color: '#f87171', marginBottom: '12px' }}>
-                Are you sure? This will permanently delete your account and all your data.
-              </p>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    background: 'rgba(255,255,255,0.1)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    color: 'white',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteAccount}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    background: '#f87171',
-                    border: 'none',
-                    borderRadius: '8px',
-                    color: 'white',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Delete forever
-                </button>
-              </div>
-            </div>
-          )}
+            
+            <button
+              onClick={() => {
+                if (confirm('Are you sure you want to delete your account? This cannot be undone.')) {
+                  alert('Please email support@soundedout.com to delete your account.')
+                }
+              }}
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: 'rgba(248,113,113,0.1)',
+                border: '1px solid rgba(248,113,113,0.2)',
+                borderRadius: '12px',
+                color: '#f87171',
+                fontSize: '15px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Delete Account
+            </button>
+          </div>
         </section>
-
-        {/* Version */}
-        <p style={{ textAlign: 'center', fontSize: '12px', color: '#444', marginTop: '32px' }}>
-          Sounded Out v1.0
-        </p>
       </main>
     </div>
   )
