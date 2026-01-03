@@ -16,9 +16,9 @@ export default function NavBar({ showBackToMap = true }: NavBarProps) {
   const pathname = usePathname()
 
   const tabs = [
-    { href: '/events', label: 'Events', icon: '🎵' },
-    { href: '/venues', label: 'Venues', icon: '📍' },
-    { href: '/saved', label: 'Saved', icon: '❤️' },
+    { href: '/events', label: 'Events'},
+    { href: '/venues', label: 'Venues'},
+    { href: '/saved', label: 'Saved'},
   ]
 
   const isActive = (href: string) => pathname === href
