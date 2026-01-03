@@ -1,866 +1,934 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { supabase } from '../../lib/supabase'
 
 // ============================================================================
-// TYPES
+// PARTNER PORTAL - Full event management for promoters
+// Includes: Date/time pickers, description, image upload, verified badge
 // ============================================================================
-type Profile = {
-  id: string
-  email: string
-  full_name: string | null
-  phone: string | null
-  role: 'admin' | 'partner'
-}
 
-type Brand = {
-  id: string
-  name: string
-  slug: string | null
-  logo_url: string | null
-  instagram_url: string | null
-  is_verified: boolean
-}
-
-type Venue = {
+interface Venue {
   id: string
   name: string
   address: string
 }
 
-type Event = {
+interface Event {
   id: string
   title: string
   start_time: string
   end_time: string | null
-  venue_id: string
-  brand_id: string | null
-  is_claimed: boolean
-  is_verified: boolean
-  sold_out: boolean
+  description: string | null
+  genres: string | null
   price_min: number | null
   price_max: number | null
-  venue?: Venue
+  event_url: string | null
+  image_url: string | null
+  status: string
+  venue: Venue
 }
 
-// ============================================================================
-// PARTNER PORTAL
-// ============================================================================
+interface Partner {
+  id: string
+  name: string
+  email: string
+  is_verified: boolean
+  brand_name: string | null
+  logo_url: string | null
+}
+
 export default function PortalPage() {
-  const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [myBrands, setMyBrands] = useState<Brand[]>([])
-  const [myEvents, setMyEvents] = useState<Event[]>([])
+  const router = useRouter()
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
+  const [partner, setPartner] = useState<Partner | null>(null)
+  const [events, setEvents] = useState<Event[]>([])
   const [venues, setVenues] = useState<Venue[]>([])
-  const [activeTab, setActiveTab] = useState<'events' | 'add'>('events')
-  
-  // Auth state - NOW WITH PASSWORD
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [fullName, setFullName] = useState('')
-  const [authLoading, setAuthLoading] = useState(false)
-  const [authError, setAuthError] = useState('')
-  const [authSuccess, setAuthSuccess] = useState('')
-  
-  // Add event form
+  const [loading, setLoading] = useState(true)
   const [showAddEvent, setShowAddEvent] = useState(false)
-  const [addEventForm, setAddEventForm] = useState({
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  // Auth states
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authConfirmPassword, setAuthConfirmPassword] = useState('')
+  const [authName, setAuthName] = useState('')
+  const [authSubmitting, setAuthSubmitting] = useState(false)
+  const [authError, setAuthError] = useState('')
+
+  // New event form
+  const [eventForm, setEventForm] = useState({
     title: '',
     venue_id: '',
-    brand_id: '',
     start_date: '',
-    start_time: '22:00',
+    start_time: '21:00',
+    end_date: '',
     end_time: '',
-    genres: '',
     description: '',
-    event_url: '',
+    genres: '',
     price_min: '',
     price_max: '',
+    event_url: '',
+    image_url: '',
   })
-  const [addEventLoading, setAddEventLoading] = useState(false)
-  const [addEventMessage, setAddEventMessage] = useState('')
-  
-  // ============================================================================
-  // AUTH & DATA LOADING
-  // ============================================================================
+
+  // Image upload state
+  const [uploading, setUploading] = useState(false)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        loadProfile(session.user.id)
-        loadMyData(session.user.id)
-        loadVenues()
-      }
-      setLoading(false)
-    })
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        loadProfile(session.user.id)
-        loadMyData(session.user.id)
-        loadVenues()
-      }
-    })
-    
-    return () => subscription.unsubscribe()
+    checkAuth()
+    loadVenues()
   }, [])
-  
-  const loadProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+
+  const checkAuth = async () => {
+    const { data: { user: authUser } } = await supabase.auth.getUser()
     
-    if (data) setProfile(data)
+    if (authUser) {
+      setUser({ id: authUser.id, email: authUser.email })
+      await loadPartnerData(authUser.id)
+    }
+    
+    setLoading(false)
   }
-  
+
+  const loadPartnerData = async (userId: string) => {
+    // Load partner profile
+    const { data: partnerData } = await supabase
+      .from('partners')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+
+    if (partnerData) {
+      setPartner(partnerData as Partner)
+      
+      // Load partner's events
+      const { data: eventsData } = await supabase
+        .from('events')
+        .select('*, venue:venues(*)')
+        .eq('created_by', userId)
+        .order('start_time', { ascending: false })
+
+      if (eventsData) {
+        setEvents(eventsData as unknown as Event[])
+      }
+    }
+  }
+
   const loadVenues = async () => {
     const { data } = await supabase
       .from('venues')
       .select('id, name, address')
       .order('name')
-    
-    if (data) setVenues(data)
+
+    if (data) {
+      setVenues(data as Venue[])
+    }
   }
-  
-  const loadMyData = async (userId: string) => {
-    // Load brands I'm a member of
-    const { data: brandMemberships } = await supabase
-      .from('brand_members')
-      .select('brand_id, brands(*)')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-    
-    if (brandMemberships && brandMemberships.length > 0) {
-      const brands = brandMemberships.map((bm: any) => bm.brands).filter(Boolean)
-      setMyBrands(brands)
-      
-      // Load events for all my brands
-      if (brands.length > 0) {
-        const brandIds = brands.map((b: Brand) => b.id)
-        const { data: brandEvents } = await supabase
-          .from('events')
-          .select('*, venue:venues(id, name, address)')
-          .in('brand_id', brandIds)
-          .order('start_time', { ascending: false })
-        
-        if (brandEvents) {
-          setMyEvents(brandEvents)
-          // Set default brand for add event form
-          if (brands.length > 0) {
-            setAddEventForm(prev => ({ ...prev, brand_id: brands[0].id }))
-          }
-          return
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setAuthSubmitting(true)
+    setAuthError('')
+
+    try {
+      if (authMode === 'signup') {
+        if (authPassword !== authConfirmPassword) {
+          throw new Error('Passwords do not match')
+        }
+        if (authPassword.length < 6) {
+          throw new Error('Password must be at least 6 characters')
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email: authEmail,
+          password: authPassword,
+        })
+
+        if (error) throw error
+
+        if (data.user) {
+          // Create partner profile
+          await supabase.from('partners').insert({
+            user_id: data.user.id,
+            name: authName,
+            email: authEmail,
+            is_verified: false,
+          })
+
+          setUser({ id: data.user.id, email: data.user.email })
+          await loadPartnerData(data.user.id)
+        }
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: authEmail,
+          password: authPassword,
+        })
+
+        if (error) throw error
+
+        if (data.user) {
+          setUser({ id: data.user.id, email: data.user.email })
+          await loadPartnerData(data.user.id)
         }
       }
+    } catch (err: any) {
+      setAuthError(err.message || 'Authentication failed')
     }
-    
-    // Fallback: Load events I own directly (legacy)
-    const { data: directEvents } = await supabase
-      .from('entity_claims')
-      .select('event_id, events(*, venue:venues(id, name, address))')
-      .eq('user_id', userId)
-      .eq('claim_type', 'event')
-      .eq('is_active', true)
-    
-    if (directEvents) {
-      setMyEvents(directEvents.map((e: any) => e.events).filter(Boolean))
-    }
+
+    setAuthSubmitting(false)
   }
-  
-  // ============================================================================
-  // AUTH HANDLERS - EMAIL/PASSWORD
-  // ============================================================================
-  const handleSignIn = async (e: React.FormEvent) => {
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload an image file')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be less than 5MB')
+      return
+    }
+
+    setUploading(true)
+    setError('')
+
+    try {
+      // Create preview
+      const reader = new FileReader()
+      reader.onload = (e) => setImagePreview(e.target?.result as string)
+      reader.readAsDataURL(file)
+
+      // Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`
+
+      const { data, error: uploadError } = await supabase.storage
+        .from('event-images')
+        .upload(fileName, file)
+
+      if (uploadError) throw uploadError
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('event-images')
+        .getPublicUrl(fileName)
+
+      setEventForm({ ...eventForm, image_url: publicUrl })
+    } catch (err: any) {
+      setError('Failed to upload image: ' + err.message)
+      setImagePreview(null)
+    }
+
+    setUploading(false)
+  }
+
+  const handleSubmitEvent = async (e: React.FormEvent) => {
     e.preventDefault()
-    setAuthLoading(true)
-    setAuthError('')
-    setAuthSuccess('')
-    
-    if (!email || !password) {
-      setAuthError('Please enter both email and password')
-      setAuthLoading(false)
-      return
-    }
-    
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    
-    if (error) {
-      if (error.message.includes('Invalid login credentials')) {
-        setAuthError('Invalid email or password. Please try again.')
-      } else {
-        setAuthError(error.message)
-      }
-    } else {
-      setAuthSuccess('Signed in successfully!')
-      setEmail('')
-      setPassword('')
-    }
-    setAuthLoading(false)
-  }
-  
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setAuthLoading(true)
-    setAuthError('')
-    setAuthSuccess('')
-    
-    if (!email || !password || !confirmPassword) {
-      setAuthError('Please fill in all fields')
-      setAuthLoading(false)
-      return
-    }
-    
-    if (password !== confirmPassword) {
-      setAuthError('Passwords do not match')
-      setAuthLoading(false)
-      return
-    }
-    
-    if (password.length < 6) {
-      setAuthError('Password must be at least 6 characters')
-      setAuthLoading(false)
-      return
-    }
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-        emailRedirectTo: `${window.location.origin}/portal`,
-      },
-    })
-    
-    if (error) {
-      setAuthError(error.message)
-    } else {
-      setAuthSuccess('Account created! Please check your email to verify your account.')
-      setEmail('')
-      setPassword('')
-      setConfirmPassword('')
-      setFullName('')
-    }
-    setAuthLoading(false)
-  }
-  
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
-    setMyBrands([])
-    setMyEvents([])
-  }
-  
-  // ============================================================================
-  // EVENT HANDLERS
-  // ============================================================================
-  const handleAddEvent = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setAddEventLoading(true)
-    setAddEventMessage('')
-    
-    if (!addEventForm.title || !addEventForm.venue_id || !addEventForm.start_date) {
-      setAddEventMessage('Please fill in required fields')
-      setAddEventLoading(false)
-      return
-    }
-    
-    const startDateTime = `${addEventForm.start_date}T${addEventForm.start_time}:00`
-    const endDateTime = addEventForm.end_time ? `${addEventForm.start_date}T${addEventForm.end_time}:00` : null
-    
-    const { error } = await supabase.from('events').insert({
-      title: addEventForm.title,
-      venue_id: addEventForm.venue_id,
-      brand_id: addEventForm.brand_id || null,
-      start_time: startDateTime,
-      end_time: endDateTime,
-      genres: addEventForm.genres || null,
-      description: addEventForm.description || null,
-      event_url: addEventForm.event_url || null,
-      price_min: addEventForm.price_min ? parseFloat(addEventForm.price_min) : null,
-      price_max: addEventForm.price_max ? parseFloat(addEventForm.price_max) : null,
-      status: 'pending',
-      is_claimed: true,
-    })
-    
-    if (error) {
-      setAddEventMessage(`Error: ${error.message}`)
-    } else {
-      setAddEventMessage('Event submitted! It will be reviewed shortly.')
-      setAddEventForm({
+    if (!user) return
+
+    setSaving(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      // Combine date and time
+      const startDateTime = `${eventForm.start_date}T${eventForm.start_time}:00`
+      const endDateTime = eventForm.end_date && eventForm.end_time 
+        ? `${eventForm.end_date}T${eventForm.end_time}:00`
+        : null
+
+      const { error: insertError } = await supabase.from('events').insert({
+        title: eventForm.title,
+        venue_id: eventForm.venue_id,
+        start_time: startDateTime,
+        end_time: endDateTime,
+        description: eventForm.description || null,
+        genres: eventForm.genres || null,
+        price_min: eventForm.price_min ? parseFloat(eventForm.price_min) : null,
+        price_max: eventForm.price_max ? parseFloat(eventForm.price_max) : null,
+        event_url: eventForm.event_url || null,
+        image_url: eventForm.image_url || null,
+        status: 'pending', // Requires approval
+        created_by: user.id,
+      })
+
+      if (insertError) throw insertError
+
+      setSuccess('Event submitted for review! We\'ll notify you when it\'s approved.')
+      setShowAddEvent(false)
+      setEventForm({
         title: '',
         venue_id: '',
-        brand_id: myBrands[0]?.id || '',
         start_date: '',
-        start_time: '22:00',
+        start_time: '21:00',
+        end_date: '',
         end_time: '',
-        genres: '',
         description: '',
-        event_url: '',
+        genres: '',
         price_min: '',
         price_max: '',
+        event_url: '',
+        image_url: '',
       })
-      setShowAddEvent(false)
+      setImagePreview(null)
+
       // Reload events
-      if (user) loadMyData(user.id)
+      await loadPartnerData(user.id)
+    } catch (err: any) {
+      setError(err.message || 'Failed to create event')
     }
-    setAddEventLoading(false)
+
+    setSaving(false)
   }
-  
-  // ============================================================================
-  // RENDER - LOADING
-  // ============================================================================
+
+  // Loading state
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        Loading...
+        <p style={{ color: '#999' }}>Loading...</p>
       </div>
     )
   }
-  
-  // ============================================================================
-  // RENDER - AUTH SCREEN
-  // ============================================================================
+
+  // Auth screen
   if (!user) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-        <Link href="/" style={{ position: 'absolute', top: '20px', left: '20px', display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-          <img src="/logo.svg" alt="Sounded Out" style={{ height: '24px' }} />
-        </Link>
-        
-        <div style={{ width: '100%', maxWidth: '360px' }}>
+      <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white' }}>
+        <header style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ maxWidth: '400px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Link href="/">
+              <img src="/logo.svg" alt="Sounded Out" style={{ height: '24px' }} />
+            </Link>
+          </div>
+        </header>
+
+        <main style={{ maxWidth: '400px', margin: '0 auto', padding: '40px 20px' }}>
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px' }}>Partner Portal</h1>
-            <p style={{ fontSize: '14px', color: '#888' }}>
-              {authMode === 'signin' ? 'Sign in to manage your events' : 'Create an account to get started'}
+            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '28px' }}>
+              🎵
+            </div>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px' }}>Partner Portal</h1>
+            <p style={{ fontSize: '14px', color: '#777' }}>
+              Manage your events and reach Newcastle's nightlife audience
             </p>
           </div>
-          
-          {/* Auth Mode Toggle */}
-          <div style={{ display: 'flex', marginBottom: '24px', background: '#141416', borderRadius: '10px', padding: '4px' }}>
+
+          {/* Auth toggle */}
+          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '4px', marginBottom: '24px' }}>
             <button
-              onClick={() => { setAuthMode('signin'); setAuthError(''); setAuthSuccess('') }}
+              onClick={() => setAuthMode('signin')}
               style={{
                 flex: 1,
-                padding: '10px',
-                background: authMode === 'signin' ? '#ab67f7' : 'transparent',
+                padding: '12px',
+                borderRadius: '10px',
                 border: 'none',
-                borderRadius: '8px',
-                color: authMode === 'signin' ? 'white' : '#888',
+                background: authMode === 'signin' ? '#ab67f7' : 'transparent',
+                color: authMode === 'signin' ? 'white' : '#777',
                 fontSize: '14px',
-                fontWeight: 500,
+                fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
               Sign In
             </button>
             <button
-              onClick={() => { setAuthMode('signup'); setAuthError(''); setAuthSuccess('') }}
+              onClick={() => setAuthMode('signup')}
               style={{
                 flex: 1,
-                padding: '10px',
-                background: authMode === 'signup' ? '#ab67f7' : 'transparent',
+                padding: '12px',
+                borderRadius: '10px',
                 border: 'none',
-                borderRadius: '8px',
-                color: authMode === 'signup' ? 'white' : '#888',
+                background: authMode === 'signup' ? '#ab67f7' : 'transparent',
+                color: authMode === 'signup' ? 'white' : '#777',
                 fontSize: '14px',
-                fontWeight: 500,
+                fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
               Sign Up
             </button>
           </div>
-          
-          {/* Messages */}
+
           {authError && (
-            <div style={{ padding: '12px 16px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '10px', marginBottom: '16px' }}>
-              <p style={{ fontSize: '13px', color: '#f87171' }}>{authError}</p>
+            <div style={{ padding: '12px 16px', background: 'rgba(248,113,113,0.15)', borderRadius: '10px', marginBottom: '16px', fontSize: '13px', color: '#f87171' }}>
+              {authError}
             </div>
           )}
-          
-          {authSuccess && (
-            <div style={{ padding: '12px 16px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: '10px', marginBottom: '16px' }}>
-              <p style={{ fontSize: '13px', color: '#22c55e' }}>{authSuccess}</p>
-            </div>
-          )}
-          
-          {/* Sign In Form */}
-          {authMode === 'signin' && (
-            <form onSubmit={handleSignIn}>
+
+          <form onSubmit={handleAuth}>
+            {authMode === 'signup' && (
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@email.com"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '14px 16px',
-                    background: '#141416',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    fontSize: '15px',
-                    outline: 'none',
-                  }}
-                />
-              </div>
-              
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '14px 16px',
-                    background: '#141416',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    fontSize: '15px',
-                    outline: 'none',
-                  }}
-                />
-              </div>
-              
-              <button
-                type="submit"
-                disabled={authLoading}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  background: '#ab67f7',
-                  border: 'none',
-                  borderRadius: '10px',
-                  color: 'white',
-                  fontSize: '15px',
-                  fontWeight: 600,
-                  cursor: authLoading ? 'not-allowed' : 'pointer',
-                  opacity: authLoading ? 0.7 : 1,
-                }}
-              >
-                {authLoading ? 'Signing in...' : 'Sign In'}
-              </button>
-            </form>
-          )}
-          
-          {/* Sign Up Form */}
-          {authMode === 'signup' && (
-            <form onSubmit={handleSignUp}>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Full Name</label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Your Name *</label>
                 <input
                   type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Your name"
-                  style={{
-                    width: '100%',
-                    padding: '14px 16px',
-                    background: '#141416',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    fontSize: '15px',
-                    outline: 'none',
-                  }}
-                />
-              </div>
-              
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@email.com"
                   required
+                  value={authName}
+                  onChange={(e) => setAuthName(e.target.value)}
+                  placeholder="John Smith"
                   style={{
                     width: '100%',
                     padding: '14px 16px',
                     background: '#141416',
                     border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
+                    borderRadius: '12px',
                     color: 'white',
                     fontSize: '15px',
                     outline: 'none',
                   }}
                 />
               </div>
-              
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '14px 16px',
-                    background: '#141416',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    fontSize: '15px',
-                    outline: 'none',
-                  }}
-                />
-                <p style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>At least 6 characters</p>
-              </div>
-              
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Confirm Password</label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '14px 16px',
-                    background: '#141416',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    fontSize: '15px',
-                    outline: 'none',
-                  }}
-                />
-              </div>
-              
-              <button
-                type="submit"
-                disabled={authLoading}
+            )}
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Email *</label>
+              <input
+                type="email"
+                required
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                placeholder="you@email.com"
                 style={{
                   width: '100%',
-                  padding: '14px',
-                  background: '#ab67f7',
-                  border: 'none',
-                  borderRadius: '10px',
+                  padding: '14px 16px',
+                  background: '#141416',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '12px',
                   color: 'white',
                   fontSize: '15px',
-                  fontWeight: 600,
-                  cursor: authLoading ? 'not-allowed' : 'pointer',
-                  opacity: authLoading ? 0.7 : 1,
+                  outline: 'none',
                 }}
-              >
-                {authLoading ? 'Creating account...' : 'Create Account'}
-              </button>
-            </form>
-          )}
-          
-          <p style={{ fontSize: '12px', color: '#666', textAlign: 'center', marginTop: '24px' }}>
-            By signing in, you agree to our{' '}
-            <Link href="/terms" style={{ color: '#ab67f7', textDecoration: 'none' }}>Terms</Link>
-            {' '}and{' '}
-            <Link href="/privacy" style={{ color: '#ab67f7', textDecoration: 'none' }}>Privacy Policy</Link>
+              />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Password *</label>
+              <input
+                type="password"
+                required
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                placeholder="••••••••"
+                style={{
+                  width: '100%',
+                  padding: '14px 16px',
+                  background: '#141416',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '12px',
+                  color: 'white',
+                  fontSize: '15px',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {authMode === 'signup' && (
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Confirm Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={authConfirmPassword}
+                  onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: '#141416',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '12px',
+                    color: 'white',
+                    fontSize: '15px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={authSubmitting}
+              style={{
+                width: '100%',
+                padding: '16px',
+                background: authSubmitting ? '#666' : 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                border: 'none',
+                borderRadius: '12px',
+                color: 'white',
+                fontSize: '16px',
+                fontWeight: 700,
+                cursor: authSubmitting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {authSubmitting ? 'Please wait...' : authMode === 'signin' ? 'Sign In' : 'Create Account'}
+            </button>
+          </form>
+
+          <p style={{ fontSize: '12px', color: '#555', textAlign: 'center', marginTop: '24px', lineHeight: 1.5 }}>
+            By signing up, you agree to our Terms of Service and Privacy Policy
           </p>
-        </div>
+        </main>
       </div>
     )
   }
-  
-  // ============================================================================
-  // RENDER - PORTAL DASHBOARD
-  // ============================================================================
-  const formatDate = (d: string): string => {
-    return new Date(d).toLocaleDateString('en-GB', { 
-      weekday: 'short', 
-      day: 'numeric', 
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-  
+
+  // Dashboard
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white' }}>
       {/* Header */}
-      <header style={{
-        padding: '16px 20px',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-          <img src="/logo.svg" alt="Sounded Out" style={{ height: '24px' }} />
-        </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span style={{ fontSize: '13px', color: '#888' }}>{user?.email}</span>
-          <button
-            onClick={handleSignOut}
-            style={{
-              padding: '8px 16px',
-              background: 'rgba(255,255,255,0.06)',
-              border: 'none',
-              borderRadius: '8px',
-              color: '#888',
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
-      
-      <main style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 20px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '24px' }}>Partner Dashboard</h1>
-        
-        {/* Brands */}
-        {myBrands.length > 0 && (
-          <div style={{ marginBottom: '24px', padding: '16px', background: '#141416', borderRadius: '12px' }}>
-            <h2 style={{ fontSize: '14px', fontWeight: 600, color: '#888', marginBottom: '12px' }}>Your Brands</h2>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              {myBrands.map((brand: Brand) => (
-                <div key={brand.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'rgba(171,103,247,0.1)', borderRadius: '8px' }}>
-                  {brand.logo_url && <img src={brand.logo_url} alt="" style={{ width: '20px', height: '20px', borderRadius: '4px' }} />}
-                  <span style={{ fontSize: '13px', fontWeight: 500 }}>{brand.name}</span>
-                  {brand.is_verified && <span style={{ color: '#ab67f7' }}>✓</span>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-          <button
-            onClick={() => setActiveTab('events')}
-            style={{
-              padding: '10px 20px',
-              background: activeTab === 'events' ? '#ab67f7' : 'rgba(255,255,255,0.06)',
-              border: 'none',
-              borderRadius: '8px',
-              color: activeTab === 'events' ? 'white' : '#888',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
-          >
-            My Events ({myEvents.length})
-          </button>
-          <button
-            onClick={() => setShowAddEvent(true)}
-            style={{
-              padding: '10px 20px',
-              background: 'rgba(171,103,247,0.15)',
-              border: '1px solid rgba(171,103,247,0.3)',
-              borderRadius: '8px',
-              color: '#ab67f7',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
-          >
-            + Add Event
-          </button>
-        </div>
-        
-        {/* Events List */}
-        {myEvents.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <p style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }}>📅</p>
-            <p style={{ fontSize: '16px', color: '#888', marginBottom: '8px' }}>No events yet</p>
-            <p style={{ fontSize: '14px', color: '#666', marginBottom: '24px' }}>Add your first event to get started</p>
+      <header style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(10,10,11,0.95)', position: 'sticky', top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Link href="/">
+            <img src="/logo.svg" alt="Sounded Out" style={{ height: '24px' }} />
+          </Link>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {partner?.is_verified && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'rgba(171,103,247,0.15)', borderRadius: '20px', fontSize: '12px', color: '#ab67f7', fontWeight: 600 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#ab67f7">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01" fill="none" stroke="#ab67f7" strokeWidth="2"/>
+                </svg>
+                Verified Partner
+              </span>
+            )}
             <button
-              onClick={() => setShowAddEvent(true)}
+              onClick={async () => {
+                await supabase.auth.signOut()
+                setUser(null)
+                setPartner(null)
+              }}
               style={{
-                padding: '12px 24px',
-                background: '#ab67f7',
+                padding: '8px 16px',
+                background: 'rgba(255,255,255,0.08)',
                 border: 'none',
-                borderRadius: '10px',
-                color: 'white',
-                fontSize: '14px',
-                fontWeight: 600,
+                borderRadius: '8px',
+                color: '#999',
+                fontSize: '13px',
                 cursor: 'pointer',
               }}
             >
-              Add Event
+              Sign Out
             </button>
+          </div>
+        </div>
+      </header>
+
+      <main style={{ maxWidth: '1000px', margin: '0 auto', padding: '24px 20px' }}>
+        {/* Welcome */}
+        <div style={{ marginBottom: '32px' }}>
+          <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>
+            Welcome back{partner?.name ? `, ${partner.name}` : ''}
+          </h1>
+          <p style={{ fontSize: '14px', color: '#777' }}>
+            Manage your events and track performance
+          </p>
+        </div>
+
+        {/* Success/Error messages */}
+        {success && (
+          <div style={{ padding: '16px', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '12px', marginBottom: '24px', fontSize: '14px', color: '#22c55e' }}>
+            {success}
+          </div>
+        )}
+        {error && (
+          <div style={{ padding: '16px', background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '12px', marginBottom: '24px', fontSize: '14px', color: '#f87171' }}>
+            {error}
+          </div>
+        )}
+
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+          <div style={{ padding: '20px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p style={{ fontSize: '12px', color: '#777', marginBottom: '8px' }}>Total Events</p>
+            <p style={{ fontSize: '28px', fontWeight: 800, color: '#ab67f7' }}>{events.length}</p>
+          </div>
+          <div style={{ padding: '20px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p style={{ fontSize: '12px', color: '#777', marginBottom: '8px' }}>Published</p>
+            <p style={{ fontSize: '28px', fontWeight: 800, color: '#22c55e' }}>{events.filter(e => e.status === 'published').length}</p>
+          </div>
+          <div style={{ padding: '20px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p style={{ fontSize: '12px', color: '#777', marginBottom: '8px' }}>Pending</p>
+            <p style={{ fontSize: '28px', fontWeight: 800, color: '#f59e0b' }}>{events.filter(e => e.status === 'pending').length}</p>
+          </div>
+        </div>
+
+        {/* Add Event Button */}
+        <button
+          onClick={() => setShowAddEvent(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            width: '100%',
+            padding: '16px',
+            background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+            border: 'none',
+            borderRadius: '14px',
+            color: 'white',
+            fontSize: '16px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            marginBottom: '32px',
+          }}
+        >
+          <span style={{ fontSize: '20px' }}>+</span>
+          Add New Event
+        </button>
+
+        {/* Events List */}
+        <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>Your Events</h2>
+        
+        {events.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 24px', background: 'rgba(255,255,255,0.02)', borderRadius: '16px' }}>
+            <p style={{ fontSize: '48px', marginBottom: '16px' }}>🎵</p>
+            <p style={{ fontSize: '16px', color: '#777', marginBottom: '8px' }}>No events yet</p>
+            <p style={{ fontSize: '14px', color: '#555' }}>Create your first event to get started</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {myEvents.map((event: Event) => (
-              <div key={event.id} style={{ padding: '16px', background: '#141416', borderRadius: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <div>
-                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>{event.title}</h3>
-                    <p style={{ fontSize: '13px', color: '#888' }}>{event.venue?.name}</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {event.is_verified && <span style={{ padding: '4px 8px', background: 'rgba(34,197,94,0.15)', borderRadius: '4px', fontSize: '11px', color: '#22c55e' }}>Verified</span>}
-                    {event.sold_out && <span style={{ padding: '4px 8px', background: 'rgba(248,113,113,0.15)', borderRadius: '4px', fontSize: '11px', color: '#f87171' }}>Sold Out</span>}
-                  </div>
+            {events.map((event) => (
+              <div
+                key={event.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  padding: '16px',
+                  background: 'rgba(255,255,255,0.03)',
+                  borderRadius: '14px',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                {event.image_url ? (
+                  <img src={event.image_url} alt="" style={{ width: '60px', height: '60px', borderRadius: '10px', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: '60px', height: '60px', borderRadius: '10px', background: 'linear-gradient(135deg, #1a1a2e, #2d2d44)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>🎵</div>
+                )}
+                
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '4px' }}>{event.title}</h3>
+                  <p style={{ fontSize: '13px', color: '#777' }}>{event.venue?.name}</p>
+                  <p style={{ fontSize: '12px', color: '#ab67f7' }}>
+                    {new Date(event.start_time).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    {' · '}
+                    {new Date(event.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 </div>
-                <p style={{ fontSize: '12px', color: '#ab67f7' }}>{formatDate(event.start_time)}</p>
+                
+                <span
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    background: event.status === 'published' ? 'rgba(34,197,94,0.15)' : event.status === 'pending' ? 'rgba(245,158,11,0.15)' : 'rgba(248,113,113,0.15)',
+                    color: event.status === 'published' ? '#22c55e' : event.status === 'pending' ? '#f59e0b' : '#f87171',
+                  }}
+                >
+                  {event.status}
+                </span>
               </div>
             ))}
           </div>
         )}
       </main>
-      
+
       {/* Add Event Modal */}
       {showAddEvent && (
-        <div 
+        <div
           onClick={() => setShowAddEvent(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.8)',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+          }}
         >
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: '#141416', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}
+            style={{
+              width: '100%',
+              maxWidth: '600px',
+              maxHeight: '90vh',
+              background: '#141416',
+              borderRadius: '24px 24px 0 0',
+              padding: '24px',
+              overflowY: 'auto',
+            }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700 }}>Add New Event</h2>
-              <button onClick={() => setShowAddEvent(false)} style={{ width: '32px', height: '32px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', color: '#888', fontSize: '16px', cursor: 'pointer' }}>×</button>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Add New Event</h2>
+              <button
+                onClick={() => setShowAddEvent(false)}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: '#999',
+                  fontSize: '16px',
+                  cursor: 'pointer',
+                }}
+              >
+                ✕
+              </button>
             </div>
-            
-            {addEventMessage && (
-              <div style={{ padding: '12px', background: addEventMessage.includes('Error') ? 'rgba(248,113,113,0.1)' : 'rgba(34,197,94,0.1)', borderRadius: '8px', marginBottom: '16px' }}>
-                <p style={{ fontSize: '13px', color: addEventMessage.includes('Error') ? '#f87171' : '#22c55e' }}>{addEventMessage}</p>
+
+            <form onSubmit={handleSubmitEvent}>
+              {/* Image Upload */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '8px' }}>
+                  Event Image
+                  <span style={{ color: '#555', marginLeft: '8px' }}>Recommended: 1200×630px (16:9)</span>
+                </label>
+                
+                {imagePreview || eventForm.image_url ? (
+                  <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', marginBottom: '8px' }}>
+                    <img 
+                      src={imagePreview || eventForm.image_url} 
+                      alt="Preview" 
+                      style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover' }} 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setImagePreview(null); setEventForm({ ...eventForm, image_url: '' }) }}
+                      style={{
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px',
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        border: 'none',
+                        background: 'rgba(0,0,0,0.6)',
+                        color: 'white',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <label style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '32px',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '2px dashed rgba(255,255,255,0.15)',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                  }}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      style={{ display: 'none' }}
+                    />
+                    <span style={{ fontSize: '32px' }}>📷</span>
+                    <span style={{ fontSize: '14px', color: '#777' }}>
+                      {uploading ? 'Uploading...' : 'Click to upload image'}
+                    </span>
+                  </label>
+                )}
               </div>
-            )}
-            
-            <form onSubmit={handleAddEvent}>
+
+              {/* Title */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Event Title *</label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Event Title *</label>
                 <input
                   type="text"
-                  value={addEventForm.title}
-                  onChange={(e) => setAddEventForm({ ...addEventForm, title: e.target.value })}
                   required
-                  style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                  value={eventForm.title}
+                  onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
+                  placeholder="e.g. Saturday Night Techno"
+                  style={inputStyle}
                 />
               </div>
-              
+
+              {/* Venue */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Venue *</label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Venue *</label>
                 <select
-                  value={addEventForm.venue_id}
-                  onChange={(e) => setAddEventForm({ ...addEventForm, venue_id: e.target.value })}
                   required
-                  style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                  value={eventForm.venue_id}
+                  onChange={(e) => setEventForm({ ...eventForm, venue_id: e.target.value })}
+                  style={inputStyle}
                 >
                   <option value="">Select venue</option>
-                  {venues.map((v: Venue) => (
+                  {venues.map((v) => (
                     <option key={v.id} value={v.id}>{v.name}</option>
                   ))}
                 </select>
               </div>
-              
+
+              {/* Date & Time */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Date *</label>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Start Date *</label>
                   <input
                     type="date"
-                    value={addEventForm.start_date}
-                    onChange={(e) => setAddEventForm({ ...addEventForm, start_date: e.target.value })}
                     required
-                    style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                    value={eventForm.start_date}
+                    onChange={(e) => setEventForm({ ...eventForm, start_date: e.target.value })}
+                    style={inputStyle}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Start Time *</label>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Start Time *</label>
                   <input
                     type="time"
-                    value={addEventForm.start_time}
-                    onChange={(e) => setAddEventForm({ ...addEventForm, start_time: e.target.value })}
                     required
-                    style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                    value={eventForm.start_time}
+                    onChange={(e) => setEventForm({ ...eventForm, start_time: e.target.value })}
+                    style={inputStyle}
                   />
                 </div>
               </div>
-              
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Genres (comma separated)</label>
-                <input
-                  type="text"
-                  value={addEventForm.genres}
-                  onChange={(e) => setAddEventForm({ ...addEventForm, genres: e.target.value })}
-                  placeholder="e.g. techno, house"
-                  style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
-                />
-              </div>
-              
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Price Min (£)</label>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>End Date</label>
                   <input
-                    type="number"
-                    value={addEventForm.price_min}
-                    onChange={(e) => setAddEventForm({ ...addEventForm, price_min: e.target.value })}
-                    placeholder="0 for free"
-                    style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                    type="date"
+                    value={eventForm.end_date}
+                    onChange={(e) => setEventForm({ ...eventForm, end_date: e.target.value })}
+                    style={inputStyle}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Price Max (£)</label>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>End Time</label>
                   <input
-                    type="number"
-                    value={addEventForm.price_max}
-                    onChange={(e) => setAddEventForm({ ...addEventForm, price_max: e.target.value })}
-                    style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+                    type="time"
+                    value={eventForm.end_time}
+                    onChange={(e) => setEventForm({ ...eventForm, end_time: e.target.value })}
+                    style={inputStyle}
                   />
                 </div>
               </div>
-              
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Ticket URL</label>
-                <input
-                  type="url"
-                  value={addEventForm.event_url}
-                  onChange={(e) => setAddEventForm({ ...addEventForm, event_url: e.target.value })}
-                  placeholder="https://..."
-                  style={{ width: '100%', padding: '12px', background: '#0a0a0b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', fontSize: '14px', outline: 'none' }}
+
+              {/* Description */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Description</label>
+                <textarea
+                  value={eventForm.description}
+                  onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
+                  placeholder="Tell people about your event..."
+                  rows={4}
+                  style={{ ...inputStyle, resize: 'vertical' }}
                 />
               </div>
-              
+
+              {/* Genres */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Genres</label>
+                <input
+                  type="text"
+                  value={eventForm.genres}
+                  onChange={(e) => setEventForm({ ...eventForm, genres: e.target.value })}
+                  placeholder="e.g. Techno, House, Disco"
+                  style={inputStyle}
+                />
+                <p style={{ fontSize: '11px', color: '#555', marginTop: '4px' }}>Separate multiple genres with commas</p>
+              </div>
+
+              {/* Price */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Min Price (£)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={eventForm.price_min}
+                    onChange={(e) => setEventForm({ ...eventForm, price_min: e.target.value })}
+                    placeholder="0 for free"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Max Price (£)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={eventForm.price_max}
+                    onChange={(e) => setEventForm({ ...eventForm, price_max: e.target.value })}
+                    placeholder="Leave empty if same"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              {/* Ticket URL */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#777', marginBottom: '6px' }}>Ticket URL</label>
+                <input
+                  type="url"
+                  value={eventForm.event_url}
+                  onChange={(e) => setEventForm({ ...eventForm, event_url: e.target.value })}
+                  placeholder="https://ra.co/events/..."
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Submit */}
               <button
                 type="submit"
-                disabled={addEventLoading}
+                disabled={saving}
                 style={{
                   width: '100%',
-                  padding: '14px',
-                  background: '#ab67f7',
+                  padding: '16px',
+                  background: saving ? '#666' : 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
                   border: 'none',
-                  borderRadius: '10px',
+                  borderRadius: '14px',
                   color: 'white',
-                  fontSize: '15px',
-                  fontWeight: 600,
-                  cursor: addEventLoading ? 'not-allowed' : 'pointer',
-                  opacity: addEventLoading ? 0.7 : 1,
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  cursor: saving ? 'not-allowed' : 'pointer',
                 }}
               >
-                {addEventLoading ? 'Submitting...' : 'Submit Event'}
+                {saving ? 'Submitting...' : 'Submit Event for Review'}
               </button>
+
+              <p style={{ fontSize: '12px', color: '#555', textAlign: 'center', marginTop: '12px' }}>
+                Events are reviewed within 24 hours before going live
+              </p>
             </form>
           </div>
         </div>
       )}
     </div>
   )
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '14px 16px',
+  background: '#0a0a0b',
+  border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: '12px',
+  color: 'white',
+  fontSize: '15px',
+  outline: 'none',
 }
