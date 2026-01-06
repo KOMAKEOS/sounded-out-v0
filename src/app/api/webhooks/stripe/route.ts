@@ -189,13 +189,3 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent): Promise
     console.error('Failed to update promotion:', error);
   }
 }
-
-// ============================================================================
-// CONFIG: Disable body parsing for Stripe webhook
-// ============================================================================
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
