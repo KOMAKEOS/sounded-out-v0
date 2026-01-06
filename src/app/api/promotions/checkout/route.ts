@@ -13,10 +13,12 @@ import type {
   CreatePromotionResponse 
 } from '@/types/revenue';
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-02-24.acacia',
-});
+// Initialize Stripe lazily (not at build time)
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2025-02-24.acacia',
+  });
+}
 
 // ============================================================================
 // INTERFACES
@@ -181,7 +183,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreatePro
     // 9. Create Stripe Checkout Session
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {
