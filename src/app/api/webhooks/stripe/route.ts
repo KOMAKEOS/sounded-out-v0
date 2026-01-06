@@ -8,18 +8,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
-// Initialize Stripe
+// ============================================================================
+// LAZY INITIALIZATION (prevents build-time errors)
+// ============================================================================
+
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
     apiVersion: '2025-02-24.acacia',
   });
 }
 
-// Use service role for webhook (no user context)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 // ============================================================================
 // INTERFACES
@@ -106,6 +110,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 // ============================================================================
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  const supabase = getSupabase();
   const metadata = session.metadata as unknown as PromotionMetadata;
   
   if (!metadata || !metadata.promotion_id) {
@@ -134,15 +139,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   if (result.success) {
     console.log(`Promotion ${promotionId} activated successfully`);
     console.log(`Baseline: ${result.baseline_views} views, ${result.baseline_saves} saves`);
-    
-    // TODO: Send confirmation email to promoter
-    // await sendPromotionConfirmationEmail(metadata.user_id, promotionId);
   } else {
     console.error(`Promotion activation failed: ${result.error}`);
   }
 }
 
 async function handleCheckoutExpired(session: Stripe.Checkout.Session): Promise<void> {
+  const supabase = getSupabase();
   const metadata = session.metadata as unknown as PromotionMetadata;
   
   if (!metadata || !metadata.promotion_id) {
@@ -168,6 +171,7 @@ async function handleCheckoutExpired(session: Stripe.Checkout.Session): Promise<
 }
 
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent): Promise<void> {
+  const supabase = getSupabase();
   const metadata = paymentIntent.metadata as unknown as PromotionMetadata;
   
   if (!metadata || !metadata.promotion_id) {
