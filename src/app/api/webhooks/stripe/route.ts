@@ -9,9 +9,11 @@ import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
 // Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-02-24.acacia',
-});
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2025-02-24.acacia',
+  });
+}
 
 // Use service role for webhook (no user context)
 const supabase = createClient(
