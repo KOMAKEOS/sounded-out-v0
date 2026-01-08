@@ -6,7 +6,7 @@ import Link from 'next/link'
 // ============================================================================
 // ADMIN HUB
 // ============================================================================
-const ADMIN_PASSCODE = '1234'
+const ADMIN_PASSCODE = '6521'
 
 export default function AdminHubPage() {
   const [passcodeEntered, setPasscodeEntered] = useState(false)
