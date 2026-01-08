@@ -37,44 +37,17 @@ interface Venue {
   status: string
 }
 
-// Default genres - user can add more
 const DEFAULT_GENRES = [
-  'techno',
-  'house',
-  'tech_house',
-  'deep_house',
-  'dnb',
-  'jungle',
-  'garage',
-  'disco',
-  'hip_hop',
-  'rnb',
-  'pop',
-  'rock',
-  'indie',
-  'jazz',
-  'soul',
-  'funk',
-  'afrobeats',
-  'reggae',
-  'latin',
-  'amapiano',
-  'uk_garage',
-  'dubstep',
-  'trance',
-  'hardstyle',
-  'mixed'
+  'techno', 'house', 'tech_house', 'deep_house', 'dnb', 'jungle',
+  'garage', 'uk_garage', 'disco', 'hip_hop', 'rnb', 'pop', 'rock',
+  'indie', 'jazz', 'soul', 'funk', 'afrobeats', 'reggae', 'latin',
+  'amapiano', 'dubstep', 'trance', 'hardstyle', 'mixed'
 ]
 
-const VIBES = [
-  'underground',
-  'mainstream',
-  'intimate',
-  'high-energy',
-  'chill',
-  'queer-friendly',
-  'late-night',
-  'day-party'
+const DEFAULT_VIBES = [
+  'underground', 'mainstream', 'intimate', 'high-energy', 'chill',
+  'queer-friendly', 'late-night', 'day-party', 'afterhours', 'rooftop',
+  'basement', 'warehouse', 'festival', 'student', 'over-25s', 'dressy'
 ]
 
 const ADMIN_PASSCODE = '1234'
@@ -94,10 +67,13 @@ export default function AdminEventsPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
   
-  // Available genres (can be extended by user)
   const [availableGenres, setAvailableGenres] = useState<string[]>(DEFAULT_GENRES)
+  const [availableVibes, setAvailableVibes] = useState<string[]>(DEFAULT_VIBES)
   const [newGenreInput, setNewGenreInput] = useState('')
+  const [newVibeInput, setNewVibeInput] = useState('')
   
   const [formData, setFormData] = useState({
     venue_id: '',
@@ -108,7 +84,7 @@ export default function AdminEventsPage() {
     end_date: '',
     end_time_hour: '03:00',
     genres: [] as string[],
-    vibe: '',
+    vibes: [] as string[],
     event_url: '',
     image_url: '',
     price_min: '',
@@ -125,11 +101,16 @@ export default function AdminEventsPage() {
       setPasscodeEntered(true)
     }
     
-    // Load saved custom genres from localStorage
     const savedGenres = localStorage.getItem('so_custom_genres')
     if (savedGenres) {
       const customGenres = JSON.parse(savedGenres) as string[]
       setAvailableGenres([...DEFAULT_GENRES, ...customGenres])
+    }
+    
+    const savedVibes = localStorage.getItem('so_custom_vibes')
+    if (savedVibes) {
+      const customVibes = JSON.parse(savedVibes) as string[]
+      setAvailableVibes([...DEFAULT_VIBES, ...customVibes])
     }
   }, [])
 
@@ -155,7 +136,7 @@ export default function AdminEventsPage() {
   }
 
   const loadVenues = async () => {
-    // Load ALL venues, not just active ones
+    console.log('Loading venues...')
     const { data, error } = await supabase
       .from('venues')
       .select('id, name, status')
@@ -163,23 +144,20 @@ export default function AdminEventsPage() {
 
     if (error) {
       console.error('Error loading venues:', error)
-    }
-    
-    if (data) {
-      setVenues(data)
-      console.log('Loaded venues:', data.length)
+      alert(`Error loading venues: ${error.message}`)
+    } else {
+      console.log('Loaded venues:', data?.length, data)
+      setVenues(data || [])
     }
   }
 
   const loadEvents = async () => {
     setLoading(true)
+    console.log('Loading events with filter:', filterDate)
     
     let query = supabase
       .from('events')
-      .select(`
-        *,
-        venue:venues(name)
-      `)
+      .select(`*, venue:venues(name)`)
       .order('start_time', { ascending: filterDate === 'upcoming' })
 
     const now = new Date().toISOString()
@@ -194,6 +172,7 @@ export default function AdminEventsPage() {
     if (error) {
       console.error('Error loading events:', error)
     } else {
+      console.log('Loaded events:', data?.length)
       setEvents(data || [])
     }
     setLoading(false)
@@ -218,6 +197,8 @@ export default function AdminEventsPage() {
   const openEditModal = (event: Event) => {
     setEditingEvent(event)
     setIsCreating(false)
+    setSaveError(null)
+    setSaveSuccess(false)
     
     const startParsed = parseDateTime(event.start_time)
     const endParsed = event.end_time ? parseDateTime(event.end_time) : null
@@ -231,7 +212,7 @@ export default function AdminEventsPage() {
       end_date: endParsed?.date || startParsed.date,
       end_time_hour: endParsed?.time || '03:00',
       genres: event.genres ? event.genres.split(',').map((g: string) => g.trim()) : [],
-      vibe: event.vibe || '',
+      vibes: event.vibe ? event.vibe.split(',').map((v: string) => v.trim()) : [],
       event_url: event.event_url || '',
       image_url: event.image_url || '',
       price_min: event.price_min?.toString() || '',
@@ -246,6 +227,8 @@ export default function AdminEventsPage() {
   const openCreateModal = () => {
     setEditingEvent(null)
     setIsCreating(true)
+    setSaveError(null)
+    setSaveSuccess(false)
     
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -260,7 +243,7 @@ export default function AdminEventsPage() {
       end_date: tomorrowStr,
       end_time_hour: '03:00',
       genres: [],
-      vibe: '',
+      vibes: [],
       event_url: '',
       image_url: '',
       price_min: '',
@@ -276,6 +259,9 @@ export default function AdminEventsPage() {
     setEditingEvent(null)
     setIsCreating(false)
     setNewGenreInput('')
+    setNewVibeInput('')
+    setSaveError(null)
+    setSaveSuccess(false)
   }
 
   const toggleGenre = (genre: string) => {
@@ -287,24 +273,41 @@ export default function AdminEventsPage() {
     }))
   }
 
-  // Add custom genre
+  const toggleVibe = (vibe: string) => {
+    setFormData(prev => ({
+      ...prev,
+      vibes: prev.vibes.includes(vibe)
+        ? prev.vibes.filter((v: string) => v !== vibe)
+        : [...prev.vibes, vibe]
+    }))
+  }
+
   const addCustomGenre = () => {
     const genre = newGenreInput.trim().toLowerCase().replace(/\s+/g, '_')
     if (genre && !availableGenres.includes(genre)) {
       const newGenres = [...availableGenres, genre]
       setAvailableGenres(newGenres)
-      
-      // Save custom genres to localStorage
       const customGenres = newGenres.filter((g: string) => !DEFAULT_GENRES.includes(g))
       localStorage.setItem('so_custom_genres', JSON.stringify(customGenres))
     }
-    
-    // Also select it
     if (genre && !formData.genres.includes(genre)) {
       setFormData(prev => ({ ...prev, genres: [...prev.genres, genre] }))
     }
-    
     setNewGenreInput('')
+  }
+
+  const addCustomVibe = () => {
+    const vibe = newVibeInput.trim().toLowerCase().replace(/\s+/g, '-')
+    if (vibe && !availableVibes.includes(vibe)) {
+      const newVibes = [...availableVibes, vibe]
+      setAvailableVibes(newVibes)
+      const customVibes = newVibes.filter((v: string) => !DEFAULT_VIBES.includes(v))
+      localStorage.setItem('so_custom_vibes', JSON.stringify(customVibes))
+    }
+    if (vibe && !formData.vibes.includes(vibe)) {
+      setFormData(prev => ({ ...prev, vibes: [...prev.vibes, vibe] }))
+    }
+    setNewVibeInput('')
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -312,26 +315,35 @@ export default function AdminEventsPage() {
     if (!file) return
 
     setUploadingImage(true)
+    console.log('Uploading image:', file.name, file.size)
     
     try {
       const fileExt = file.name.split('.').pop()
       const fileName = `event-${Date.now()}.${fileExt}`
       const filePath = `events/${fileName}`
 
-      const { error: uploadError } = await supabase.storage
+      console.log('Uploading to path:', filePath)
+
+      const { data, error: uploadError } = await supabase.storage
         .from('images')
         .upload(filePath, file)
 
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw uploadError
+      }
 
-      const { data: { publicUrl } } = supabase.storage
+      console.log('Upload success:', data)
+
+      const { data: urlData } = supabase.storage
         .from('images')
         .getPublicUrl(filePath)
 
-      setFormData(prev => ({ ...prev, image_url: publicUrl }))
-    } catch (error) {
+      console.log('Public URL:', urlData.publicUrl)
+      setFormData(prev => ({ ...prev, image_url: urlData.publicUrl }))
+    } catch (error: any) {
       console.error('Upload error:', error)
-      alert('Failed to upload image. Make sure the "images" bucket exists in Supabase Storage.')
+      alert(`Failed to upload image: ${error.message}\n\nMake sure:\n1. "images" bucket exists in Supabase Storage\n2. Bucket is set to Public\n3. Upload policies are configured`)
     }
 
     setUploadingImage(false)
@@ -344,54 +356,98 @@ export default function AdminEventsPage() {
 
   const handleSave = async () => {
     setSaving(true)
+    setSaveError(null)
+    setSaveSuccess(false)
 
-    const startDateTime = new Date(`${formData.start_date}T${formData.start_time_hour}:00`)
-    
-    let endDateTime = new Date(`${formData.end_date}T${formData.end_time_hour}:00`)
-    if (endDateTime <= startDateTime) {
-      endDateTime.setDate(endDateTime.getDate() + 1)
+    console.log('=== SAVING EVENT ===')
+    console.log('Form data:', formData)
+
+    // Validate required fields
+    if (!formData.title.trim()) {
+      setSaveError('Title is required')
+      setSaving(false)
+      return
     }
-
-    const eventData = {
-      venue_id: formData.venue_id,
-      venue_name: getVenueName(formData.venue_id),
-      title: formData.title,
-      description: formData.description || null,
-      start_time: startDateTime.toISOString(),
-      end_time: endDateTime.toISOString(),
-      genres: formData.genres.length > 0 ? formData.genres.join(', ') : null,
-      vibe: formData.vibe || null,
-      event_url: formData.event_url || null,
-      image_url: formData.image_url || null,
-      price_min: formData.price_min ? Number(formData.price_min) : null,
-      price_max: formData.price_max ? Number(formData.price_max) : null,
-      so_pick: formData.so_pick,
-      sold_out: formData.sold_out,
-      no_phones: formData.no_phones,
-      status: formData.status
+    if (!formData.venue_id) {
+      setSaveError('Please select a venue')
+      setSaving(false)
+      return
+    }
+    if (!formData.start_date) {
+      setSaveError('Start date is required')
+      setSaving(false)
+      return
     }
 
     try {
+      const startDateTime = new Date(`${formData.start_date}T${formData.start_time_hour}:00`)
+      console.log('Start datetime:', startDateTime.toISOString())
+      
+      let endDateTime = new Date(`${formData.end_date || formData.start_date}T${formData.end_time_hour}:00`)
+      if (endDateTime <= startDateTime) {
+        endDateTime.setDate(endDateTime.getDate() + 1)
+      }
+      console.log('End datetime:', endDateTime.toISOString())
+
+      const eventData = {
+        venue_id: formData.venue_id,
+        venue_name: getVenueName(formData.venue_id),
+        title: formData.title.trim(),
+        description: formData.description?.trim() || null,
+        start_time: startDateTime.toISOString(),
+        end_time: endDateTime.toISOString(),
+        genres: formData.genres.length > 0 ? formData.genres.join(', ') : null,
+        vibe: formData.vibes.length > 0 ? formData.vibes.join(', ') : null,
+        event_url: formData.event_url?.trim() || null,
+        image_url: formData.image_url?.trim() || null,
+        price_min: formData.price_min ? Number(formData.price_min) : null,
+        price_max: formData.price_max ? Number(formData.price_max) : null,
+        so_pick: formData.so_pick,
+        sold_out: formData.sold_out,
+        no_phones: formData.no_phones,
+        status: formData.status
+      }
+
+      console.log('Event data to save:', eventData)
+
       if (isCreating) {
-        const { error } = await supabase
+        console.log('Creating new event...')
+        const { data, error } = await supabase
           .from('events')
           .insert([eventData])
+          .select()
 
-        if (error) throw error
+        if (error) {
+          console.error('Insert error:', error)
+          throw error
+        }
+        console.log('Created event:', data)
+        setSaveSuccess(true)
       } else if (editingEvent) {
-        const { error } = await supabase
+        console.log('Updating event:', editingEvent.id)
+        const { data, error } = await supabase
           .from('events')
           .update(eventData)
           .eq('id', editingEvent.id)
+          .select()
 
-        if (error) throw error
+        if (error) {
+          console.error('Update error:', error)
+          throw error
+        }
+        console.log('Updated event:', data)
+        setSaveSuccess(true)
       }
 
-      await loadEvents()
-      closeModal()
-    } catch (error) {
+      // Reload events and close modal after short delay
+      setTimeout(async () => {
+        await loadEvents()
+        closeModal()
+      }, 500)
+
+    } catch (error: any) {
       console.error('Save error:', error)
-      alert('Failed to save event')
+      setSaveError(error.message || 'Failed to save event')
     }
 
     setSaving(false)
@@ -429,9 +485,9 @@ export default function AdminEventsPage() {
 
       await loadEvents()
       closeModal()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Delete error:', error)
-      alert('Failed to delete event')
+      alert(`Failed to delete event: ${error.message}`)
     }
   }
 
@@ -560,23 +616,48 @@ export default function AdminEventsPage() {
           }}>
             {events.length} events
           </span>
+          <span style={{
+            background: 'rgba(59,130,246,0.15)',
+            color: '#3b82f6',
+            padding: '4px 10px',
+            borderRadius: '6px',
+            fontSize: '13px',
+            fontWeight: 600
+          }}>
+            {venues.length} venues
+          </span>
         </div>
         <button
           onClick={openCreateModal}
+          disabled={venues.length === 0}
           style={{
             padding: '10px 20px',
-            background: '#ab67f7',
+            background: venues.length === 0 ? '#444' : '#ab67f7',
             border: 'none',
             borderRadius: '8px',
             color: '#fff',
             fontSize: '14px',
             fontWeight: 600,
-            cursor: 'pointer'
+            cursor: venues.length === 0 ? 'not-allowed' : 'pointer'
           }}
         >
           + Add Event
         </button>
       </header>
+
+      {/* Warning if no venues */}
+      {venues.length === 0 && (
+        <div style={{
+          margin: '20px 24px',
+          padding: '16px',
+          background: 'rgba(251,191,36,0.15)',
+          border: '1px solid rgba(251,191,36,0.3)',
+          borderRadius: '10px',
+          color: '#fbbf24'
+        }}>
+          ⚠️ No venues found. <Link href="/admin/venues" style={{ color: '#fbbf24', fontWeight: 600 }}>Add a venue first</Link> before creating events.
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ padding: '20px 24px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -627,7 +708,7 @@ export default function AdminEventsPage() {
           <p style={{ color: '#888', textAlign: 'center', padding: '40px' }}>Loading...</p>
         ) : filteredEvents.length === 0 ? (
           <p style={{ color: '#888', textAlign: 'center', padding: '40px' }}>
-            No events found
+            No events found. {filterDate === 'upcoming' && 'Try switching to "all" or "past" filter.'}
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -799,6 +880,34 @@ export default function AdminEventsPage() {
 
             {/* Form */}
             <div style={{ padding: '24px' }}>
+              {/* Error/Success Messages */}
+              {saveError && (
+                <div style={{
+                  padding: '12px 16px',
+                  background: 'rgba(248,113,113,0.15)',
+                  border: '1px solid rgba(248,113,113,0.3)',
+                  borderRadius: '8px',
+                  marginBottom: '16px',
+                  color: '#f87171',
+                  fontSize: '14px'
+                }}>
+                  ❌ {saveError}
+                </div>
+              )}
+              {saveSuccess && (
+                <div style={{
+                  padding: '12px 16px',
+                  background: 'rgba(34,197,94,0.15)',
+                  border: '1px solid rgba(34,197,94,0.3)',
+                  borderRadius: '8px',
+                  marginBottom: '16px',
+                  color: '#22c55e',
+                  fontSize: '14px'
+                }}>
+                  ✅ Event saved successfully!
+                </div>
+              )}
+
               {/* Image Upload */}
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '8px' }}>
@@ -852,6 +961,7 @@ export default function AdminEventsPage() {
                       }}
                     />
                     <button
+                      type="button"
                       onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
                       style={{
                         padding: '8px 12px',
@@ -1001,10 +1111,10 @@ export default function AdminEventsPage() {
                 </div>
               </div>
 
-              {/* Genres with custom add */}
+              {/* Genres */}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '8px' }}>
-                  Genres (click to select, or add custom)
+                  Genres (click to select)
                 </label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
                   {availableGenres.map((genre: string) => (
@@ -1065,31 +1175,68 @@ export default function AdminEventsPage() {
                 </div>
               </div>
 
-              {/* Vibe */}
+              {/* Vibes */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                  Vibe
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '8px' }}>
+                  Vibes (click to select)
                 </label>
-                <select
-                  value={formData.vibe}
-                  onChange={(e) => setFormData(prev => ({ ...prev, vibe: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px'
-                  }}
-                >
-                  <option value="" style={{ background: '#111' }}>Select vibe...</option>
-                  {VIBES.map((vibe: string) => (
-                    <option key={vibe} value={vibe} style={{ background: '#111' }}>
-                      {vibe}
-                    </option>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                  {availableVibes.map((vibe: string) => (
+                    <button
+                      key={vibe}
+                      type="button"
+                      onClick={() => toggleVibe(vibe)}
+                      style={{
+                        padding: '6px 12px',
+                        background: formData.vibes.includes(vibe)
+                          ? '#3b82f6'
+                          : 'rgba(255,255,255,0.05)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        color: '#fff',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        textTransform: 'capitalize'
+                      }}
+                    >
+                      {vibe.replace(/-/g, ' ')}
+                    </button>
                   ))}
-                </select>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={newVibeInput}
+                    onChange={(e) => setNewVibeInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomVibe())}
+                    placeholder="Add custom vibe..."
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '6px',
+                      color: '#fff',
+                      fontSize: '13px'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomVibe}
+                    style={{
+                      padding: '10px 16px',
+                      background: 'rgba(59,130,246,0.2)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      color: '#3b82f6',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    + Add
+                  </button>
+                </div>
               </div>
 
               {/* Pricing */}
@@ -1216,7 +1363,7 @@ export default function AdminEventsPage() {
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button
                   onClick={handleSave}
-                  disabled={saving || !formData.title || !formData.venue_id}
+                  disabled={saving}
                   style={{
                     flex: 1,
                     padding: '14px',
@@ -1234,6 +1381,7 @@ export default function AdminEventsPage() {
                 {!isCreating && (
                   <>
                     <button
+                      type="button"
                       onClick={handleDuplicate}
                       style={{
                         padding: '14px 16px',
@@ -1250,6 +1398,7 @@ export default function AdminEventsPage() {
                       📋 +7d
                     </button>
                     <button
+                      type="button"
                       onClick={handleDelete}
                       style={{
                         padding: '14px 16px',
