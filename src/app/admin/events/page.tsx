@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 // ============================================================================
-// TYPES
+// TYPES - Matches your actual events table
 // ============================================================================
 interface Event {
   id: string
@@ -20,8 +20,13 @@ interface Event {
   price_min: number | null
   price_max: number | null
   status: string
-  is_free: boolean
-  is_featured: boolean
+  vibe: string | null
+  venue_name: string | null
+  so_pick: boolean
+  sold_out: boolean
+  no_phones: boolean
+  is_claimed: boolean
+  is_verified: boolean
   created_at: string
   venue?: { name: string } | null
 }
@@ -53,6 +58,17 @@ const GENRES = [
   'mixed'
 ]
 
+const VIBES = [
+  'underground',
+  'mainstream',
+  'intimate',
+  'high-energy',
+  'chill',
+  'queer-friendly',
+  'late-night',
+  'day-party'
+]
+
 // ============================================================================
 // ADMIN PASSCODE CHECK
 // ============================================================================
@@ -77,7 +93,7 @@ export default function AdminEventsPage() {
   const [saving, setSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   
-  // Form state
+  // Form state - matches your schema
   const [formData, setFormData] = useState({
     venue_id: '',
     title: '',
@@ -87,12 +103,14 @@ export default function AdminEventsPage() {
     end_date: '',
     end_time_hour: '03:00',
     genres: [] as string[],
+    vibe: '',
     event_url: '',
     image_url: '',
     price_min: '',
     price_max: '',
-    is_free: false,
-    is_featured: false,
+    so_pick: false,
+    sold_out: false,
+    no_phones: false,
     status: 'active'
   })
 
@@ -165,11 +183,13 @@ export default function AdminEventsPage() {
   }
 
   // Filter events by search
-  const filteredEvents = events.filter(event =>
-    event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    event.venue?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    event.genres?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredEvents = events.filter((event: Event) => {
+    const query = searchQuery.toLowerCase()
+    return event.title.toLowerCase().includes(query) ||
+      event.venue?.name?.toLowerCase().includes(query) ||
+      event.genres?.toLowerCase().includes(query) ||
+      event.venue_name?.toLowerCase().includes(query)
+  })
 
   // Parse datetime for form
   const parseDateTime = (isoString: string) => {
@@ -196,13 +216,15 @@ export default function AdminEventsPage() {
       start_time_hour: startParsed.time,
       end_date: endParsed?.date || startParsed.date,
       end_time_hour: endParsed?.time || '03:00',
-      genres: event.genres ? event.genres.split(',').map(g => g.trim()) : [],
+      genres: event.genres ? event.genres.split(',').map((g: string) => g.trim()) : [],
+      vibe: event.vibe || '',
       event_url: event.event_url || '',
       image_url: event.image_url || '',
       price_min: event.price_min?.toString() || '',
       price_max: event.price_max?.toString() || '',
-      is_free: event.is_free || false,
-      is_featured: event.is_featured || false,
+      so_pick: event.so_pick || false,
+      sold_out: event.sold_out || false,
+      no_phones: event.no_phones || false,
       status: event.status || 'active'
     })
   }
@@ -212,7 +234,6 @@ export default function AdminEventsPage() {
     setEditingEvent(null)
     setIsCreating(true)
     
-    // Default to tomorrow
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
     const tomorrowStr = tomorrow.toISOString().split('T')[0]
@@ -226,12 +247,14 @@ export default function AdminEventsPage() {
       end_date: tomorrowStr,
       end_time_hour: '03:00',
       genres: [],
+      vibe: '',
       event_url: '',
       image_url: '',
       price_min: '',
       price_max: '',
-      is_free: false,
-      is_featured: false,
+      so_pick: false,
+      sold_out: false,
+      no_phones: false,
       status: 'active'
     })
   }
@@ -247,7 +270,7 @@ export default function AdminEventsPage() {
     setFormData(prev => ({
       ...prev,
       genres: prev.genres.includes(genre)
-        ? prev.genres.filter(g => g !== genre)
+        ? prev.genres.filter((g: string) => g !== genre)
         : [...prev.genres, genre]
     }))
   }
@@ -283,6 +306,12 @@ export default function AdminEventsPage() {
     setUploadingImage(false)
   }
 
+  // Get venue name for venue_name field
+  const getVenueName = (venueId: string): string => {
+    const venue = venues.find((v: Venue) => v.id === venueId)
+    return venue?.name || ''
+  }
+
   // Save event
   const handleSave = async () => {
     setSaving(true)
@@ -298,17 +327,20 @@ export default function AdminEventsPage() {
 
     const eventData = {
       venue_id: formData.venue_id,
+      venue_name: getVenueName(formData.venue_id),
       title: formData.title,
       description: formData.description || null,
       start_time: startDateTime.toISOString(),
       end_time: endDateTime.toISOString(),
       genres: formData.genres.length > 0 ? formData.genres.join(', ') : null,
+      vibe: formData.vibe || null,
       event_url: formData.event_url || null,
       image_url: formData.image_url || null,
-      price_min: formData.is_free ? 0 : (formData.price_min ? Number(formData.price_min) : null),
-      price_max: formData.is_free ? 0 : (formData.price_max ? Number(formData.price_max) : null),
-      is_free: formData.is_free,
-      is_featured: formData.is_featured,
+      price_min: formData.price_min ? Number(formData.price_min) : null,
+      price_max: formData.price_max ? Number(formData.price_max) : null,
+      so_pick: formData.so_pick,
+      sold_out: formData.sold_out,
+      no_phones: formData.no_phones,
       status: formData.status
     }
 
@@ -342,7 +374,6 @@ export default function AdminEventsPage() {
   const handleDuplicate = () => {
     if (!editingEvent) return
     
-    // Move date forward 7 days
     const newStartDate = new Date(formData.start_date)
     newStartDate.setDate(newStartDate.getDate() + 7)
     const newEndDate = new Date(formData.end_date)
@@ -395,6 +426,12 @@ export default function AdminEventsPage() {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  // Check if event is free
+  const isFree = (event: Event) => {
+    return (!event.price_min && !event.price_max) || 
+           (event.price_min === 0 && event.price_max === 0)
   }
 
   // ============================================================================
@@ -542,7 +579,7 @@ export default function AdminEventsPage() {
           }}
         />
         <div style={{ display: 'flex', gap: '8px' }}>
-          {(['upcoming', 'past', 'all'] as const).map(filter => (
+          {(['upcoming', 'past', 'all'] as const).map((filter: 'upcoming' | 'past' | 'all') => (
             <button
               key={filter}
               onClick={() => setFilterDate(filter)}
@@ -574,7 +611,7 @@ export default function AdminEventsPage() {
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {filteredEvents.map(event => (
+            {filteredEvents.map((event: Event) => (
               <div
                 key={event.id}
                 onClick={() => openEditModal(event)}
@@ -612,7 +649,7 @@ export default function AdminEventsPage() {
                     <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>
                       {event.title}
                     </h3>
-                    {event.is_featured && (
+                    {event.so_pick && (
                       <span style={{
                         padding: '2px 6px',
                         background: 'rgba(251,191,36,0.15)',
@@ -621,12 +658,24 @@ export default function AdminEventsPage() {
                         color: '#fbbf24',
                         fontWeight: 600
                       }}>
-                        FEATURED
+                        SO PICK
+                      </span>
+                    )}
+                    {event.sold_out && (
+                      <span style={{
+                        padding: '2px 6px',
+                        background: 'rgba(248,113,113,0.15)',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        color: '#f87171',
+                        fontWeight: 600
+                      }}>
+                        SOLD OUT
                       </span>
                     )}
                   </div>
                   <p style={{ fontSize: '13px', color: '#888', margin: '0 0 6px' }}>
-                    {event.venue?.name || 'Unknown venue'}
+                    {event.venue?.name || event.venue_name || 'Unknown venue'}
                   </p>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{
@@ -647,7 +696,7 @@ export default function AdminEventsPage() {
                     }}>
                       {formatTime(event.start_time)}
                     </span>
-                    {event.is_free && (
+                    {isFree(event) && (
                       <span style={{
                         padding: '3px 8px',
                         background: 'rgba(34,197,94,0.15)',
@@ -801,7 +850,7 @@ export default function AdminEventsPage() {
                   }}
                 >
                   <option value="" style={{ background: '#111' }}>Select venue...</option>
-                  {venues.map(venue => (
+                  {venues.map((venue: Venue) => (
                     <option key={venue.id} value={venue.id} style={{ background: '#111' }}>
                       {venue.name}
                     </option>
@@ -920,7 +969,7 @@ export default function AdminEventsPage() {
                   Genres
                 </label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {GENRES.map(genre => (
+                  {GENRES.map((genre: string) => (
                     <button
                       key={genre}
                       type="button"
@@ -944,68 +993,76 @@ export default function AdminEventsPage() {
                 </div>
               </div>
 
-              {/* Pricing */}
+              {/* Vibe */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  cursor: 'pointer'
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={formData.is_free}
-                    onChange={(e) => setFormData(prev => ({ ...prev, is_free: e.target.checked }))}
-                    style={{ width: '18px', height: '18px' }}
-                  />
-                  <span style={{ fontSize: '14px' }}>Free Entry</span>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                  Vibe
                 </label>
+                <select
+                  value={formData.vibe}
+                  onChange={(e) => setFormData(prev => ({ ...prev, vibe: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '14px'
+                  }}
+                >
+                  <option value="" style={{ background: '#111' }}>Select vibe...</option>
+                  {VIBES.map((vibe: string) => (
+                    <option key={vibe} value={vibe} style={{ background: '#111' }}>
+                      {vibe}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {!formData.is_free && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                      Min Price (£)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.price_min}
-                      onChange={(e) => setFormData(prev => ({ ...prev, price_min: e.target.value }))}
-                      placeholder="e.g. 5"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '8px',
-                        color: '#fff',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                      Max Price (£)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.price_max}
-                      onChange={(e) => setFormData(prev => ({ ...prev, price_max: e.target.value }))}
-                      placeholder="e.g. 15"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '8px',
-                        color: '#fff',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
+              {/* Pricing */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                    Min Price (£)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.price_min}
+                    onChange={(e) => setFormData(prev => ({ ...prev, price_min: e.target.value }))}
+                    placeholder="0 = free"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '14px'
+                    }}
+                  />
                 </div>
-              )}
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                    Max Price (£)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.price_max}
+                    onChange={(e) => setFormData(prev => ({ ...prev, price_max: e.target.value }))}
+                    placeholder="e.g. 15"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+              </div>
 
               {/* Ticket URL */}
               <div style={{ marginBottom: '16px' }}>
@@ -1029,21 +1086,34 @@ export default function AdminEventsPage() {
                 />
               </div>
 
-              {/* Featured + Status */}
-              <div style={{ display: 'flex', gap: '20px', marginBottom: '16px' }}>
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  cursor: 'pointer'
-                }}>
+              {/* Toggles */}
+              <div style={{ display: 'flex', gap: '20px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
-                    checked={formData.is_featured}
-                    onChange={(e) => setFormData(prev => ({ ...prev, is_featured: e.target.checked }))}
+                    checked={formData.so_pick}
+                    onChange={(e) => setFormData(prev => ({ ...prev, so_pick: e.target.checked }))}
                     style={{ width: '18px', height: '18px' }}
                   />
-                  <span style={{ fontSize: '14px' }}>⭐ Featured Event</span>
+                  <span style={{ fontSize: '14px' }}>⭐ SO Pick</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.sold_out}
+                    onChange={(e) => setFormData(prev => ({ ...prev, sold_out: e.target.checked }))}
+                    style={{ width: '18px', height: '18px' }}
+                  />
+                  <span style={{ fontSize: '14px' }}>🚫 Sold Out</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.no_phones}
+                    onChange={(e) => setFormData(prev => ({ ...prev, no_phones: e.target.checked }))}
+                    style={{ width: '18px', height: '18px' }}
+                  />
+                  <span style={{ fontSize: '14px' }}>📵 No Phones</span>
                 </label>
               </div>
 
