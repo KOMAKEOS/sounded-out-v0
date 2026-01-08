@@ -325,7 +325,7 @@ export default function AdminEventsPage() {
       console.log('Uploading to path:', filePath)
 
       const { data, error: uploadError } = await supabase.storage
-        .from('event-images')
+        .from('images')
         .upload(filePath, file)
 
       if (uploadError) {
@@ -336,7 +336,7 @@ export default function AdminEventsPage() {
       console.log('Upload success:', data)
 
       const { data: urlData } = supabase.storage
-        .from('event-images')
+        .from('images')
         .getPublicUrl(filePath)
 
       console.log('Public URL:', urlData.publicUrl)
