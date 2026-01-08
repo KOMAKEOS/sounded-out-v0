@@ -220,7 +220,7 @@ export default function AdminEventsPage() {
       so_pick: event.so_pick || false,
       sold_out: event.sold_out || false,
       no_phones: event.no_phones || false,
-      status: event.status || 'active'
+      status: event.status || 'published'
     })
   }
 
