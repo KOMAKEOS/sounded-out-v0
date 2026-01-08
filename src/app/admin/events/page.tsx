@@ -92,7 +92,7 @@ export default function AdminEventsPage() {
     so_pick: false,
     sold_out: false,
     no_phones: false,
-    status: 'active'
+    status: 'published'
   })
 
   useEffect(() => {
@@ -251,7 +251,7 @@ export default function AdminEventsPage() {
       so_pick: false,
       sold_out: false,
       no_phones: false,
-      status: 'active'
+      status: 'published'
     })
   }
 
@@ -810,13 +810,13 @@ export default function AdminEventsPage() {
 
                 <span style={{
                   padding: '4px 10px',
-                  background: event.status === 'active'
+                  background: event.status === 'published'
                     ? 'rgba(34,197,94,0.15)'
                     : 'rgba(248,113,113,0.15)',
                   borderRadius: '6px',
                   fontSize: '11px',
                   fontWeight: 600,
-                  color: event.status === 'active' ? '#22c55e' : '#f87171',
+                  color: event.status === 'published' ? '#22c55e' : '#f87171',
                   textTransform: 'uppercase',
                   flexShrink: 0
                 }}>
@@ -1000,7 +1000,7 @@ export default function AdminEventsPage() {
                   <option value="" style={{ background: '#111' }}>Select venue...</option>
                   {venues.map((venue: Venue) => (
                     <option key={venue.id} value={venue.id} style={{ background: '#111' }}>
-                      {venue.name} {venue.status !== 'active' ? `(${venue.status})` : ''}
+                      {venue.name} {venue.status !== 'published' ? `(${venue.status})` : ''}
                     </option>
                   ))}
                 </select>
