@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 // ============================================================================
-// TYPES - Matches your actual venues table
+// TYPES - Matches your venues table + new fields
 // ============================================================================
 interface Venue {
   id: string
@@ -25,6 +25,8 @@ interface Venue {
   is_verified: boolean
   verified_at: string | null
   claimed_by_user_id: string | null
+  description: string | null  // Bio
+  deals: string | null        // Current deals/offers
 }
 
 const VENUE_TYPES = [
@@ -39,29 +41,22 @@ const VENUE_TYPES = [
   'other'
 ]
 
-// ============================================================================
-// ADMIN PASSCODE CHECK
-// ============================================================================
 const ADMIN_PASSCODE = '1234'
 
 export default function AdminVenuesPage() {
-  // Auth state
   const [passcodeEntered, setPasscodeEntered] = useState(false)
   const [passcodeInput, setPasscodeInput] = useState('')
   const [passcodeError, setPasscodeError] = useState(false)
 
-  // Data state
   const [venues, setVenues] = useState<Venue[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   
-  // Edit modal state
   const [editingVenue, setEditingVenue] = useState<Venue | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   
-  // Form state - matches your schema
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -73,10 +68,11 @@ export default function AdminVenuesPage() {
     instagram_url: '',
     image_url: '',
     status: 'active',
-    no_phones: false
+    no_phones: false,
+    description: '',
+    deals: ''
   })
 
-  // Check session storage for passcode
   useEffect(() => {
     const savedAccess = sessionStorage.getItem('so_admin_access')
     if (savedAccess === 'granted') {
@@ -84,7 +80,6 @@ export default function AdminVenuesPage() {
     }
   }, [])
 
-  // Load venues
   useEffect(() => {
     if (passcodeEntered) {
       loadVenues()
@@ -120,7 +115,6 @@ export default function AdminVenuesPage() {
     setLoading(false)
   }
 
-  // Filter venues by search
   const filteredVenues = venues.filter((venue: Venue) => {
     const query = searchQuery.toLowerCase()
     return venue.name.toLowerCase().includes(query) ||
@@ -128,7 +122,6 @@ export default function AdminVenuesPage() {
       venue.venue_type.toLowerCase().includes(query)
   })
 
-  // Open edit modal
   const openEditModal = (venue: Venue) => {
     setEditingVenue(venue)
     setIsCreating(false)
@@ -143,11 +136,12 @@ export default function AdminVenuesPage() {
       instagram_url: venue.instagram_url || '',
       image_url: venue.image_url || '',
       status: venue.status || 'active',
-      no_phones: venue.no_phones || false
+      no_phones: venue.no_phones || false,
+      description: venue.description || '',
+      deals: venue.deals || ''
     })
   }
 
-  // Open create modal
   const openCreateModal = () => {
     setEditingVenue(null)
     setIsCreating(true)
@@ -162,17 +156,17 @@ export default function AdminVenuesPage() {
       instagram_url: '',
       image_url: '',
       status: 'active',
-      no_phones: false
+      no_phones: false,
+      description: '',
+      deals: ''
     })
   }
 
-  // Close modal
   const closeModal = () => {
     setEditingVenue(null)
     setIsCreating(false)
   }
 
-  // Handle image upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -197,13 +191,12 @@ export default function AdminVenuesPage() {
       setFormData(prev => ({ ...prev, image_url: publicUrl }))
     } catch (error) {
       console.error('Upload error:', error)
-      alert('Failed to upload image')
+      alert('Failed to upload image. Make sure the "images" bucket exists in Supabase Storage.')
     }
 
     setUploadingImage(false)
   }
 
-  // Save venue
   const handleSave = async () => {
     setSaving(true)
 
@@ -218,7 +211,9 @@ export default function AdminVenuesPage() {
       instagram_url: formData.instagram_url || null,
       image_url: formData.image_url || null,
       status: formData.status,
-      no_phones: formData.no_phones
+      no_phones: formData.no_phones,
+      description: formData.description || null,
+      deals: formData.deals || null
     }
 
     try {
@@ -247,7 +242,6 @@ export default function AdminVenuesPage() {
     setSaving(false)
   }
 
-  // Delete venue
   const handleDelete = async () => {
     if (!editingVenue) return
     if (!confirm(`Delete "${editingVenue.name}"? This cannot be undone.`)) return
@@ -380,10 +374,7 @@ export default function AdminVenuesPage() {
             color: '#fff',
             fontSize: '14px',
             fontWeight: 600,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
+            cursor: 'pointer'
           }}
         >
           + Add Venue
@@ -434,11 +425,9 @@ export default function AdminVenuesPage() {
                   border: '1px solid rgba(255,255,255,0.08)',
                   borderRadius: '12px',
                   overflow: 'hidden',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.2s'
+                  cursor: 'pointer'
                 }}
               >
-                {/* Image */}
                 <div style={{
                   height: '140px',
                   background: venue.image_url
@@ -453,7 +442,6 @@ export default function AdminVenuesPage() {
                   )}
                 </div>
 
-                {/* Info */}
                 <div style={{ padding: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                     <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>
@@ -475,6 +463,21 @@ export default function AdminVenuesPage() {
                   <p style={{ fontSize: '13px', color: '#888', margin: '0 0 8px' }}>
                     {venue.address}
                   </p>
+                  
+                  {/* Show deals badge if venue has deals */}
+                  {venue.deals && (
+                    <p style={{ 
+                      fontSize: '12px', 
+                      color: '#22c55e', 
+                      margin: '0 0 8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      🏷️ {venue.deals.length > 40 ? venue.deals.slice(0, 40) + '...' : venue.deals}
+                    </p>
+                  )}
+                  
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{
                       padding: '3px 8px',
@@ -604,22 +607,37 @@ export default function AdminVenuesPage() {
                   />
                 </div>
                 {formData.image_url && (
-                  <input
-                    type="text"
-                    value={formData.image_url}
-                    onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
-                    placeholder="Or paste image URL"
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      marginTop: '8px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '13px'
-                    }}
-                  />
+                  <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      value={formData.image_url}
+                      onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
+                      placeholder="Or paste image URL"
+                      style={{
+                        flex: 1,
+                        padding: '8px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '6px',
+                        color: '#fff',
+                        fontSize: '12px'
+                      }}
+                    />
+                    <button
+                      onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
+                      style={{
+                        padding: '8px 12px',
+                        background: 'rgba(248,113,113,0.15)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        color: '#f87171',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -665,7 +683,7 @@ export default function AdminVenuesPage() {
                 />
               </div>
 
-              {/* City + Venue Type Row */}
+              {/* City + Venue Type */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
@@ -712,7 +730,7 @@ export default function AdminVenuesPage() {
                 </div>
               </div>
 
-              {/* Lat/Lng Row */}
+              {/* Lat/Lng */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
@@ -756,7 +774,56 @@ export default function AdminVenuesPage() {
                 </div>
               </div>
 
-              {/* Website + Instagram Row */}
+              {/* Bio / Description */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                  Bio / Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                  placeholder="Tell people about this venue..."
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '14px',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              {/* Deals */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                  🏷️ Current Deals / Offers
+                </label>
+                <textarea
+                  value={formData.deals}
+                  onChange={(e) => setFormData(prev => ({ ...prev, deals: e.target.value }))}
+                  rows={2}
+                  placeholder="e.g. £3 drinks before 11pm, Free entry on Tuesdays..."
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'rgba(34,197,94,0.05)',
+                    border: '1px solid rgba(34,197,94,0.2)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '14px',
+                    resize: 'vertical'
+                  }}
+                />
+                <p style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                  This will show as a highlight on the venue card
+                </p>
+              </div>
+
+              {/* Website + Instagram */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
@@ -800,7 +867,7 @@ export default function AdminVenuesPage() {
                 </div>
               </div>
 
-              {/* Status + No Phones Row */}
+              {/* Status + No Phones */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
