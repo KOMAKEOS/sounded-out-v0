@@ -5,11 +5,6 @@ import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
 import NavBar from '../../components/NavBar'
 
-// ============================================================================
-// EVENTS PAGE - All events with smart genre ordering
-// Genres ordered by event count, "For You" for logged-in users
-// ============================================================================
-
 interface Venue {
   id: string
   name: string
@@ -30,7 +25,6 @@ interface Event {
   venue: Venue
 }
 
-// Genre styles for placeholders
 const GENRE_STYLES: Record<string, { gradient: string; emoji: string }> = {
   techno: { gradient: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', emoji: '🔊' },
   house: { gradient: 'linear-gradient(135deg, #2d132c 0%, #801336 50%, #c72c41 100%)', emoji: '🎧' },
@@ -53,23 +47,25 @@ const getGenreStyle = (genres: string | null) => {
   return GENRE_STYLES.default
 }
 
+// Helper to format genre for display
+const formatGenre = (genre: string): string => {
+  return genre.trim().replace(/_/g, ' ')
+}
+
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<{ id: string } | null>(null)
   const [savedEventIds, setSavedEventIds] = useState<Set<string>>(new Set())
-  const [activeGenre, setActiveGenre] = useState<string | null>(null)
+  const [activeGenres, setActiveGenres] = useState<Set<string>>(new Set())
   const [showForYou, setShowForYou] = useState(false)
 
-  // Load user and events
   useEffect(() => {
     const loadData = async () => {
-      // Check auth
       const { data: { user: authUser } } = await supabase.auth.getUser()
       if (authUser) {
         setUser({ id: authUser.id })
         
-        // Load saved events from database
         const { data: savedData } = await supabase
           .from('saved_events')
           .select('event_id')
@@ -84,7 +80,6 @@ export default function EventsPage() {
         }
       }
 
-      // Load events
       const { data: eventsData } = await supabase
         .from('events')
         .select('*, venue:venues(*)')
@@ -102,7 +97,6 @@ export default function EventsPage() {
     loadData()
   }, [])
 
-  // Calculate genres sorted by event count
   const sortedGenres = useMemo(() => {
     const genreCount = new Map<string, number>()
     
@@ -117,7 +111,6 @@ export default function EventsPage() {
       }
     }
 
-    // Sort by count descending
     const entries: [string, number][] = Array.from(genreCount.entries())
     entries.sort((a: [string, number], b: [string, number]) => b[1] - a[1])
     
@@ -129,12 +122,27 @@ export default function EventsPage() {
     return sorted
   }, [events])
 
-  // Filter events
+  // Toggle genre selection (multi-select)
+  const toggleGenre = (genre: string) => {
+    setShowForYou(false)
+    const newActive = new Set(activeGenres)
+    if (newActive.has(genre)) {
+      newActive.delete(genre)
+    } else {
+      newActive.add(genre)
+    }
+    setActiveGenres(newActive)
+  }
+
+  const clearGenres = () => {
+    setActiveGenres(new Set())
+    setShowForYou(false)
+  }
+
   const filteredEvents = useMemo(() => {
     let result: Event[] = events
 
     if (showForYou && user) {
-      // Filter to saved genres (simplified - would be smarter with real preference data)
       const savedGenres = new Set<string>()
       for (let i = 0; i < events.length; i++) {
         const event: Event = events[i]
@@ -163,21 +171,26 @@ export default function EventsPage() {
       }
     }
 
-    if (activeGenre) {
+    // Multi-genre filter - event must match ANY selected genre
+    if (activeGenres.size > 0) {
       const filtered: Event[] = []
       for (let i = 0; i < result.length; i++) {
         const e: Event = result[i]
-        if (e.genres?.toLowerCase().includes(activeGenre.toLowerCase())) {
-          filtered.push(e)
+        if (!e.genres) continue
+        const eventGenres: string[] = e.genres.split(',').map((g: string) => g.trim().toLowerCase())
+        for (let j = 0; j < eventGenres.length; j++) {
+          if (activeGenres.has(eventGenres[j])) {
+            filtered.push(e)
+            break
+          }
         }
       }
       result = filtered
     }
 
     return result
-  }, [events, activeGenre, showForYou, user, savedEventIds])
+  }, [events, activeGenres, showForYou, user, savedEventIds])
 
-  // Group by date
   const groupedEvents = useMemo(() => {
     const groups: Record<string, Event[]> = {}
     
@@ -211,7 +224,6 @@ export default function EventsPage() {
       <NavBar />
       
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 20px 100px' }}>
-        {/* Header */}
         <div style={{ marginBottom: '24px' }}>
           <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>All Events</h1>
           <p style={{ fontSize: '14px', color: '#777' }}>
@@ -219,7 +231,7 @@ export default function EventsPage() {
           </p>
         </div>
 
-        {/* Genre Filters - Scrollable */}
+        {/* Genre Filters - Multi-select */}
         <div 
           style={{ 
             display: 'flex', 
@@ -230,10 +242,9 @@ export default function EventsPage() {
             WebkitOverflowScrolling: 'touch',
           }}
         >
-          {/* For You - Only show if logged in */}
           {user && (
             <button
-              onClick={() => { setShowForYou(!showForYou); setActiveGenre(null) }}
+              onClick={() => { setShowForYou(!showForYou); setActiveGenres(new Set()) }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -254,18 +265,17 @@ export default function EventsPage() {
             </button>
           )}
 
-          {/* All Events */}
           <button
-            onClick={() => { setActiveGenre(null); setShowForYou(false) }}
+            onClick={clearGenres}
             style={{
               padding: '10px 18px',
               borderRadius: '22px',
-              border: !activeGenre && !showForYou ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
+              border: activeGenres.size === 0 && !showForYou ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
               fontSize: '14px',
-              fontWeight: !activeGenre && !showForYou ? 700 : 500,
+              fontWeight: activeGenres.size === 0 && !showForYou ? 700 : 500,
               cursor: 'pointer',
-              background: !activeGenre && !showForYou ? 'linear-gradient(135deg, #ab67f7, #c490ff)' : 'transparent',
-              color: !activeGenre && !showForYou ? 'white' : '#aaa',
+              background: activeGenres.size === 0 && !showForYou ? 'linear-gradient(135deg, #ab67f7, #c490ff)' : 'transparent',
+              color: activeGenres.size === 0 && !showForYou ? 'white' : '#aaa',
               whiteSpace: 'nowrap',
               flexShrink: 0,
             }}
@@ -273,32 +283,31 @@ export default function EventsPage() {
             All
           </button>
 
-          {/* Genres sorted by count */}
           {sortedGenres.map(({ genre, count }: { genre: string; count: number }) => (
             <button
               key={genre}
-              onClick={() => { setActiveGenre(genre); setShowForYou(false) }}
+              onClick={() => toggleGenre(genre)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
                 padding: '10px 16px',
                 borderRadius: '22px',
-                border: activeGenre === genre ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
+                border: activeGenres.has(genre) ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
                 fontSize: '14px',
-                fontWeight: activeGenre === genre ? 700 : 500,
+                fontWeight: activeGenres.has(genre) ? 700 : 500,
                 cursor: 'pointer',
-                background: activeGenre === genre ? 'rgba(171,103,247,0.2)' : 'transparent',
-                color: activeGenre === genre ? '#ab67f7' : '#aaa',
+                background: activeGenres.has(genre) ? 'rgba(171,103,247,0.2)' : 'transparent',
+                color: activeGenres.has(genre) ? '#ab67f7' : '#aaa',
                 textTransform: 'capitalize',
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
               }}
             >
-              {genre}
+              {formatGenre(genre)}
               <span style={{ 
                 fontSize: '11px', 
-                color: activeGenre === genre ? '#ab67f7' : '#666',
+                color: activeGenres.has(genre) ? '#ab67f7' : '#666',
                 fontWeight: 400,
               }}>
                 {count}
@@ -306,6 +315,34 @@ export default function EventsPage() {
             </button>
           ))}
         </div>
+
+        {/* Selected genres indicator */}
+        {activeGenres.size > 1 && (
+          <div style={{ 
+            marginBottom: '16px', 
+            fontSize: '13px', 
+            color: '#ab67f7',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <span>Showing: {Array.from(activeGenres).map(formatGenre).join(', ')}</span>
+            <button 
+              onClick={clearGenres}
+              style={{
+                background: 'rgba(171,103,247,0.2)',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '4px 8px',
+                color: '#ab67f7',
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        )}
 
         {/* Events Grid */}
         {loading ? (
@@ -352,7 +389,6 @@ export default function EventsPage() {
                       transition: 'transform 200ms ease, background 200ms ease',
                     }}
                   >
-                    {/* Image */}
                     {event.image_url ? (
                       <div style={{ aspectRatio: '16/9', overflow: 'hidden' }}>
                         <img 
@@ -382,12 +418,11 @@ export default function EventsPage() {
                           textTransform: 'uppercase',
                           letterSpacing: '1px',
                         }}>
-                          {event.genres?.split(',')[0]?.trim() || 'Live Event'}
+                          {formatGenre(event.genres?.split(',')[0] || 'Live Event')}
                         </span>
                       </div>
                     )}
 
-                    {/* Content */}
                     <div style={{ padding: '16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                         {event.so_pick && (
@@ -446,7 +481,7 @@ export default function EventsPage() {
                             textOverflow: 'ellipsis',
                             maxWidth: '60%',
                           }}>
-                          {event.genres.split(',').slice(0, 2).map((g: string) => g.trim()).join(' · ')}
+                            {event.genres.split(',').slice(0, 2).map((g: string) => formatGenre(g)).join(' · ')}
                           </span>
                         )}
                         <span style={{ 
