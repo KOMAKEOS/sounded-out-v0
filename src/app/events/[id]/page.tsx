@@ -39,6 +39,11 @@ interface User {
   email?: string
 }
 
+// Helper to format genre for display
+const formatGenre = (genre: string): string => {
+  return genre.trim().replace(/_/g, ' ')
+}
+
 export default function EventPage() {
   const params = useParams()
   const [event, setEvent] = useState<Event | null>(null)
@@ -240,7 +245,7 @@ export default function EventPage() {
         }}>
           <span style={{ fontSize: '32px', opacity: 0.4 }}>&#9835;</span>
           <span style={{ fontSize: '12px', color: '#444', textTransform: 'uppercase', letterSpacing: '1px' }}>
-            {event.genres?.split(',')[0]?.trim() || 'Event'}
+            {formatGenre(event.genres?.split(',')[0] || 'Event')}
           </span>
           <Link 
             href="/events" 
@@ -327,7 +332,7 @@ export default function EventPage() {
             borderRadius: '10px',
             marginBottom: '20px',
           }}>
-            <span style={{ fontSize: '14px', color: '#ffc832' }}>No phones policy</span>
+            <span style={{ fontSize: '14px', color: '#ffc832' }}>📵 No phones policy</span>
           </div>
         )}
 
@@ -362,9 +367,22 @@ export default function EventPage() {
               background: 'rgba(171,103,247,0.12)', 
               borderRadius: '6px', 
               fontSize: '12px', 
-              color: '#ab67f7' 
+              color: '#ab67f7',
+              textTransform: 'capitalize',
             }}>
-              {g.trim()}
+              {formatGenre(g)}
+            </span>
+          ))}
+          {event.vibe && event.vibe.split(',').map((v: string, i: number) => (
+            <span key={'vibe-' + i} style={{ 
+              padding: '6px 12px', 
+              background: 'rgba(59,130,246,0.12)', 
+              borderRadius: '6px', 
+              fontSize: '12px', 
+              color: '#3b82f6',
+              textTransform: 'capitalize',
+            }}>
+              {v.trim().replace(/-/g, ' ')}
             </span>
           ))}
         </div>
@@ -420,7 +438,7 @@ export default function EventPage() {
               cursor: 'pointer',
             }}
           >
-            {saved ? 'Saved' : 'Save'}
+            {saved ? '✓ Saved' : 'Save'}
           </button>
           <button
             onClick={handleInterested}
@@ -436,7 +454,7 @@ export default function EventPage() {
               cursor: 'pointer',
             }}
           >
-            {interested ? 'Interested' : 'Interested?'}
+            {interested ? '✓ Interested' : 'Interested?'}
           </button>
           <button
             onClick={handleShare}
@@ -472,7 +490,7 @@ export default function EventPage() {
             marginBottom: '28px',
           }}
         >
-          Directions to {event.venue?.name}
+          📍 Directions to {event.venue?.name}
         </a>
 
         {event.venue && (
