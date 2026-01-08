@@ -15,6 +15,14 @@ interface Venue {
   no_phones: boolean
 }
 
+interface Brand {
+  id: string
+  name: string
+  slug: string
+  logo_url: string | null
+  is_verified: boolean
+}
+
 interface Event {
   id: string
   title: string
@@ -32,6 +40,7 @@ interface Event {
   no_phones: boolean
   is_verified: boolean
   venue: Venue | null
+  brand: Brand | null
 }
 
 interface User {
@@ -39,7 +48,6 @@ interface User {
   email?: string
 }
 
-// Helper to format genre for display
 const formatGenre = (genre: string): string => {
   return genre.trim().replace(/_/g, ' ')
 }
@@ -65,8 +73,8 @@ export default function EventPage() {
     
     const loadEvent = async () => {
       const { data } = await supabase
-  .from('events')
-  .select('*, venue:venues(*), brand:brands(id, name, slug, logo_url, is_verified)')
+        .from('events')
+        .select('*, venue:venues(*), brand:brands(id, name, slug, logo_url, is_verified)')
         .eq('id', params.id)
         .single()
       
@@ -305,6 +313,77 @@ export default function EventPage() {
           )}
         </div>
 
+        {/* BRAND / PROMOTER SECTION */}
+        {event.brand && (
+          <Link 
+            href={'/brand/' + event.brand.slug}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              marginBottom: '20px',
+              padding: '14px 16px',
+              background: 'rgba(171,103,247,0.08)',
+              border: '1px solid rgba(171,103,247,0.15)',
+              borderRadius: '12px',
+              textDecoration: 'none',
+            }}
+          >
+            {event.brand.logo_url ? (
+              <img 
+                src={event.brand.logo_url} 
+                alt="" 
+                style={{ 
+                  width: '40px', 
+                  height: '40px', 
+                  borderRadius: '8px', 
+                  objectFit: 'cover' 
+                }} 
+              />
+            ) : (
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '8px',
+                background: 'rgba(171,103,247,0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '18px',
+              }}>
+                🎵
+              </div>
+            )}
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: '11px', color: '#888', marginBottom: '2px' }}>Presented by</p>
+              <p style={{ 
+                fontSize: '15px', 
+                color: '#ab67f7', 
+                fontWeight: 600, 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px' 
+              }}>
+                {event.brand.name}
+                {event.brand.is_verified && (
+                  <span style={{
+                    width: '14px',
+                    height: '14px',
+                    background: '#ab67f7',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '8px',
+                    color: 'white',
+                  }}>✓</span>
+                )}
+              </p>
+            </div>
+            <span style={{ color: '#666', fontSize: '18px' }}>→</span>
+          </Link>
+        )}
+
         {event.venue && (
           <Link 
             href={'/venue/' + event.venue.id}
@@ -316,7 +395,7 @@ export default function EventPage() {
               textDecoration: 'none',
             }}
           >
-            <span style={{ fontSize: '15px', color: '#888' }}>{event.venue.name}</span>
+            <span style={{ fontSize: '15px', color: '#888' }}>📍 {event.venue.name}</span>
             <span style={{ color: '#666' }}>→</span>
           </Link>
         )}
@@ -490,7 +569,7 @@ export default function EventPage() {
             marginBottom: '28px',
           }}
         >
-          📍 Directions to {event.venue?.name}
+          🗺️ Directions to {event.venue?.name}
         </a>
 
         {event.venue && (
