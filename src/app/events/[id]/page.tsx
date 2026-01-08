@@ -65,8 +65,8 @@ export default function EventPage() {
     
     const loadEvent = async () => {
       const { data } = await supabase
-        .from('events')
-        .select('*, venue:venues(*)')
+  .from('events')
+  .select('*, venue:venues(*), brand:brands(id, name, slug, logo_url, is_verified)')
         .eq('id', params.id)
         .single()
       
