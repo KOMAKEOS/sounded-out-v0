@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 // ============================================================================
-// TYPES
+// TYPES - Matches your actual venues table
 // ============================================================================
 interface Venue {
   id: string
@@ -18,11 +18,13 @@ interface Venue {
   website_url: string | null
   instagram_url: string | null
   image_url: string | null
-  description: string | null
-  capacity: number | null
   status: string
-  is_verified: boolean
   created_at: string
+  no_phones: boolean
+  is_claimed: boolean
+  is_verified: boolean
+  verified_at: string | null
+  claimed_by_user_id: string | null
 }
 
 const VENUE_TYPES = [
@@ -59,7 +61,7 @@ export default function AdminVenuesPage() {
   const [saving, setSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   
-  // Form state
+  // Form state - matches your schema
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -70,9 +72,8 @@ export default function AdminVenuesPage() {
     website_url: '',
     instagram_url: '',
     image_url: '',
-    description: '',
-    capacity: '',
-    status: 'active'
+    status: 'active',
+    no_phones: false
   })
 
   // Check session storage for passcode
@@ -120,11 +121,12 @@ export default function AdminVenuesPage() {
   }
 
   // Filter venues by search
-  const filteredVenues = venues.filter(venue =>
-    venue.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    venue.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    venue.venue_type.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredVenues = venues.filter((venue: Venue) => {
+    const query = searchQuery.toLowerCase()
+    return venue.name.toLowerCase().includes(query) ||
+      venue.address.toLowerCase().includes(query) ||
+      venue.venue_type.toLowerCase().includes(query)
+  })
 
   // Open edit modal
   const openEditModal = (venue: Venue) => {
@@ -140,9 +142,8 @@ export default function AdminVenuesPage() {
       website_url: venue.website_url || '',
       instagram_url: venue.instagram_url || '',
       image_url: venue.image_url || '',
-      description: venue.description || '',
-      capacity: venue.capacity?.toString() || '',
-      status: venue.status || 'active'
+      status: venue.status || 'active',
+      no_phones: venue.no_phones || false
     })
   }
 
@@ -160,9 +161,8 @@ export default function AdminVenuesPage() {
       website_url: '',
       instagram_url: '',
       image_url: '',
-      description: '',
-      capacity: '',
-      status: 'active'
+      status: 'active',
+      no_phones: false
     })
   }
 
@@ -180,21 +180,16 @@ export default function AdminVenuesPage() {
     setUploadingImage(true)
     
     try {
-      // Create unique filename
       const fileExt = file.name.split('.').pop()
       const fileName = `venue-${Date.now()}.${fileExt}`
       const filePath = `venues/${fileName}`
 
-      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('images')
         .upload(filePath, file)
 
-      if (uploadError) {
-        throw uploadError
-      }
+      if (uploadError) throw uploadError
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('images')
         .getPublicUrl(filePath)
@@ -222,9 +217,8 @@ export default function AdminVenuesPage() {
       website_url: formData.website_url || null,
       instagram_url: formData.instagram_url || null,
       image_url: formData.image_url || null,
-      description: formData.description || null,
-      capacity: formData.capacity ? Number(formData.capacity) : null,
-      status: formData.status
+      status: formData.status,
+      no_phones: formData.no_phones
     }
 
     try {
@@ -431,7 +425,7 @@ export default function AdminVenuesPage() {
             gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
             gap: '16px'
           }}>
-            {filteredVenues.map(venue => (
+            {filteredVenues.map((venue: Venue) => (
               <div
                 key={venue.id}
                 onClick={() => openEditModal(venue)}
@@ -481,7 +475,7 @@ export default function AdminVenuesPage() {
                   <p style={{ fontSize: '13px', color: '#888', margin: '0 0 8px' }}>
                     {venue.address}
                   </p>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{
                       padding: '3px 8px',
                       background: 'rgba(255,255,255,0.05)',
@@ -503,6 +497,17 @@ export default function AdminVenuesPage() {
                     }}>
                       {venue.status}
                     </span>
+                    {venue.no_phones && (
+                      <span style={{
+                        padding: '3px 8px',
+                        background: 'rgba(251,191,36,0.15)',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        color: '#fbbf24'
+                      }}>
+                        📵
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -581,7 +586,7 @@ export default function AdminVenuesPage() {
                   overflow: 'hidden'
                 }}>
                   {!formData.image_url && !uploadingImage && (
-                    <span style={{ color: '#666' }}>No image</span>
+                    <span style={{ color: '#666' }}>Click to upload</span>
                   )}
                   {uploadingImage && (
                     <span style={{ color: '#ab67f7' }}>Uploading...</span>
@@ -598,9 +603,6 @@ export default function AdminVenuesPage() {
                     }}
                   />
                 </div>
-                <p style={{ fontSize: '12px', color: '#666', marginTop: '6px' }}>
-                  Click to upload image
-                </p>
                 {formData.image_url && (
                   <input
                     type="text"
@@ -701,7 +703,7 @@ export default function AdminVenuesPage() {
                       fontSize: '14px'
                     }}
                   >
-                    {VENUE_TYPES.map(type => (
+                    {VENUE_TYPES.map((type: string) => (
                       <option key={type} value={type} style={{ background: '#111' }}>
                         {type.replace('_', ' ')}
                       </option>
@@ -798,28 +800,8 @@ export default function AdminVenuesPage() {
                 </div>
               </div>
 
-              {/* Capacity + Status Row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                    Capacity
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.capacity}
-                    onChange={(e) => setFormData(prev => ({ ...prev, capacity: e.target.value }))}
-                    placeholder="e.g. 500"
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
+              {/* Status + No Phones Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
                     Status
@@ -842,28 +824,22 @@ export default function AdminVenuesPage() {
                     <option value="pending" style={{ background: '#111' }}>Pending</option>
                   </select>
                 </div>
-              </div>
-
-              {/* Description */}
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  rows={4}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px',
-                    resize: 'vertical'
-                  }}
-                />
+                <div style={{ display: 'flex', alignItems: 'end', paddingBottom: '8px' }}>
+                  <label style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    cursor: 'pointer'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={formData.no_phones}
+                      onChange={(e) => setFormData(prev => ({ ...prev, no_phones: e.target.checked }))}
+                      style={{ width: '18px', height: '18px' }}
+                    />
+                    <span style={{ fontSize: '14px' }}>📵 No Phones Policy</span>
+                  </label>
+                </div>
               </div>
 
               {/* Actions */}
