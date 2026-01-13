@@ -11,6 +11,7 @@ import { supabase } from '../../lib/supabase'
 // 1. All genres shown with expandable "Show more" option
 // 2. Slicker header with sign-in
 // 3. Better mobile layout
+// 4. Fixed TypeScript venue type (was array, now object)
 // ============================================================================
 
 type Event = {
@@ -103,20 +104,26 @@ export default function EventsPage() {
       setUser(user)
 
       // Load events
-      let query = supabase
+      const { data, error } = await supabase
         .from('events')
         .select(`
           id, title, date, start_time, image_url, ticket_url, 
           ticket_source, price_type, price_min, genres,
-          venue:venues(id, name)
+          venue:venues!inner(id, name)
         `)
         .eq('status', 'published')
         .gte('date', new Date().toISOString().split('T')[0])
         .order('date', { ascending: true })
         .order('start_time', { ascending: true })
 
-      const { data } = await query
-      if (data) setEvents(data)
+      if (data) {
+        // Transform the data to ensure venue is an object, not array
+        const transformedData: Event[] = data.map((event: any) => ({
+          ...event,
+          venue: Array.isArray(event.venue) ? event.venue[0] : event.venue
+        }))
+        setEvents(transformedData)
+      }
       setLoading(false)
     }
 
@@ -239,7 +246,7 @@ export default function EventsPage() {
           Events
         </h1>
         <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
-          Discover what's happening in Newcastle
+          Discover what&apos;s happening in Newcastle
         </p>
 
         {/* Date filters */}
