@@ -177,6 +177,41 @@ const getGenreStyle = (genres: string | null): GenreStyle => {
   return GENRE_STYLES.default
 }
 
+const formatGenre = (genre: string): string => {
+  return genre
+    .trim()
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+// Get price display based on price_type
+const getPriceDisplay = (event: Event): { text: string; type: 'free' | 'freeBefore' | 'paid' | 'tba' } | null => {
+  const { price_type, price_min, price_max, free_before_time } = event
+  
+  // Unknown/TBA - return null to hide
+  if (price_type === 'unknown' || (!price_min && !price_max && price_type !== 'free')) {
+    return null
+  }
+  
+  if (price_type === 'free' || (price_min === 0 && !price_max)) {
+    return { text: 'FREE', type: 'free' }
+  }
+  
+  if (price_type === 'free_before' && free_before_time) {
+    return { text: `Free before ${free_before_time}`, type: 'freeBefore' }
+  }
+  
+  if (price_min && price_max && price_min !== price_max) {
+    return { text: `£${price_min}–£${price_max}`, type: 'paid' }
+  }
+  
+  if (price_min || price_max) {
+    return { text: `£${price_min || price_max}`, type: 'paid' }
+  }
+  
+  return null
+}
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -633,21 +668,28 @@ const detectTicketSource = (url: string | null): string => {
   // ============================================================================
   // DATA LOADING
   // ============================================================================
-  useEffect(() => {
-    supabase.from('events').select('*, venue:venues(*)').eq('status', 'published')
-      .gte('start_time', new Date().toISOString().split('T')[0]).order('start_time')
-      .then(({ data }: { data: Event[] | null }) => { 
-        if (data) {
-          setEvents(data)
-          const venueIds = new Set<string>()
-          for (let i = 0; i < data.length; i++) {
-            venueIds.add(data[i].venue_id)
-          }
-          trackMapLoaded(data.length, venueIds.size)
+ useEffect(() => {
+  supabase.from('events')
+    .select(`
+      *,
+      venue:venues(*),
+      brand:brands(id, name, slug, logo_url, is_verified, tagline)
+    `)
+    .eq('status', 'published')
+    .gte('start_time', new Date().toISOString().split('T')[0])
+    .order('start_time')
+    .then(({ data }: { data: Event[] | null }) => { 
+      if (data) {
+        setEvents(data)
+        const venueIds = new Set<string>()
+        for (let i = 0; i < data.length; i++) {
+          venueIds.add(data[i].venue_id)
         }
-        setLoading(false) 
-      })
-  }, [])
+        trackMapLoaded(data.length, venueIds.size)
+      }
+      setLoading(false) 
+    })
+}, [])
 
   // ============================================================================
   // MAP INITIALIZATION - P1 FIX: minZoom changed from 10 to 12
@@ -1739,39 +1781,65 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                   {/* P1 FIX: Use EventThumbnail component */}
                   <EventThumbnail imageUrl={e.image_url} genres={e.genres} size={52} />
                   
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                      {e.so_pick && (
-                        <img src="/so-icon.png" alt="Curated" style={{ height: '12px', width: 'auto' }} />
-                      )}
-                      <span style={{ 
-                        fontSize: '13px', 
-                        fontWeight: 600, 
-                        whiteSpace: 'nowrap', 
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis' 
-                      }}>
-                        {e.title}
-                      </span>
-                    </div>
-                    <Link 
-                      href={`/venue/${e.venue?.id}`} 
-                      onClick={(ev: React.MouseEvent) => ev.stopPropagation()}
-                      style={{ fontSize: '11px', color: '#aaa', marginBottom: '2px', textDecoration: 'none', display: 'block' }}
-                    >
-                      {e.venue?.name}
-                    </Link>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 600 }}>
-                        {formatTime(e.start_time)}
-                      </span>
-                      {e.genres && (
-                        <span style={{ fontSize: '10px', color: '#22d3ee' }}>
-                          {e.genres.split(',')[0]?.trim()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+      {/* Title row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+        {e.so_pick && (
+          <img src="/so-icon.png" alt="Curated" style={{ height: '12px', width: 'auto' }} />
+        )}
+        <span style={{ 
+          fontSize: '13px', 
+          fontWeight: 600, 
+          whiteSpace: 'nowrap', 
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis' 
+        }}>
+          {e.title}
+        </span>
+      </div>
+      
+      {/* ========================================== */}
+      {/* BRAND ATTRIBUTION - NEW */}
+      {/* ========================================== */}
+      {e.brand && (
+        <p style={{ fontSize: '11px', color: '#ab67f7', marginBottom: '2px' }}>
+          by {e.brand.name} {e.brand.is_verified && '✓'}
+        </p>
+      )}
+      
+      {/* Venue link */}
+      <Link 
+        href={`/venue/${e.venue?.id}`} 
+        onClick={(ev: React.MouseEvent) => ev.stopPropagation()}
+        style={{ fontSize: '11px', color: '#aaa', marginBottom: '2px', textDecoration: 'none', display: 'block' }}
+      >
+        {e.venue?.name}
+      </Link>
+      
+      {/* Time, Genre, Ticket Source */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 600 }}>
+          {formatTime(e.start_time)}
+        </span>
+        {e.genres && (
+          <span style={{ fontSize: '10px', color: '#22d3ee' }}>
+            {formatGenre(e.genres.split(',')[0])}
+          </span>
+        )}
+        {/* Ticket source badge - NEW */}
+        {e.event_url && (
+          <span style={{ 
+            fontSize: '9px', 
+            padding: '2px 6px', 
+            background: 'rgba(59,130,246,0.15)', 
+            borderRadius: '4px', 
+            color: '#3b82f6' 
+          }}>
+            🎫 {TICKET_SOURCES[e.ticket_source || detectTicketSource(e.event_url)]?.shortName || 'Tickets'}
+          </span>
+        )}
+      </div>
+    </div>
                   
                   {/* Right side: Save button + Price */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
@@ -1794,22 +1862,22 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                         SOLD OUT
                       </span>
                     )}
-                    {isFree(e.price_min, e.price_max) ? (
-                      <span style={{ 
-                        fontSize: '10px', 
-                        fontWeight: 700, 
-                        color: '#22c55e', 
-                        background: 'rgba(34,197,94,0.15)', 
-                        padding: '3px 6px', 
-                        borderRadius: '4px' 
-                      }}>
-                        FREE
-                      </span>
-                    ) : formatPrice(e.price_min, e.price_max) && (
-                      <span style={{ fontSize: '11px', color: '#999', fontWeight: 600 }}>
-                        {formatPrice(e.price_min, e.price_max)}
-                      </span>
-                    )}
+                    {(() => {
+                      const price = getPriceDisplay(e)
+                      if (!price) return null
+                      return (
+                        <span style={{ 
+                          fontSize: price.type === 'free' ? '10px' : '11px', 
+                          fontWeight: price.type === 'free' ? 700 : 600, 
+                          color: price.type === 'free' || price.type === 'freeBefore' ? '#22c55e' : '#999',
+                          background: price.type === 'free' ? 'rgba(34,197,94,0.15)' : 'transparent',
+                          padding: price.type === 'free' ? '3px 6px' : '0',
+                          borderRadius: '4px',
+                        }}>
+                          {price.text}
+                        </span>
+                      )
+                    })()
                   </div>
                 </div>
               ))}
@@ -1949,6 +2017,66 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
           <h2 style={{ fontSize: '22px', fontWeight: 800, lineHeight: 1.2, marginBottom: '6px' }}>
             {current.title}
           </h2>
+
+          
+          {/* ========================================== */}
+          {/* BRAND ATTRIBUTION - NEW */}
+          {/* ========================================== */}
+          {current.brand && (
+            <Link
+              href={`/brand/${current.brand.slug}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginBottom: '12px',
+                padding: '10px 16px',
+                background: 'rgba(171,103,247,0.1)',
+                border: '1px solid rgba(171,103,247,0.2)',
+                borderRadius: '12px',
+                textDecoration: 'none',
+              }}
+            >
+              {current.brand.logo_url ? (
+                <img 
+                  src={current.brand.logo_url} 
+                  alt="" 
+                  style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }} 
+                />
+              ) : (
+                <div style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '6px',
+                  background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '14px',
+                }}>🎵</div>
+              )}
+              <div>
+                <p style={{ fontSize: '10px', color: '#888', marginBottom: '1px' }}>Presented by</p>
+                <p style={{ fontSize: '14px', color: '#ab67f7', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {current.brand.name}
+                  {current.brand.is_verified && (
+                    <span style={{
+                      width: '14px',
+                      height: '14px',
+                      background: '#ab67f7',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '8px',
+                      color: 'white',
+                    }}>✓</span>
+                  )}
+                </p>
+              </div>
+              <span style={{ color: '#666', marginLeft: '8px' }}>→</span>
+            </Link>
+          )}
           
           {/* Badges */}
           {current.so_pick && (
@@ -2002,7 +2130,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             )}
             {current.genres?.split(',').slice(0, showAllGenres ? undefined : 4).map((g: string, i: number) => (
               <span key={i} style={{ padding: '6px 12px', background: 'rgba(171,103,247,0.12)', borderRadius: '8px', fontSize: '12px', color: '#ab67f7' }}>
-                {g.trim()}
+                {formatGenre(g)}
               </span>
             ))}
             {current.genres && current.genres.split(',').length > 4 && !showAllGenres && (
@@ -2715,7 +2843,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                             <span style={{ fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</span>
                           </div>
                           <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>{e.venue?.name}</div>
-                          {(e.genres || e.vibe) && <div style={{ fontSize: '11px', color: '#22d3ee', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.genres?.split(',').slice(0, 2).map((g: string) => g.trim()).join(' · ') || e.vibe}</div>}
+                          {(e.genres || e.vibe) && <div style={{ fontSize: '11px', color: '#22d3ee', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.genres?.split(',').slice(0, 2).map((g: string) => formatGenre(g)).join(' · ') || e.vibe}</div>}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                           {e.sold_out && <span style={{ fontSize: '10px', fontWeight: 700, color: '#f87171', background: 'rgba(248,113,113,0.15)', padding: '3px 6px', borderRadius: '4px' }}>SOLD OUT</span>}
@@ -3001,6 +3129,68 @@ function MobileDetailSheet({
 
       <h2 style={{ fontSize: '26px', fontWeight: 800, lineHeight: 1.2, marginBottom: '6px', ...noSelectStyle }}>{current.title}</h2>
 
+      
+      {/* ========================================== */}
+      {/* BRAND ATTRIBUTION - NEW */}
+      {/* ========================================== */}
+      {current.brand && (
+        <Link
+          href={`/brand/${current.brand.slug}`}
+          onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            marginBottom: '12px',
+            padding: '10px 16px',
+            background: 'rgba(171,103,247,0.1)',
+            border: '1px solid rgba(171,103,247,0.2)',
+            borderRadius: '12px',
+            textDecoration: 'none',
+          }}
+        >
+          {current.brand.logo_url ? (
+            <img 
+              src={current.brand.logo_url} 
+              alt="" 
+              style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover' }} 
+            />
+          ) : (
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '16px',
+            }}>🎵</div>
+          )}
+          <div>
+            <p style={{ fontSize: '10px', color: '#888', marginBottom: '1px' }}>Presented by</p>
+            <p style={{ fontSize: '15px', color: '#ab67f7', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {current.brand.name}
+              {current.brand.is_verified && (
+                <span style={{
+                  width: '16px',
+                  height: '16px',
+                  background: '#ab67f7',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '9px',
+                  color: 'white',
+                }}>✓</span>
+              )}
+            </p>
+          </div>
+          <span style={{ color: '#666', marginLeft: 'auto' }}>→</span>
+        </Link>
+      )}
+
+
       {current.so_pick && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
           <img src="/so-icon.png" alt="Curated" style={{ height: '16px', width: 'auto', opacity: 0.9 }} />
@@ -3032,7 +3222,7 @@ function MobileDetailSheet({
           {current.sold_out && <span style={{ padding: '8px 14px', background: 'rgba(248,113,113,0.15)', borderRadius: '10px', fontSize: '14px', fontWeight: 700, color: '#f87171' }}>SOLD OUT</span>}
           {isFree(current.price_min, current.price_max) && <span style={{ padding: '8px 14px', background: 'rgba(34,197,94,0.15)', borderRadius: '10px', fontSize: '14px', fontWeight: 700, color: '#22c55e' }}>FREE</span>}
           {current.genres?.split(',').slice(0, showAllGenres ? undefined : 4).map((g: string, i: number) => (
-            <span key={i} style={{ padding: '8px 14px', background: 'rgba(171,103,247,0.12)', borderRadius: '10px', fontSize: '14px', color: '#ab67f7' }}>{g.trim()}</span>
+            <span key={i} style={{ padding: '8px 14px', background: 'rgba(171,103,247,0.12)', borderRadius: '10px', fontSize: '14px', color: '#ab67f7' }}>{formatGenre(g)}</span>
           ))}
           {current.genres && current.genres.split(',').length > 4 && !showAllGenres && (
             <button onClick={() => setShowAllGenres(true)} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.08)', borderRadius: '10px', fontSize: '14px', color: '#999', border: 'none', cursor: 'pointer' }}>+{current.genres.split(',').length - 4} more</button>
