@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
 import NavBar from '../../components/NavBar'
@@ -33,18 +33,20 @@ export default function EventsPage() {
 
   useEffect(() => {
     const loadEvents = async () => {
-      const { data } = await supabase
-        .from('events')
-        .select('*, venue:venues(*)')
-        .eq('status', 'published')
-        .gte('start_time', new Date().toISOString().split('T')[0])
-        .order('start_time')
+      try {
+        const { data } = await supabase
+          .from('events')
+          .select('*, venue:venues(*)')
+          .eq('status', 'published')
+          .gte('start_time', new Date().toISOString().split('T')[0])
+          .order('start_time')
 
-      if (data) {
-        setEvents(data as Event[])
+        if (data) setEvents(data as Event[])
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
+
     loadEvents()
   }, [])
 
@@ -65,9 +67,9 @@ export default function EventsPage() {
 
   const formatPrice = (min: number | null, max: number | null): string | null => {
     if (min === 0) return 'Free'
-    if (!min && !max) return null
-    if (min && max && min !== max) return `£${min}–£${max}`
-    return `£${min || max}`
+    if (min == null && max == null) return null
+    if (min != null && max != null && min !== max) return `£${min}–£${max}`
+    return `£${min ?? max}`
   }
 
   const formatGenre = (genre: string): string => {
@@ -87,17 +89,31 @@ export default function EventsPage() {
     return day === 5 || day === 6 || day === 0
   }
 
-  const filtered = events.filter(e => {
-    if (dateFilter === 'today' && !isToday(e.start_time)) return false
-    if (dateFilter === 'tomorrow' && !isTomorrow(e.start_time)) return false
-    if (dateFilter === 'weekend' && !isWeekend(e.start_time)) return false
-    if (genreFilter && !e.genres?.toLowerCase().includes(genreFilter.toLowerCase())) return false
-    return true
-  })
+  const filtered = useMemo(() => {
+    return events.filter((e) => {
+      if (dateFilter === 'today' && !isToday(e.start_time)) return false
+      if (dateFilter === 'tomorrow' && !isTomorrow(e.start_time)) return false
+      if (dateFilter === 'weekend' && !isWeekend(e.start_time)) return false
+      if (genreFilter && !e.genres?.toLowerCase().includes(genreFilter.toLowerCase())) return false
+      return true
+    })
+  }, [events, dateFilter, genreFilter])
 
-  // Get available genres
-  const genres = [...new Set(events.flatMap(e => e.genres?.split(',').map(g => g.trim().toLowerCase()) || []))]
-    .slice(0, 8)
+  // ✅ Get available genres (NO Set iteration → no TS downlevelIteration error)
+  const genres = useMemo(() => {
+    const seen: Record<string, true> = {}
+
+    for (const e of events) {
+      const parts = (e.genres || '')
+        .split(',')
+        .map((g) => g.trim().toLowerCase())
+        .filter(Boolean)
+
+      for (const g of parts) seen[g] = true
+    }
+
+    return Object.keys(seen).slice(0, 8)
+  }, [events])
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white' }}>
@@ -164,15 +180,17 @@ export default function EventsPage() {
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <div style={{ 
-              width: '48px', 
-              height: '48px', 
-              border: '3px solid rgba(171,103,247,0.2)', 
-              borderTopColor: '#ab67f7',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-              margin: '0 auto 16px'
-            }} />
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                border: '3px solid rgba(171,103,247,0.2)',
+                borderTopColor: '#ab67f7',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+                margin: '0 auto 16px',
+              }}
+            />
             <p style={{ color: '#888' }}>Loading events...</p>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
@@ -183,11 +201,13 @@ export default function EventsPage() {
             <p style={{ fontSize: '14px', color: '#888' }}>Try adjusting your filters</p>
           </div>
         ) : (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: '20px' 
-          }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+              gap: '20px',
+            }}
+          >
             {filtered.map((event) => (
               <Link
                 key={event.id}
@@ -206,21 +226,19 @@ export default function EventsPage() {
                 {/* Image */}
                 {event.image_url ? (
                   <div style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
-                    <img
-                      src={event.image_url}
-                      alt=""
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
+                    <img src={event.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                 ) : (
-                  <div style={{
-                    width: '100%',
-                    aspectRatio: '16/9',
-                    background: 'linear-gradient(135deg, #1a1a2e, #252530)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
+                  <div
+                    style={{
+                      width: '100%',
+                      aspectRatio: '16/9',
+                      background: 'linear-gradient(135deg, #1a1a2e, #252530)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
                     <span style={{ fontSize: '36px', opacity: 0.4 }}>🎵</span>
                   </div>
                 )}
@@ -230,34 +248,41 @@ export default function EventsPage() {
                   <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, marginBottom: '6px' }}>
                     {formatDate(event.start_time)} · {formatTime(event.start_time)}
                   </p>
+
                   <h3 style={{ fontSize: '17px', fontWeight: 700, marginBottom: '6px', lineHeight: 1.3 }}>
                     {event.title}
                   </h3>
-                  <p style={{ fontSize: '14px', color: '#888', marginBottom: '10px' }}>
-                    {event.venue?.name}
-                  </p>
+
+                  <p style={{ fontSize: '14px', color: '#888', marginBottom: '10px' }}>{event.venue?.name}</p>
+
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     {event.sold_out && (
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        color: '#f87171',
-                        background: 'rgba(248,113,113,0.15)',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                      }}>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: '#f87171',
+                          background: 'rgba(248,113,113,0.15)',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                        }}
+                      >
                         SOLD OUT
                       </span>
                     )}
+
                     {formatPrice(event.price_min, event.price_max) && (
-                      <span style={{
-                        fontSize: '12px',
-                        fontWeight: event.price_min === 0 ? 700 : 500,
-                        color: event.price_min === 0 ? '#22c55e' : '#888',
-                      }}>
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: event.price_min === 0 ? 700 : 500,
+                          color: event.price_min === 0 ? '#22c55e' : '#888',
+                        }}
+                      >
                         {formatPrice(event.price_min, event.price_max)}
                       </span>
                     )}
+
                     {event.genres && (
                       <span style={{ fontSize: '11px', color: '#22d3ee' }}>
                         {formatGenre(event.genres.split(',')[0])}
