@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
-import { MinimalNavBar } from '../../components/NavBar'
+import { NavBar } from '../../components/NavBar'
 
 // ============================================================================
 // SETTINGS PAGE - With honest "Coming Soon" labels
