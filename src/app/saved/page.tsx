@@ -3,90 +3,133 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
+import NavBar from '../../components/NavBar'
 
-interface VenueData {
+interface Venue {
   id: string
   name: string
+  address: string
 }
 
-interface EventData {
+interface Event {
   id: string
   title: string
   start_time: string
+  end_time: string | null
   image_url: string | null
   genres: string | null
   price_min: number | null
   price_max: number | null
   sold_out: boolean
-  venue: VenueData | null
+  venue: Venue | null
 }
 
-interface SavedEventData {
+interface User {
   id: string
-  event: EventData | null
+  email?: string
 }
 
 export default function SavedPage() {
-  const [saved, setSaved] = useState<SavedEventData[]>([])
+  const [user, setUser] = useState<User | null>(null)
+  const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
 
+  // Load user on mount
   useEffect(() => {
     const loadUser = async () => {
       const { data } = await supabase.auth.getUser()
       if (data.user) {
-        setUser(data.user)
-      } else {
-        setLoading(false)
+        setUser({ id: data.user.id, email: data.user.email })
       }
     }
     loadUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setUser({ id: session.user.id, email: session.user.email })
+      } else {
+        setUser(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
+  // Load saved events
   useEffect(() => {
-    if (!user) return
-    
-    const loadSaved = async () => {
-      const { data } = await supabase
-        .from('saved_events')
-        .select(`
-          id,
-          event:events(
-            id, title, start_time, image_url, genres, price_min, price_max, sold_out,
-            venue:venues(id, name)
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+    const loadSavedEvents = async () => {
+      setLoading(true)
+
+      // Get IDs from localStorage
+      const savedStr = localStorage.getItem('so_saved_events')
+      const localIds: string[] = savedStr ? JSON.parse(savedStr) : []
+
+      // If logged in, also get from database and merge
+      let allIds = [...localIds]
       
-      if (data) {
-        const typedData = data as unknown as SavedEventData[]
-        const valid: SavedEventData[] = []
-        for (let i = 0; i < typedData.length; i++) {
-          if (typedData[i].event !== null) {
-            valid.push(typedData[i])
+      if (user) {
+        const { data: dbSaved } = await supabase
+          .from('saved_events')
+          .select('event_id')
+          .eq('user_id', user.id)
+
+        if (dbSaved) {
+          const dbIds = dbSaved.map((s: { event_id: string }) => s.event_id)
+          // Merge unique IDs
+          allIds = [...new Set([...localIds, ...dbIds])]
+          
+          // Sync localStorage IDs to database
+          for (const id of localIds) {
+            if (!dbIds.includes(id)) {
+              await supabase
+                .from('saved_events')
+                .upsert({ user_id: user.id, event_id: id }, { onConflict: 'user_id,event_id' })
+            }
           }
+          
+          // Update localStorage with merged list
+          localStorage.setItem('so_saved_events', JSON.stringify(allIds))
         }
-        setSaved(valid)
       }
+
+      if (allIds.length > 0) {
+        const { data: eventsData } = await supabase
+          .from('events')
+          .select('*, venue:venues(*)')
+          .in('id', allIds)
+          .order('start_time')
+
+        if (eventsData) {
+          setEvents(eventsData as Event[])
+        }
+      } else {
+        setEvents([])
+      }
+
       setLoading(false)
     }
-    loadSaved()
+
+    loadSavedEvents()
   }, [user])
 
-  const handleRemove = async (savedId: string) => {
-    await supabase
-      .from('saved_events')
-      .delete()
-      .eq('id', savedId)
-    
-    const newSaved: SavedEventData[] = []
-    for (let i = 0; i < saved.length; i++) {
-      if (saved[i].id !== savedId) {
-        newSaved.push(saved[i])
-      }
+  const handleRemove = async (eventId: string) => {
+    // Remove from localStorage
+    const savedStr = localStorage.getItem('so_saved_events')
+    let ids: string[] = savedStr ? JSON.parse(savedStr) : []
+    ids = ids.filter(id => id !== eventId)
+    localStorage.setItem('so_saved_events', JSON.stringify(ids))
+
+    // If logged in, also remove from database
+    if (user) {
+      await supabase
+        .from('saved_events')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('event_id', eventId)
     }
-    setSaved(newSaved)
+
+    // Update UI
+    setEvents(events.filter(e => e.id !== eventId))
   }
 
   const formatDate = (date: string): string => {
@@ -94,7 +137,7 @@ export default function SavedPage() {
     const now = new Date()
     const tomorrow = new Date(now)
     tomorrow.setDate(tomorrow.getDate() + 1)
-    
+
     if (d.toDateString() === now.toDateString()) return 'Today'
     if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow'
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -104,327 +147,253 @@ export default function SavedPage() {
     return new Date(date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
   }
 
-  const isPast = (date: string): boolean => new Date(date) < new Date()
-
-  const upcoming: SavedEventData[] = []
-  const past: SavedEventData[] = []
-  
-  for (let i = 0; i < saved.length; i++) {
-    const item = saved[i]
-    if (item.event) {
-      if (isPast(item.event.start_time)) {
-        past.push(item)
-      } else {
-        upcoming.push(item)
-      }
-    }
+  const formatPrice = (min: number | null, max: number | null): string | null => {
+    if (min === 0) return 'Free'
+    if (!min && !max) return null
+    if (min && max && min !== max) return `£${min}–£${max}`
+    return `£${min || max}`
   }
 
-  if (!user && !loading) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', paddingBottom: '60px' }}>
-        <header style={{
-          padding: '16px 20px',
-          paddingTop: 'max(16px, env(safe-area-inset-top))',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-        }}>
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-            <img src="/logo.svg" alt="Sounded Out" style={{ height: '24px' }} />
-          </Link>
-        </header>
-        
-        <main style={{ maxWidth: '500px', margin: '0 auto', padding: '60px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '20px', opacity: 0.5 }}>&#9825;</div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '12px' }}>Save events you love</h1>
-          <p style={{ fontSize: '15px', color: '#888', marginBottom: '32px', lineHeight: 1.6 }}>
-            Sign in to save events and access them from any device.
-          </p>
-          <Link
-            href="/login"
-            style={{
-              display: 'inline-block',
-              padding: '14px 32px',
-              background: '#ab67f7',
-              borderRadius: '10px',
-              color: 'white',
-              textDecoration: 'none',
-              fontSize: '15px',
-              fontWeight: 600,
-            }}
-          >
-            Sign in
-          </Link>
-        </main>
-      </div>
-    )
+  const formatGenre = (genre: string): string => {
+    return genre
+      .trim()
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase())
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white', paddingBottom: '60px' }}>
-      <header style={{
-        padding: '16px 20px',
-        paddingTop: 'max(16px, env(safe-area-inset-top))',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        position: 'sticky',
-        top: 0,
-        background: '#0a0a0b',
-        zIndex: 10,
-      }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-              <img src="/logo.svg" alt="Sounded Out" style={{ height: '24px' }} />
-            </Link>
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <Link href="/events" style={{ color: '#888', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>Events</Link>
-              <Link href="/venues" style={{ color: '#888', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>Venues</Link>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white' }}>
+      <NavBar />
 
-      <main style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 20px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '6px' }}>Saved</h1>
-        <p style={{ fontSize: '14px', color: '#666', marginBottom: '24px' }}>
-          Events you have saved
-        </p>
+      <main style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 20px' }}>
+        <div style={{ marginBottom: '32px' }}>
+          <h1 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '8px' }}>
+            Saved Events
+          </h1>
+          <p style={{ fontSize: '15px', color: '#888' }}>
+            {user 
+              ? 'Your saved events are synced across devices.' 
+              : 'Sign in to sync your saved events across all your devices.'
+            }
+          </p>
+        </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#666' }}>
-            Loading...
+          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+            <div style={{ 
+              width: '48px', 
+              height: '48px', 
+              border: '3px solid rgba(171,103,247,0.2)', 
+              borderTopColor: '#ab67f7',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto 16px'
+            }} />
+            <p style={{ color: '#888' }}>Loading saved events...</p>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
-        ) : saved.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>&#9825;</div>
-            <p style={{ fontSize: '16px', color: '#888', marginBottom: '8px' }}>No saved events</p>
-            <p style={{ fontSize: '14px', color: '#666', marginBottom: '24px' }}>
-              Tap the save button on any event to add it here
+        ) : events.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+            <div style={{
+              width: '100px',
+              height: '100px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, rgba(171,103,247,0.1), rgba(171,103,247,0.05))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+            }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ab67f7" strokeWidth="1.5">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+            </div>
+            <h3 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '8px' }}>No saved events yet</h3>
+            <p style={{ fontSize: '15px', color: '#888', marginBottom: '28px', maxWidth: '320px', margin: '0 auto 28px' }}>
+              When you find events you&apos;re interested in, tap the heart icon to save them here.
             </p>
             <Link
-              href="/events"
+              href="/"
               style={{
                 display: 'inline-block',
-                padding: '12px 24px',
-                background: '#ab67f7',
-                borderRadius: '10px',
+                padding: '16px 32px',
+                background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                borderRadius: '14px',
                 color: 'white',
                 textDecoration: 'none',
-                fontSize: '14px',
-                fontWeight: 600,
+                fontSize: '16px',
+                fontWeight: 700,
+                boxShadow: '0 8px 32px rgba(171,103,247,0.3)',
               }}
             >
-              Browse events
+              Explore Events
             </Link>
           </div>
         ) : (
           <>
-            {upcoming.length > 0 && (
-              <div style={{ marginBottom: '32px' }}>
-                <h2 style={{ 
-                  fontSize: '12px', 
-                  fontWeight: 600, 
-                  color: '#888', 
-                  textTransform: 'uppercase', 
-                  letterSpacing: '0.5px',
-                  marginBottom: '16px',
-                }}>
-                  Upcoming ({upcoming.length})
-                </h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {upcoming.map((item: SavedEventData) => {
-                    const event = item.event
-                    if (!event) return null
-                    return (
-                      <div 
-                        key={item.id}
-                        style={{
-                          display: 'flex',
-                          gap: '14px',
-                          padding: '14px',
-                          background: '#141416',
-                          borderRadius: '12px',
-                          position: 'relative',
-                        }}
-                      >
-                        <Link 
-                          href={'/event/' + event.id}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: '16px' 
+            }}>
+              {events.map((event) => (
+                <div
+                  key={event.id}
+                  style={{
+                    background: '#141416',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    overflow: 'hidden',
+                    transition: 'transform 150ms ease, box-shadow 150ms ease',
+                  }}
+                >
+                  {/* Image */}
+                  <Link href={`/events/${event.id}`}>
+                    {event.image_url ? (
+                      <div style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
+                        <img
+                          src={event.image_url}
+                          alt=""
                           style={{
-                            display: 'flex',
-                            gap: '14px',
-                            flex: 1,
-                            textDecoration: 'none',
-                            color: 'white',
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
                           }}
-                        >
-                          {event.image_url ? (
-                            <div style={{
-                              width: '70px',
-                              height: '70px',
-                              borderRadius: '8px',
-                              overflow: 'hidden',
-                              flexShrink: 0,
-                            }}>
-                              <img 
-                                src={event.image_url} 
-                                alt="" 
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                              />
-                            </div>
-                          ) : (
-                            <div style={{
-                              width: '70px',
-                              height: '70px',
-                              borderRadius: '8px',
-                              background: 'linear-gradient(135deg, #1e1e24, #252530)',
-                              flexShrink: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#333',
-                              fontSize: '20px',
-                            }}>
-                              &#9835;
-                            </div>
-                          )}
-                          
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 600, marginBottom: '4px' }}>
-                              {formatDate(event.start_time)} · {formatTime(event.start_time)}
-                            </p>
-                            <h3 style={{ 
-                              fontSize: '14px', 
-                              fontWeight: 600, 
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              margin: 0,
-                              marginBottom: '4px',
-                            }}>
-                              {event.title}
-                            </h3>
-                            <p style={{ fontSize: '12px', color: '#888' }}>
-                              {event.venue?.name}
-                            </p>
-                          </div>
-                        </Link>
-                        
-                        <button
-                          onClick={() => handleRemove(item.id)}
-                          style={{
-                            position: 'absolute',
-                            top: '12px',
-                            right: '12px',
-                            width: '28px',
-                            height: '28px',
-                            background: 'rgba(255,255,255,0.06)',
-                            border: 'none',
-                            borderRadius: '6px',
-                            color: '#666',
-                            fontSize: '14px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          ×
-                        </button>
+                        />
                       </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+                    ) : (
+                      <div style={{
+                        width: '100%',
+                        aspectRatio: '16/9',
+                        background: 'linear-gradient(135deg, #1a1a2e, #252530)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <span style={{ fontSize: '40px', opacity: 0.4 }}>🎵</span>
+                      </div>
+                    )}
+                  </Link>
 
-            {past.length > 0 && (
-              <div>
-                <h2 style={{ 
-                  fontSize: '12px', 
-                  fontWeight: 600, 
-                  color: '#666', 
-                  textTransform: 'uppercase', 
-                  letterSpacing: '0.5px',
-                  marginBottom: '16px',
-                }}>
-                  Past ({past.length})
-                </h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', opacity: 0.6 }}>
-                  {past.map((item: SavedEventData) => {
-                    const event = item.event
-                    if (!event) return null
-                    return (
-                      <div 
-                        key={item.id}
+                  {/* Content */}
+                  <div style={{ padding: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+                      <Link
+                        href={`/events/${event.id}`}
+                        style={{ textDecoration: 'none', color: 'white', flex: 1 }}
+                      >
+                        <p style={{ 
+                          fontSize: '12px', 
+                          color: '#ab67f7', 
+                          fontWeight: 700, 
+                          marginBottom: '6px' 
+                        }}>
+                          {formatDate(event.start_time)} · {formatTime(event.start_time)}
+                        </p>
+                        <h3 style={{
+                          fontSize: '17px',
+                          fontWeight: 700,
+                          marginBottom: '6px',
+                          lineHeight: 1.3,
+                        }}>
+                          {event.title}
+                        </h3>
+                        <p style={{ fontSize: '14px', color: '#888', marginBottom: '8px' }}>
+                          {event.venue?.name}
+                        </p>
+                      </Link>
+
+                      {/* Remove Button */}
+                      <button
+                        onClick={() => handleRemove(event.id)}
+                        title="Remove from saved"
                         style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '50%',
+                          border: 'none',
+                          background: 'rgba(248,113,113,0.15)',
+                          cursor: 'pointer',
                           display: 'flex',
-                          gap: '14px',
-                          padding: '14px',
-                          background: '#141416',
-                          borderRadius: '12px',
-                          position: 'relative',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
                         }}
                       >
-                        <Link 
-                          href={'/event/' + event.id}
-                          style={{
-                            display: 'flex',
-                            gap: '14px',
-                            flex: 1,
-                            textDecoration: 'none',
-                            color: 'white',
-                          }}
-                        >
-                          <div style={{
-                            width: '50px',
-                            height: '50px',
-                            borderRadius: '8px',
-                            background: '#1e1e24',
-                            flexShrink: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#333',
-                            fontSize: '16px',
-                          }}>
-                            &#9835;
-                          </div>
-                          
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>
-                              {formatDate(event.start_time)}
-                            </p>
-                            <h3 style={{ 
-                              fontSize: '13px', 
-                              fontWeight: 500, 
-                              margin: 0,
-                              color: '#888',
-                            }}>
-                              {event.title}
-                            </h3>
-                          </div>
-                        </Link>
-                        
-                        <button
-                          onClick={() => handleRemove(item.id)}
-                          style={{
-                            position: 'absolute',
-                            top: '12px',
-                            right: '12px',
-                            width: '24px',
-                            height: '24px',
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#444',
-                            fontSize: '14px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    )
-                  })}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#f87171" stroke="#f87171" strokeWidth="2">
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Tags */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      {event.sold_out && (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: '#f87171',
+                          background: 'rgba(248,113,113,0.15)',
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                        }}>
+                          SOLD OUT
+                        </span>
+                      )}
+                      {formatPrice(event.price_min, event.price_max) && (
+                        <span style={{
+                          fontSize: '12px',
+                          fontWeight: event.price_min === 0 ? 700 : 500,
+                          color: event.price_min === 0 ? '#22c55e' : '#888',
+                          background: event.price_min === 0 ? 'rgba(34,197,94,0.15)' : 'transparent',
+                          padding: event.price_min === 0 ? '4px 10px' : '0',
+                          borderRadius: '6px',
+                        }}>
+                          {formatPrice(event.price_min, event.price_max)}
+                        </span>
+                      )}
+                      {event.genres && (
+                        <span style={{
+                          fontSize: '11px',
+                          color: '#ab67f7',
+                        }}>
+                          {formatGenre(event.genres.split(',')[0])}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Sync Prompt for non-logged in users */}
+            {!user && (
+              <div style={{
+                marginTop: '40px',
+                padding: '24px',
+                background: 'rgba(171,103,247,0.08)',
+                border: '1px solid rgba(171,103,247,0.2)',
+                borderRadius: '16px',
+                textAlign: 'center',
+              }}>
+                <p style={{ fontSize: '15px', color: '#ab67f7', marginBottom: '16px', fontWeight: 600 }}>
+                  ✨ Sign in to sync your saved events across all your devices
+                </p>
+                <Link
+                  href="/login"
+                  style={{
+                    display: 'inline-block',
+                    padding: '14px 28px',
+                    background: '#ab67f7',
+                    borderRadius: '12px',
+                    color: 'white',
+                    textDecoration: 'none',
+                    fontSize: '15px',
+                    fontWeight: 600,
+                  }}
+                >
+                  Sign In
+                </Link>
               </div>
             )}
           </>
