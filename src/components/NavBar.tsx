@@ -10,6 +10,94 @@ interface User {
   email?: string
 }
 
+// ============================================================================
+// MINIMAL NAVBAR - For pages like Settings, Profile
+// ============================================================================
+export function MinimalNavBar() {
+  const [user, setUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser()
+      if (data.user) {
+        setUser({ id: data.user.id, email: data.user.email })
+      }
+    }
+    loadUser()
+  }, [])
+
+  return (
+    <>
+      <nav style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '64px',
+        background: 'rgba(10,10,11,0.95)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        zIndex: 100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 20px',
+      }}>
+        {/* Left: Back + Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <Link 
+            href="/" 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              color: '#888',
+              textDecoration: 'none',
+              fontSize: '14px',
+            }}
+          >
+            ← Back
+          </Link>
+          <span style={{ color: '#333' }}>|</span>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+            <img src="/logo.svg" alt="Sounded Out" style={{ height: '22px', width: 'auto' }} />
+          </Link>
+        </div>
+
+        {/* Right: User info */}
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              background: '#ab67f7',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '12px',
+              color: 'white',
+              fontWeight: 700,
+            }}>
+              {user.email?.[0]?.toUpperCase() || 'U'}
+            </span>
+            <span style={{ fontSize: '13px', color: '#888' }}>
+              {user.email?.split('@')[0]}
+            </span>
+          </div>
+        )}
+      </nav>
+
+      {/* Spacer */}
+      <div style={{ height: '64px' }} />
+    </>
+  )
+}
+
+// ============================================================================
+// FULL NAVBAR - For Events, Venues, Saved pages
+// ============================================================================
 export default function NavBar() {
   const pathname = usePathname()
   const [user, setUser] = useState<User | null>(null)
@@ -191,6 +279,23 @@ export default function NavBar() {
                       }}
                     >
                       👤 Profile
+                    </Link>
+
+                    <Link 
+                      href="/settings" 
+                      onClick={() => setShowDropdown(false)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        color: 'white',
+                        textDecoration: 'none',
+                        fontSize: '14px',
+                      }}
+                    >
+                      ⚙️ Settings
                     </Link>
                     
                     <Link 
