@@ -82,6 +82,7 @@ type Venue = {
 type Event = {
   id: string
   venue_id: string
+  brand_id: string | null           // ← ADD THIS
   title: string
   start_time: string
   end_time: string | null
@@ -91,7 +92,11 @@ type Event = {
   image_url: string | null
   price_min: number | null
   price_max: number | null
+  price_type: string | null         // ← ADD THIS
+  free_before_time: string | null   // ← ADD THIS
+  ticket_source: string | null      // ← ADD THIS
   venue?: Venue
+  brand?: Brand                     // ← ADD THIS
   so_pick?: boolean
   sold_out?: boolean
   description?: string | null
@@ -99,6 +104,14 @@ type Event = {
   is_claimed?: boolean
   is_verified?: boolean
 }
+
+type Brand = {
+  id: string
+  name: string
+  slug: string
+  logo_url: string | null
+  is_verified: boolean
+  tagline: string | null
 
 type DateFilter = 'today' | 'tomorrow' | 'weekend' | string
 type ViewMode = 'map' | 'preview' | 'detail' | 'list' | 'cluster'
