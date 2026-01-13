@@ -1532,10 +1532,65 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             onClick={handleLogoTap}
             style={{ height: '28px', width: 'auto', cursor: 'pointer' }}
           />
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {/* P1 FIX: Menu button with 44px touch target */}
-            <button
-              onClick={() => { setShowMenu(!showMenu); trackMenuOpen() }}
+         <div style={{ display: 'flex', gap: '8px' }}>
+  {/* Sign In / User Button */}
+  {user ? (
+    <button
+      onClick={() => { setShowMenu(!showMenu); trackMenuOpen() }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '8px 14px',
+        background: 'rgba(171,103,247,0.15)',
+        border: '1px solid rgba(171,103,247,0.3)',
+        borderRadius: '10px',
+        color: '#ab67f7',
+        fontSize: '13px',
+        fontWeight: 500,
+        cursor: 'pointer',
+      }}
+    >
+      <span style={{
+        width: '24px',
+        height: '24px',
+        borderRadius: '50%',
+        background: '#ab67f7',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '11px',
+        color: 'white',
+        fontWeight: 700,
+      }}>
+        {user.email?.[0]?.toUpperCase() || 'U'}
+      </span>
+      <span style={{ maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {user.email?.split('@')[0] || 'Account'}
+      </span>
+    </button>
+  ) : (
+    <Link
+      href="/login"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        padding: '10px 18px',
+        background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+        borderRadius: '10px',
+        color: 'white',
+        textDecoration: 'none',
+        fontSize: '14px',
+        fontWeight: 600,
+        boxShadow: '0 4px 12px rgba(171,103,247,0.3)',
+      }}
+    >
+      Sign In
+    </Link>
+  )}
+  {/* Menu button */}
+  <button
+    onClick={() => { setShowMenu(!showMenu); trackMenuOpen() }}
               style={{
                 width: '44px',
                 height: '44px',
@@ -2620,10 +2675,68 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             </div>
             
             {/* P1 FIX: Profile button with 48px touch target */}
-            <button
-              onClick={() => { setShowMenu(true); trackMenuOpen() }}
-              style={{
-                width: '48px', height: '48px', minWidth: '48px', minHeight: '48px', borderRadius: '14px',
+            {/* Sign In / User Button */}
+{user ? (
+  <button
+    onClick={() => { setShowMenu(true); trackMenuOpen() }}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      padding: '8px 12px',
+      minHeight: '48px',
+      borderRadius: '14px',
+      background: 'rgba(0,0,0,0.75)',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
+      border: '1px solid rgba(171,103,247,0.3)',
+      color: '#ab67f7',
+      fontSize: '12px',
+      fontWeight: 500,
+      cursor: 'pointer',
+    }}
+  >
+    <span style={{
+      width: '24px',
+      height: '24px',
+      borderRadius: '50%',
+      background: '#ab67f7',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '10px',
+      color: 'white',
+      fontWeight: 700,
+      flexShrink: 0,
+    }}>
+      {user.email?.[0]?.toUpperCase() || 'U'}
+    </span>
+  </button>
+) : (
+  <Link
+    href="/login"
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      padding: '10px 16px',
+      minHeight: '48px',
+      borderRadius: '14px',
+      background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+      color: 'white',
+      textDecoration: 'none',
+      fontSize: '13px',
+      fontWeight: 600,
+      boxShadow: '0 4px 12px rgba(171,103,247,0.3)',
+    }}
+  >
+    Sign In
+  </Link>
+)}
+{/* Menu button */}
+<button
+  onClick={() => { setShowMenu(true); trackMenuOpen() }}
+  style={{
+    width: '48px', height: '48px', minWidth: '48px', minHeight: '48px', borderRadius: '14px',
                 background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
                 WebkitBackdropFilter: 'blur(10px)',
                 border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
