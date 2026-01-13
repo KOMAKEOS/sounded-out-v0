@@ -1570,16 +1570,13 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             return (
               <button 
                 key={f} 
-                onClick={() => { 
-                  if (dateFilter !== f) {
-                    setDateFilter(f)
-                    setCurrentIndex(0)
-                    setViewMode('map')
-                    setSheetVisible(false)
-                    highlightMarker(null)
-                    trackDateFilter(f, filtered.length)
-                  }
-                }}
+               onClick={() => { 
+  if (dateFilter !== f) {
+    setDateFilter(f)
+    // DON'T reset currentIndex or close sheet - let user stay where they are
+    trackDateFilter(f, filtered.length)
+  }
+}}
                 aria-pressed={isSelected}
                 style={{
                   padding: '10px 18px',
@@ -1632,11 +1629,10 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                 <button 
                   key={d.str} 
                   onClick={() => { 
-                    setDateFilter(d.str)
-                    setShowDatePicker(false)
-                    setCurrentIndex(0)
-                    trackDateFilter(d.str, filtered.length)
-                  }} 
+  setDateFilter(d.str)
+  setShowDatePicker(false)
+  trackDateFilter(d.str, filtered.length)
+}}
                   style={{
                     width: '48px',
                     minWidth: '48px',
@@ -1673,13 +1669,9 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                 <button
                   key={genre}
                   onClick={() => {
-                    setActiveGenre(isSelected ? null : genre)
-                    setCurrentIndex(0)
-                    setViewMode('map')
-                    setSheetVisible(false)
-                    highlightMarker(null)
-                    trackGenreFilter(genre, filtered.length)
-                  }}
+  setActiveGenre(isSelected ? null : genre)
+  trackGenreFilter(genre, filtered.length)
+}}
                   aria-pressed={isSelected}
                   style={{
                     padding: '8px 14px',
@@ -2654,8 +2646,11 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                 <button 
                   key={f}
                   onClick={() => { 
-                    if (dateFilter !== f) { setDateFilter(f); setCurrentIndex(0); trackDateFilter(f, filtered.length) }
-                  }}
+  if (dateFilter !== f) { 
+    setDateFilter(f)
+    trackDateFilter(f, filtered.length) 
+  }
+}}
                   aria-pressed={isSelected}
                   style={{
                     padding: '10px 16px', minHeight: '44px', borderRadius: '22px', border: 'none',
@@ -2695,7 +2690,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                 {getNext7Days().map((d: { str: string; name: string; num: number }) => (
                   <button 
                     key={d.str}
-                    onClick={() => { setDateFilter(d.str); setShowDatePicker(false); setCurrentIndex(0); trackDateFilter(d.str, filtered.length) }}
+                    onClick={() => { setDateFilter(d.str); setShowDatePicker(false); trackDateFilter(d.str, filtered.length) }}
                     style={{
                       width: '48px', minWidth: '48px', padding: '8px 4px', borderRadius: '12px', border: 'none', cursor: 'pointer',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
