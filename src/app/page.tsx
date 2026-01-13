@@ -112,6 +112,7 @@ type Brand = {
   logo_url: string | null
   is_verified: boolean
   tagline: string | null
+}
 
 type DateFilter = 'today' | 'tomorrow' | 'weekend' | string
 type ViewMode = 'map' | 'preview' | 'detail' | 'list' | 'cluster'
@@ -1877,7 +1878,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                           {price.text}
                         </span>
                       )
-                    })()
+                    })()}
                   </div>
                 </div>
               ))}
