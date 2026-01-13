@@ -1474,10 +1474,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
       </>
     ) : (
       <>
-        <Link href="/login" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: '#ab67f7', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 600, marginBottom: '8px', textAlign: 'center' }}>
-          Sign In
-        </Link>
-
         <Link href="/signup" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(171,103,247,0.15)', border: '1px solid rgba(171,103,247,0.3)', borderRadius: '10px', color: '#ab67f7', textDecoration: 'none', fontSize: '15px', fontWeight: 600, textAlign: 'center' }}>
           Create Account
         </Link>
@@ -1576,7 +1572,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         display: 'flex',
         alignItems: 'center',
         padding: '10px 18px',
-        background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+        background: '#ab67f7',
         borderRadius: '10px',
         color: 'white',
         textDecoration: 'none',
@@ -2096,7 +2092,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                   width: '28px',
                   height: '28px',
                   borderRadius: '6px',
-                  background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                  background: '#ab67f7',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
