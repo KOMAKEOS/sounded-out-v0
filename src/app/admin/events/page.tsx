@@ -4,12 +4,10 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
-// ============================================================================
-// TYPES
-// ============================================================================
 interface Event {
   id: string
   venue_id: string
+  brand_id: string | null
   title: string
   description: string | null
   start_time: string
@@ -19,16 +17,17 @@ interface Event {
   image_url: string | null
   price_min: number | null
   price_max: number | null
+  price_type: string
+  free_before_time: string | null
   status: string
   vibe: string | null
   venue_name: string | null
   so_pick: boolean
   sold_out: boolean
   no_phones: boolean
-  is_claimed: boolean
-  is_verified: boolean
   created_at: string
   venue?: { name: string } | null
+  brand?: { name: string } | null
 }
 
 interface Venue {
@@ -37,17 +36,30 @@ interface Venue {
   status: string
 }
 
+interface Brand {
+  id: string
+  name: string
+  is_verified: boolean
+}
+
 const DEFAULT_GENRES = [
-  'techno', 'house', 'tech_house', 'deep_house', 'dnb', 'jungle',
-  'garage', 'uk_garage', 'disco', 'hip_hop', 'rnb', 'pop', 'rock',
+  'techno', 'house', 'tech house', 'deep house', 'dnb', 'jungle',
+  'garage', 'uk garage', 'disco', 'hip hop', 'rnb', 'pop', 'rock',
   'indie', 'jazz', 'soul', 'funk', 'afrobeats', 'reggae', 'latin',
-  'amapiano', 'dubstep', 'trance', 'hardstyle', 'mixed'
+  'amapiano', 'dubstep', 'trance', 'hardstyle', 'club classics', 'mixed'
 ]
 
 const DEFAULT_VIBES = [
-  'underground', 'mainstream', 'intimate', 'high-energy', 'chill',
-  'queer-friendly', 'late-night', 'day-party', 'afterhours', 'rooftop',
-  'basement', 'warehouse', 'festival', 'student', 'over-25s', 'dressy'
+  'underground', 'mainstream', 'intimate', 'high energy', 'chill',
+  'queer friendly', 'late night', 'day party', 'afterhours', 'rooftop',
+  'basement', 'warehouse', 'festival', 'student', 'over 25s', 'dressy'
+]
+
+const PRICE_TYPES = [
+  { value: 'unknown', label: 'Unknown / TBA' },
+  { value: 'free', label: 'Free' },
+  { value: 'free_before', label: 'Free before...' },
+  { value: 'paid', label: 'Paid (enter price)' },
 ]
 
 const ADMIN_PASSCODE = '1234'
@@ -59,6 +71,7 @@ export default function AdminEventsPage() {
 
   const [events, setEvents] = useState<Event[]>([])
   const [venues, setVenues] = useState<Venue[]>([])
+  const [brands, setBrands] = useState<Brand[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterDate, setFilterDate] = useState<'all' | 'upcoming' | 'past'>('upcoming')
@@ -77,6 +90,7 @@ export default function AdminEventsPage() {
   
   const [formData, setFormData] = useState({
     venue_id: '',
+    brand_id: '',
     title: '',
     description: '',
     start_date: '',
@@ -87,8 +101,10 @@ export default function AdminEventsPage() {
     vibes: [] as string[],
     event_url: '',
     image_url: '',
+    price_type: 'unknown',
     price_min: '',
     price_max: '',
+    free_before_time: '',
     so_pick: false,
     sold_out: false,
     no_phones: false,
@@ -117,6 +133,7 @@ export default function AdminEventsPage() {
   useEffect(() => {
     if (passcodeEntered) {
       loadVenues()
+      loadBrands()
       loadEvents()
     } else {
       setLoading(false)
@@ -136,28 +153,33 @@ export default function AdminEventsPage() {
   }
 
   const loadVenues = async () => {
-    console.log('Loading venues...')
     const { data, error } = await supabase
       .from('venues')
       .select('id, name, status')
       .order('name')
 
-    if (error) {
-      console.error('Error loading venues:', error)
-      alert(`Error loading venues: ${error.message}`)
-    } else {
-      console.log('Loaded venues:', data?.length, data)
-      setVenues(data || [])
+    if (!error && data) {
+      setVenues(data)
+    }
+  }
+
+  const loadBrands = async () => {
+    const { data, error } = await supabase
+      .from('brands')
+      .select('id, name, is_verified')
+      .order('name')
+
+    if (!error && data) {
+      setBrands(data)
     }
   }
 
   const loadEvents = async () => {
     setLoading(true)
-    console.log('Loading events with filter:', filterDate)
     
     let query = supabase
       .from('events')
-      .select(`*, venue:venues(name)`)
+      .select(`*, venue:venues(name), brand:brands(name)`)
       .order('start_time', { ascending: filterDate === 'upcoming' })
 
     const now = new Date().toISOString()
@@ -169,11 +191,8 @@ export default function AdminEventsPage() {
 
     const { data, error } = await query.limit(100)
 
-    if (error) {
-      console.error('Error loading events:', error)
-    } else {
-      console.log('Loaded events:', data?.length)
-      setEvents(data || [])
+    if (!error && data) {
+      setEvents(data as Event[])
     }
     setLoading(false)
   }
@@ -182,8 +201,8 @@ export default function AdminEventsPage() {
     const query = searchQuery.toLowerCase()
     return event.title.toLowerCase().includes(query) ||
       event.venue?.name?.toLowerCase().includes(query) ||
-      event.genres?.toLowerCase().includes(query) ||
-      event.venue_name?.toLowerCase().includes(query)
+      event.brand?.name?.toLowerCase().includes(query) ||
+      event.genres?.toLowerCase().includes(query)
   })
 
   const parseDateTime = (isoString: string) => {
@@ -205,6 +224,7 @@ export default function AdminEventsPage() {
     
     setFormData({
       venue_id: event.venue_id || '',
+      brand_id: event.brand_id || '',
       title: event.title || '',
       description: event.description || '',
       start_date: startParsed.date,
@@ -215,8 +235,10 @@ export default function AdminEventsPage() {
       vibes: event.vibe ? event.vibe.split(',').map((v: string) => v.trim()) : [],
       event_url: event.event_url || '',
       image_url: event.image_url || '',
+      price_type: event.price_type || 'unknown',
       price_min: event.price_min?.toString() || '',
       price_max: event.price_max?.toString() || '',
+      free_before_time: event.free_before_time || '',
       so_pick: event.so_pick || false,
       sold_out: event.sold_out || false,
       no_phones: event.no_phones || false,
@@ -236,6 +258,7 @@ export default function AdminEventsPage() {
     
     setFormData({
       venue_id: venues[0]?.id || '',
+      brand_id: '',
       title: '',
       description: '',
       start_date: tomorrowStr,
@@ -246,8 +269,10 @@ export default function AdminEventsPage() {
       vibes: [],
       event_url: '',
       image_url: '',
+      price_type: 'unknown',
       price_min: '',
       price_max: '',
+      free_before_time: '',
       so_pick: false,
       sold_out: false,
       no_phones: false,
@@ -258,8 +283,6 @@ export default function AdminEventsPage() {
   const closeModal = () => {
     setEditingEvent(null)
     setIsCreating(false)
-    setNewGenreInput('')
-    setNewVibeInput('')
     setSaveError(null)
     setSaveSuccess(false)
   }
@@ -283,7 +306,7 @@ export default function AdminEventsPage() {
   }
 
   const addCustomGenre = () => {
-    const genre = newGenreInput.trim().toLowerCase().replace(/\s+/g, '_')
+    const genre = newGenreInput.trim().toLowerCase()
     if (genre && !availableGenres.includes(genre)) {
       const newGenres = [...availableGenres, genre]
       setAvailableGenres(newGenres)
@@ -297,7 +320,7 @@ export default function AdminEventsPage() {
   }
 
   const addCustomVibe = () => {
-    const vibe = newVibeInput.trim().toLowerCase().replace(/\s+/g, '-')
+    const vibe = newVibeInput.trim().toLowerCase()
     if (vibe && !availableVibes.includes(vibe)) {
       const newVibes = [...availableVibes, vibe]
       setAvailableVibes(newVibes)
@@ -315,35 +338,25 @@ export default function AdminEventsPage() {
     if (!file) return
 
     setUploadingImage(true)
-    console.log('Uploading image:', file.name, file.size)
     
     try {
       const fileExt = file.name.split('.').pop()
       const fileName = `event-${Date.now()}.${fileExt}`
       const filePath = `events/${fileName}`
 
-      console.log('Uploading to path:', filePath)
-
-      const { data, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('images')
         .upload(filePath, file)
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError)
-        throw uploadError
-      }
-
-      console.log('Upload success:', data)
+      if (uploadError) throw uploadError
 
       const { data: urlData } = supabase.storage
         .from('images')
         .getPublicUrl(filePath)
 
-      console.log('Public URL:', urlData.publicUrl)
       setFormData(prev => ({ ...prev, image_url: urlData.publicUrl }))
     } catch (error: any) {
-      console.error('Upload error:', error)
-      alert(`Failed to upload image: ${error.message}\n\nMake sure:\n1. "images" bucket exists in Supabase Storage\n2. Bucket is set to Public\n3. Upload policies are configured`)
+      alert(`Failed to upload image: ${error.message}`)
     }
 
     setUploadingImage(false)
@@ -359,10 +372,6 @@ export default function AdminEventsPage() {
     setSaveError(null)
     setSaveSuccess(false)
 
-    console.log('=== SAVING EVENT ===')
-    console.log('Form data:', formData)
-
-    // Validate required fields
     if (!formData.title.trim()) {
       setSaveError('Title is required')
       setSaving(false)
@@ -381,16 +390,14 @@ export default function AdminEventsPage() {
 
     try {
       const startDateTime = new Date(`${formData.start_date}T${formData.start_time_hour}:00`)
-      console.log('Start datetime:', startDateTime.toISOString())
-      
       let endDateTime = new Date(`${formData.end_date || formData.start_date}T${formData.end_time_hour}:00`)
       if (endDateTime <= startDateTime) {
         endDateTime.setDate(endDateTime.getDate() + 1)
       }
-      console.log('End datetime:', endDateTime.toISOString())
 
-      const eventData = {
+      const eventData: Record<string, any> = {
         venue_id: formData.venue_id,
+        brand_id: formData.brand_id || null,
         venue_name: getVenueName(formData.venue_id),
         title: formData.title.trim(),
         description: formData.description?.trim() || null,
@@ -400,53 +407,39 @@ export default function AdminEventsPage() {
         vibe: formData.vibes.length > 0 ? formData.vibes.join(', ') : null,
         event_url: formData.event_url?.trim() || null,
         image_url: formData.image_url?.trim() || null,
-        price_min: formData.price_min ? Number(formData.price_min) : null,
-        price_max: formData.price_max ? Number(formData.price_max) : null,
+        price_type: formData.price_type,
+        price_min: formData.price_type === 'paid' && formData.price_min ? Number(formData.price_min) : null,
+        price_max: formData.price_type === 'paid' && formData.price_max ? Number(formData.price_max) : null,
+        free_before_time: formData.price_type === 'free_before' ? formData.free_before_time : null,
         so_pick: formData.so_pick,
         sold_out: formData.sold_out,
         no_phones: formData.no_phones,
         status: formData.status
       }
 
-      console.log('Event data to save:', eventData)
-
       if (isCreating) {
-        console.log('Creating new event...')
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('events')
           .insert([eventData])
-          .select()
 
-        if (error) {
-          console.error('Insert error:', error)
-          throw error
-        }
-        console.log('Created event:', data)
+        if (error) throw error
         setSaveSuccess(true)
       } else if (editingEvent) {
-        console.log('Updating event:', editingEvent.id)
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('events')
           .update(eventData)
           .eq('id', editingEvent.id)
-          .select()
 
-        if (error) {
-          console.error('Update error:', error)
-          throw error
-        }
-        console.log('Updated event:', data)
+        if (error) throw error
         setSaveSuccess(true)
       }
 
-      // Reload events and close modal after short delay
       setTimeout(async () => {
         await loadEvents()
         closeModal()
       }, 500)
 
     } catch (error: any) {
-      console.error('Save error:', error)
       setSaveError(error.message || 'Failed to save event')
     }
 
@@ -486,7 +479,6 @@ export default function AdminEventsPage() {
       await loadEvents()
       closeModal()
     } catch (error: any) {
-      console.error('Delete error:', error)
       alert(`Failed to delete event: ${error.message}`)
     }
   }
@@ -508,14 +500,20 @@ export default function AdminEventsPage() {
     })
   }
 
-  const isFree = (event: Event) => {
-    return (!event.price_min && !event.price_max) || 
-           (event.price_min === 0 && event.price_max === 0)
+  const getPriceDisplay = (event: Event) => {
+    if (event.price_type === 'free') return 'Free'
+    if (event.price_type === 'free_before') return `Free before ${event.free_before_time || '?'}`
+    if (event.price_type === 'paid') {
+      if (event.price_min && event.price_max && event.price_min !== event.price_max) {
+        return `£${event.price_min}–£${event.price_max}`
+      }
+      if (event.price_min) return `£${event.price_min}`
+      if (event.price_max) return `£${event.price_max}`
+    }
+    return 'TBA'
   }
 
-  // ============================================================================
   // PASSCODE SCREEN
-  // ============================================================================
   if (!passcodeEntered) {
     return (
       <div style={{
@@ -584,9 +582,7 @@ export default function AdminEventsPage() {
     )
   }
 
-  // ============================================================================
   // MAIN UI
-  // ============================================================================
   return (
     <div style={{ minHeight: '100vh', background: '#000', color: '#fff' }}>
       {/* Header */}
@@ -616,48 +612,23 @@ export default function AdminEventsPage() {
           }}>
             {events.length} events
           </span>
-          <span style={{
-            background: 'rgba(59,130,246,0.15)',
-            color: '#3b82f6',
-            padding: '4px 10px',
-            borderRadius: '6px',
-            fontSize: '13px',
-            fontWeight: 600
-          }}>
-            {venues.length} venues
-          </span>
         </div>
         <button
           onClick={openCreateModal}
-          disabled={venues.length === 0}
           style={{
             padding: '10px 20px',
-            background: venues.length === 0 ? '#444' : '#ab67f7',
+            background: '#ab67f7',
             border: 'none',
             borderRadius: '8px',
             color: '#fff',
             fontSize: '14px',
             fontWeight: 600,
-            cursor: venues.length === 0 ? 'not-allowed' : 'pointer'
+            cursor: 'pointer'
           }}
         >
           + Add Event
         </button>
       </header>
-
-      {/* Warning if no venues */}
-      {venues.length === 0 && (
-        <div style={{
-          margin: '20px 24px',
-          padding: '16px',
-          background: 'rgba(251,191,36,0.15)',
-          border: '1px solid rgba(251,191,36,0.3)',
-          borderRadius: '10px',
-          color: '#fbbf24'
-        }}>
-          ⚠️ No venues found. <Link href="/admin/venues" style={{ color: '#fbbf24', fontWeight: 600 }}>Add a venue first</Link> before creating events.
-        </div>
-      )}
 
       {/* Filters */}
       <div style={{ padding: '20px 24px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -708,7 +679,7 @@ export default function AdminEventsPage() {
           <p style={{ color: '#888', textAlign: 'center', padding: '40px' }}>Loading...</p>
         ) : filteredEvents.length === 0 ? (
           <p style={{ color: '#888', textAlign: 'center', padding: '40px' }}>
-            No events found. {filterDate === 'upcoming' && 'Try switching to "all" or "past" filter.'}
+            No events found.
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -759,21 +730,10 @@ export default function AdminEventsPage() {
                         SO PICK
                       </span>
                     )}
-                    {event.sold_out && (
-                      <span style={{
-                        padding: '2px 6px',
-                        background: 'rgba(248,113,113,0.15)',
-                        borderRadius: '4px',
-                        fontSize: '10px',
-                        color: '#f87171',
-                        fontWeight: 600
-                      }}>
-                        SOLD OUT
-                      </span>
-                    )}
                   </div>
-                  <p style={{ fontSize: '13px', color: '#888', margin: '0 0 6px' }}>
-                    {event.venue?.name || event.venue_name || 'Unknown venue'}
+                  <p style={{ fontSize: '13px', color: '#888', margin: '0 0 4px' }}>
+                    {event.venue?.name || event.venue_name}
+                    {event.brand?.name && <span style={{ color: '#ab67f7' }}> · {event.brand.name}</span>}
                   </p>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{
@@ -783,28 +743,17 @@ export default function AdminEventsPage() {
                       fontSize: '11px',
                       color: '#ab67f7'
                     }}>
-                      {formatDate(event.start_time)}
+                      {formatDate(event.start_time)} {formatTime(event.start_time)}
                     </span>
                     <span style={{
                       padding: '3px 8px',
-                      background: 'rgba(255,255,255,0.05)',
+                      background: event.price_type === 'free' ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.05)',
                       borderRadius: '4px',
                       fontSize: '11px',
-                      color: '#888'
+                      color: event.price_type === 'free' ? '#22c55e' : '#888'
                     }}>
-                      {formatTime(event.start_time)}
+                      {getPriceDisplay(event)}
                     </span>
-                    {isFree(event) && (
-                      <span style={{
-                        padding: '3px 8px',
-                        background: 'rgba(34,197,94,0.15)',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        color: '#22c55e'
-                      }}>
-                        FREE
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -817,8 +766,7 @@ export default function AdminEventsPage() {
                   fontSize: '11px',
                   fontWeight: 600,
                   color: event.status === 'published' ? '#22c55e' : '#f87171',
-                  textTransform: 'uppercase',
-                  flexShrink: 0
+                  textTransform: 'uppercase'
                 }}>
                   {event.status}
                 </span>
@@ -849,7 +797,6 @@ export default function AdminEventsPage() {
             maxHeight: '90vh',
             overflow: 'auto'
           }}>
-            {/* Modal Header */}
             <div style={{
               padding: '20px 24px',
               borderBottom: '1px solid rgba(255,255,255,0.08)',
@@ -878,9 +825,7 @@ export default function AdminEventsPage() {
               </button>
             </div>
 
-            {/* Form */}
             <div style={{ padding: '24px' }}>
-              {/* Error/Success Messages */}
               {saveError && (
                 <div style={{
                   padding: '12px 16px',
@@ -904,7 +849,7 @@ export default function AdminEventsPage() {
                   color: '#22c55e',
                   fontSize: '14px'
                 }}>
-                  ✅ Event saved successfully!
+                  ✅ Event saved!
                 </div>
               )}
 
@@ -944,45 +889,29 @@ export default function AdminEventsPage() {
                   />
                 </div>
                 {formData.image_url && (
-                  <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                    <input
-                      type="text"
-                      value={formData.image_url}
-                      onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
-                      placeholder="Or paste image URL"
-                      style={{
-                        flex: 1,
-                        padding: '8px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '6px',
-                        color: '#fff',
-                        fontSize: '12px'
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
-                      style={{
-                        padding: '8px 12px',
-                        background: 'rgba(248,113,113,0.15)',
-                        border: 'none',
-                        borderRadius: '6px',
-                        color: '#f87171',
-                        fontSize: '12px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Clear
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
+                    style={{
+                      marginTop: '8px',
+                      padding: '6px 12px',
+                      background: 'rgba(248,113,113,0.15)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      color: '#f87171',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Remove image
+                  </button>
                 )}
               </div>
 
               {/* Venue */}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                  Venue * ({venues.length} available)
+                  Venue *
                 </label>
                 <select
                   value={formData.venue_id}
@@ -1000,7 +929,34 @@ export default function AdminEventsPage() {
                   <option value="" style={{ background: '#111' }}>Select venue...</option>
                   {venues.map((venue: Venue) => (
                     <option key={venue.id} value={venue.id} style={{ background: '#111' }}>
-                      {venue.name} {venue.status !== 'published' ? `(${venue.status})` : ''}
+                      {venue.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Brand */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                  Brand / Promoter (optional)
+                </label>
+                <select
+                  value={formData.brand_id}
+                  onChange={(e) => setFormData(prev => ({ ...prev, brand_id: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '14px'
+                  }}
+                >
+                  <option value="" style={{ background: '#111' }}>No brand / Unknown</option>
+                  {brands.map((brand: Brand) => (
+                    <option key={brand.id} value={brand.id} style={{ background: '#111' }}>
+                      {brand.name} {brand.is_verified ? '✓' : ''}
                     </option>
                   ))}
                 </select>
@@ -1114,7 +1070,7 @@ export default function AdminEventsPage() {
               {/* Genres */}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '8px' }}>
-                  Genres (click to select)
+                  Genres
                 </label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
                   {availableGenres.map((genre: string) => (
@@ -1135,7 +1091,7 @@ export default function AdminEventsPage() {
                         textTransform: 'capitalize'
                       }}
                     >
-                      {genre.replace(/_/g, ' ')}
+                      {genre}
                     </button>
                   ))}
                 </div>
@@ -1178,7 +1134,7 @@ export default function AdminEventsPage() {
               {/* Vibes */}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '8px' }}>
-                  Vibes (click to select)
+                  Vibes
                 </label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
                   {availableVibes.map((vibe: string) => (
@@ -1199,7 +1155,7 @@ export default function AdminEventsPage() {
                         textTransform: 'capitalize'
                       }}
                     >
-                      {vibe.replace(/-/g, ' ')}
+                      {vibe}
                     </button>
                   ))}
                 </div>
@@ -1239,49 +1195,100 @@ export default function AdminEventsPage() {
                 </div>
               </div>
 
-              {/* Pricing */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                    Min Price (£)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.price_min}
-                    onChange={(e) => setFormData(prev => ({ ...prev, price_min: e.target.value }))}
-                    placeholder="0 = free"
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                    Max Price (£)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.price_max}
-                    onChange={(e) => setFormData(prev => ({ ...prev, price_max: e.target.value }))}
-                    placeholder="e.g. 15"
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
+              {/* Price Type */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                  Price Type
+                </label>
+                <select
+                  value={formData.price_type}
+                  onChange={(e) => setFormData(prev => ({ ...prev, price_type: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '14px'
+                  }}
+                >
+                  {PRICE_TYPES.map((pt) => (
+                    <option key={pt.value} value={pt.value} style={{ background: '#111' }}>
+                      {pt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {/* Free Before Time */}
+              {formData.price_type === 'free_before' && (
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                    Free before what time?
+                  </label>
+                  <input
+                    type="time"
+                    value={formData.free_before_time}
+                    onChange={(e) => setFormData(prev => ({ ...prev, free_before_time: e.target.value }))}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Price Range */}
+              {formData.price_type === 'paid' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                      Min Price (£)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.price_min}
+                      onChange={(e) => setFormData(prev => ({ ...prev, price_min: e.target.value }))}
+                      placeholder="e.g. 5"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                        color: '#fff',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                      Max Price (£)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.price_max}
+                      onChange={(e) => setFormData(prev => ({ ...prev, price_max: e.target.value }))}
+                      placeholder="e.g. 15"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '8px',
+                        color: '#fff',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Ticket URL */}
               <div style={{ marginBottom: '16px' }}>
@@ -1393,7 +1400,7 @@ export default function AdminEventsPage() {
                         fontWeight: 600,
                         cursor: 'pointer'
                       }}
-                      title="Duplicate for next week"
+                      title="Duplicate +7 days"
                     >
                       📋 +7d
                     </button>
