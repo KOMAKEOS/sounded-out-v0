@@ -243,6 +243,34 @@ export default function Home() {
     return true
   })
 
+
+  // ============================================================================
+// TICKET SOURCE INFO
+// ============================================================================
+const TICKET_SOURCES: Record<string, { name: string; shortName: string; color: string }> = {
+  ra: { name: 'Resident Advisor', shortName: 'RA', color: '#000' },
+  fatsoma: { name: 'Fatsoma', shortName: 'Fatsoma', color: '#ff4081' },
+  skiddle: { name: 'Skiddle', shortName: 'Skiddle', color: '#00b4d8' },
+  dice: { name: 'DICE', shortName: 'DICE', color: '#000' },
+  eventbrite: { name: 'Eventbrite', shortName: 'Eventbrite', color: '#f05537' },
+  fixr: { name: 'FIXR', shortName: 'FIXR', color: '#6c5ce7' },
+  venue: { name: 'Venue', shortName: 'Venue', color: '#ab67f7' },
+  other: { name: 'Tickets', shortName: 'Tickets', color: '#ab67f7' },
+}
+
+// Auto-detect ticket source from URL
+const detectTicketSource = (url: string | null): string => {
+  if (!url) return 'other'
+  const lower = url.toLowerCase()
+  if (lower.includes('ra.co') || lower.includes('residentadvisor')) return 'ra'
+  if (lower.includes('fatsoma')) return 'fatsoma'
+  if (lower.includes('skiddle')) return 'skiddle'
+  if (lower.includes('dice.fm') || lower.includes('dice.')) return 'dice'
+  if (lower.includes('eventbrite')) return 'eventbrite'
+  if (lower.includes('fixr')) return 'fixr'
+  return 'other'
+}
+  
   // ============================================================================
   // P1 FIX: ONBOARDING STATE
   // ============================================================================
