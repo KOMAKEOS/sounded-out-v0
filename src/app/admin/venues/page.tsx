@@ -21,7 +21,7 @@ interface Venue {
   created_at: string
 }
 
-const ADMIN_PASSCODE = '1234'
+const ADMIN_PASSCODE = '6521'
 
 export default function AdminVenuesPage() {
   const [passcodeEntered, setPasscodeEntered] = useState(false)
