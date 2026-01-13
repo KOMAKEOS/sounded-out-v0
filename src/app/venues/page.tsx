@@ -35,8 +35,14 @@ export default function VenuesPage() {
     loadVenues()
   }, [])
 
-  // Get venue types
-  const types = [...new Set(venues.map(v => v.venue_type).filter(Boolean))] as string[]
+  // Get unique venue types (TypeScript-compatible)
+  const types: string[] = Array.from(
+    new Set(
+      venues
+        .map(v => v.venue_type)
+        .filter((t): t is string => t !== null && t !== undefined)
+    )
+  )
 
   const filtered = typeFilter 
     ? venues.filter(v => v.venue_type === typeFilter)
