@@ -1261,7 +1261,7 @@ const OnboardingModal = ({ onComplete }: OnboardingModalProps): JSX.Element => (
         style={{
           width: '100%',
           padding: '18px 32px',
-          background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+          background: '#ab67f7',
           border: 'none',
           borderRadius: '14px',
           fontSize: '17px',
@@ -1367,7 +1367,7 @@ const EmptyStateNoEvents = ({ filterLabel, onReset }: EmptyStateProps): JSX.Elem
       onClick={onReset}
       style={{
         padding: '14px 24px',
-        background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+        background: '#ab67f7',
         border: 'none',
         borderRadius: '12px',
         color: 'white',
@@ -2630,7 +2630,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             <button
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowWelcome(false); localStorage.setItem('so_welcome_seen', 'true') }}
               style={{
-                padding: '14px 32px', background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                padding: '14px 32px', background: '#ab67f7',
                 border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: 'pointer',
               }}
             >Let&apos;s Go</button>
@@ -2717,7 +2717,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
       padding: '10px 16px',
       minHeight: '48px',
       borderRadius: '14px',
-      background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+      background: '#ab67f7',
       color: 'white',
       textDecoration: 'none',
       fontSize: '13px',
@@ -3052,7 +3052,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 
             {/* Action buttons - P1 FIX: Added save button */}
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-              <button onClick={() => setViewMode('detail')} style={{ flex: 1, padding: '14px', minHeight: '52px', background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)', border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>VIEW DETAILS</button>
+              <button onClick={() => setViewMode('detail')} style={{ flex: 1, padding: '14px', minHeight: '52px', background: '#ab67f7', border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>VIEW DETAILS</button>
               <SaveButton eventId={current.id} saved={isEventSaved(current.id)} onToggle={toggleSaveEvent} size="large" />
               <button
                 onClick={async (e: React.MouseEvent) => {
@@ -3265,7 +3265,7 @@ function MobileDetailSheet({
               width: '32px',
               height: '32px',
               borderRadius: '8px',
-              background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+              background: '#ab67f7',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
