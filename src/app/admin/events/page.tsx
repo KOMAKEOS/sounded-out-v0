@@ -1,8 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
+
+// ============================================================================
+// TYPES
+// ============================================================================
+interface Venue {
+  id: string
+  name: string
+}
+
+interface Brand {
+  id: string
+  name: string
+  slug: string
+  is_verified: boolean
+}
 
 interface Event {
   id: string
@@ -13,90 +28,110 @@ interface Event {
   start_time: string
   end_time: string | null
   genres: string | null
+  vibe: string | null
   event_url: string | null
   image_url: string | null
   price_min: number | null
   price_max: number | null
-  price_type: string
+  price_type: string | null
   free_before_time: string | null
+  ticket_source: string | null
   status: string
-  vibe: string | null
-  venue_name: string | null
   so_pick: boolean
   sold_out: boolean
   no_phones: boolean
-  created_at: string
-  venue?: { name: string } | null
-  brand?: { name: string } | null
-}
-
-interface Venue {
-  id: string
-  name: string
-  status: string
-}
-
-interface Brand {
-  id: string
-  name: string
   is_verified: boolean
+  venue?: Venue
+  brand?: Brand
 }
 
-const DEFAULT_GENRES = [
-  'techno', 'house', 'tech house', 'deep house', 'dnb', 'jungle',
-  'garage', 'uk garage', 'disco', 'hip hop', 'rnb', 'pop', 'rock',
-  'indie', 'jazz', 'soul', 'funk', 'afrobeats', 'reggae', 'latin',
-  'amapiano', 'dubstep', 'trance', 'hardstyle', 'club classics', 'mixed'
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+const PASSCODE = '1234'
+
+const PRESET_GENRES = [
+  'techno', 'house', 'tech_house', 'disco', 'dnb', 'garage', 'bass', 
+  'afrobeats', 'hip_hop', 'rnb', 'indie', 'rock', 'live', 'jazz',
+  'funk', 'soul', 'reggae', 'dancehall', 'latin', 'electronic',
+  'trance', 'progressive', 'minimal', 'hard_techno', 'acid',
+  'club_classics', 'student', 'commercial', 'mixed'
 ]
 
-const DEFAULT_VIBES = [
-  'underground', 'mainstream', 'intimate', 'high energy', 'chill',
-  'queer friendly', 'late night', 'day party', 'afterhours', 'rooftop',
-  'basement', 'warehouse', 'festival', 'student', 'over 25s', 'dressy'
+const PRESET_VIBES = [
+  'underground', 'intimate', 'high-energy', 'chill', 'late-night',
+  'after-party', 'daytime', 'outdoor', 'warehouse', 'club',
+  'bar', 'festival', 'boat-party', 'rooftop', 'basement'
+]
+
+const TICKET_SOURCES = [
+  { value: '', label: 'Auto-detect from URL' },
+  { value: 'ra', label: 'Resident Advisor (RA)' },
+  { value: 'fatsoma', label: 'Fatsoma' },
+  { value: 'skiddle', label: 'Skiddle' },
+  { value: 'dice', label: 'DICE' },
+  { value: 'eventbrite', label: 'Eventbrite' },
+  { value: 'fixr', label: 'FIXR' },
+  { value: 'venue', label: 'Venue Website' },
+  { value: 'other', label: 'Other' },
 ]
 
 const PRICE_TYPES = [
-  { value: 'unknown', label: 'Unknown / TBA' },
-  { value: 'free', label: 'Free' },
-  { value: 'free_before', label: 'Free before...' },
-  { value: 'paid', label: 'Paid (enter price)' },
+  { value: 'unknown', label: '❓ Unknown / TBA', description: 'Price not confirmed yet' },
+  { value: 'free', label: '🆓 Free Entry', description: 'No charge for entry' },
+  { value: 'free_before', label: '🕐 Free Before Time', description: 'Free until specific time' },
+  { value: 'paid', label: '💰 Paid Entry', description: 'Has ticket price' },
 ]
 
-const ADMIN_PASSCODE = '1234'
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+const formatGenre = (genre: string): string => {
+  return genre.trim().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
 
+const formatDateTime = (dateStr: string) => {
+  const d = new Date(dateStr)
+  return {
+    date: d.toISOString().split('T')[0],
+    time: d.toTimeString().slice(0, 5),
+  }
+}
+
+const combineDateAndTime = (date: string, time: string): string => {
+  return new Date(`${date}T${time}`).toISOString()
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 export default function AdminEventsPage() {
-  const [passcodeEntered, setPasscodeEntered] = useState(false)
+  // Auth state
+  const [authenticated, setAuthenticated] = useState(false)
   const [passcodeInput, setPasscodeInput] = useState('')
-  const [passcodeError, setPasscodeError] = useState(false)
-
+  
+  // Data state
   const [events, setEvents] = useState<Event[]>([])
   const [venues, setVenues] = useState<Venue[]>([])
   const [brands, setBrands] = useState<Brand[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filterDate, setFilterDate] = useState<'all' | 'upcoming' | 'past'>('upcoming')
   
+  // UI state
   const [editingEvent, setEditingEvent] = useState<Event | null>(null)
-  const [isCreating, setIsCreating] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [uploadingImage, setUploadingImage] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming')
+  const [searchQuery, setSearchQuery] = useState('')
   
-  const [availableGenres, setAvailableGenres] = useState<string[]>(DEFAULT_GENRES)
-  const [availableVibes, setAvailableVibes] = useState<string[]>(DEFAULT_VIBES)
-  const [newGenreInput, setNewGenreInput] = useState('')
-  const [newVibeInput, setNewVibeInput] = useState('')
-  
-  const [formData, setFormData] = useState({
+  // Form state
+  const [form, setForm] = useState({
     venue_id: '',
     brand_id: '',
     title: '',
     description: '',
     start_date: '',
-    start_time_hour: '22:00',
+    start_time: '22:00',
     end_date: '',
-    end_time_hour: '03:00',
+    end_time: '03:00',
     genres: [] as string[],
     vibes: [] as string[],
     event_url: '',
@@ -105,166 +140,110 @@ export default function AdminEventsPage() {
     price_min: '',
     price_max: '',
     free_before_time: '',
+    ticket_source: '',
+    status: 'published',
     so_pick: false,
     sold_out: false,
     no_phones: false,
-    status: 'published'
   })
+  
+  // Custom genre/vibe state
+  const [customGenres, setCustomGenres] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('so_custom_genres')
+      return saved ? JSON.parse(saved) : []
+    }
+    return []
+  })
+  const [customVibes, setCustomVibes] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('so_custom_vibes')
+      return saved ? JSON.parse(saved) : []
+    }
+    return []
+  })
+  const [newGenre, setNewGenre] = useState('')
+  const [newVibe, setNewVibe] = useState('')
+  
+  // Messages
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  
+  // Image upload state
+  const [uploading, setUploading] = useState(false)
 
+  // Check session auth
   useEffect(() => {
-    const savedAccess = sessionStorage.getItem('so_admin_access')
-    if (savedAccess === 'granted') {
-      setPasscodeEntered(true)
-    }
-    
-    const savedGenres = localStorage.getItem('so_custom_genres')
-    if (savedGenres) {
-      const customGenres = JSON.parse(savedGenres) as string[]
-      setAvailableGenres([...DEFAULT_GENRES, ...customGenres])
-    }
-    
-    const savedVibes = localStorage.getItem('so_custom_vibes')
-    if (savedVibes) {
-      const customVibes = JSON.parse(savedVibes) as string[]
-      setAvailableVibes([...DEFAULT_VIBES, ...customVibes])
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('so_admin_auth')
+      if (saved === 'true') setAuthenticated(true)
     }
   }, [])
 
+  // Load data
   useEffect(() => {
-    if (passcodeEntered) {
-      loadVenues()
-      loadBrands()
-      loadEvents()
-    } else {
-      setLoading(false)
-    }
-  }, [passcodeEntered, filterDate])
+    if (!authenticated) return
+    loadData()
+  }, [authenticated])
 
-  const handlePasscodeSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (passcodeInput === ADMIN_PASSCODE) {
-      setPasscodeEntered(true)
-      setPasscodeError(false)
-      sessionStorage.setItem('so_admin_access', 'granted')
-    } else {
-      setPasscodeError(true)
-      setPasscodeInput('')
-    }
-  }
+  // Save custom genres/vibes to localStorage
+  useEffect(() => {
+    localStorage.setItem('so_custom_genres', JSON.stringify(customGenres))
+  }, [customGenres])
+  
+  useEffect(() => {
+    localStorage.setItem('so_custom_vibes', JSON.stringify(customVibes))
+  }, [customVibes])
 
-  const loadVenues = async () => {
-    const { data, error } = await supabase
-      .from('venues')
-      .select('id, name, status')
-      .order('name')
-
-    if (!error && data) {
-      setVenues(data)
-    }
-  }
-
-  const loadBrands = async () => {
-    const { data, error } = await supabase
-      .from('brands')
-      .select('id, name, is_verified')
-      .order('name')
-
-    if (!error && data) {
-      setBrands(data)
-    }
-  }
-
-  const loadEvents = async () => {
+  const loadData = async () => {
     setLoading(true)
     
-    let query = supabase
+    // Load events with venue and brand
+    const { data: eventsData } = await supabase
       .from('events')
-      .select(`*, venue:venues(name), brand:brands(name)`)
-      .order('start_time', { ascending: filterDate === 'upcoming' })
-
-    const now = new Date().toISOString()
-    if (filterDate === 'upcoming') {
-      query = query.gte('start_time', now)
-    } else if (filterDate === 'past') {
-      query = query.lt('start_time', now)
-    }
-
-    const { data, error } = await query.limit(100)
-
-    if (!error && data) {
-      setEvents(data as Event[])
-    }
+      .select('*, venue:venues(id, name), brand:brands(id, name, slug, is_verified)')
+      .order('start_time', { ascending: false })
+    
+    // Load venues
+    const { data: venuesData } = await supabase
+      .from('venues')
+      .select('id, name')
+      .order('name')
+    
+    // Load brands
+    const { data: brandsData } = await supabase
+      .from('brands')
+      .select('id, name, slug, is_verified')
+      .order('name')
+    
+    if (eventsData) setEvents(eventsData)
+    if (venuesData) setVenues(venuesData)
+    if (brandsData) setBrands(brandsData)
+    
     setLoading(false)
   }
 
-  const filteredEvents = events.filter((event: Event) => {
-    const query = searchQuery.toLowerCase()
-    return event.title.toLowerCase().includes(query) ||
-      event.venue?.name?.toLowerCase().includes(query) ||
-      event.brand?.name?.toLowerCase().includes(query) ||
-      event.genres?.toLowerCase().includes(query)
-  })
-
-  const parseDateTime = (isoString: string) => {
-    const date = new Date(isoString)
-    return {
-      date: date.toISOString().split('T')[0],
-      time: date.toTimeString().slice(0, 5)
+  const handlePasscode = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (passcodeInput === PASSCODE) {
+      setAuthenticated(true)
+      sessionStorage.setItem('so_admin_auth', 'true')
+    } else {
+      setError('Incorrect passcode')
     }
   }
 
-  const openEditModal = (event: Event) => {
-    setEditingEvent(event)
-    setIsCreating(false)
-    setSaveError(null)
-    setSaveSuccess(false)
-    
-    const startParsed = parseDateTime(event.start_time)
-    const endParsed = event.end_time ? parseDateTime(event.end_time) : null
-    
-    setFormData({
-      venue_id: event.venue_id || '',
-      brand_id: event.brand_id || '',
-      title: event.title || '',
-      description: event.description || '',
-      start_date: startParsed.date,
-      start_time_hour: startParsed.time,
-      end_date: endParsed?.date || startParsed.date,
-      end_time_hour: endParsed?.time || '03:00',
-      genres: event.genres ? event.genres.split(',').map((g: string) => g.trim()) : [],
-      vibes: event.vibe ? event.vibe.split(',').map((v: string) => v.trim()) : [],
-      event_url: event.event_url || '',
-      image_url: event.image_url || '',
-      price_type: event.price_type || 'unknown',
-      price_min: event.price_min?.toString() || '',
-      price_max: event.price_max?.toString() || '',
-      free_before_time: event.free_before_time || '',
-      so_pick: event.so_pick || false,
-      sold_out: event.sold_out || false,
-      no_phones: event.no_phones || false,
-      status: event.status || 'published'
-    })
-  }
-
-  const openCreateModal = () => {
-    setEditingEvent(null)
-    setIsCreating(true)
-    setSaveError(null)
-    setSaveSuccess(false)
-    
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const tomorrowStr = tomorrow.toISOString().split('T')[0]
-    
-    setFormData({
+  const resetForm = () => {
+    const today = new Date().toISOString().split('T')[0]
+    setForm({
       venue_id: venues[0]?.id || '',
       brand_id: '',
       title: '',
       description: '',
-      start_date: tomorrowStr,
-      start_time_hour: '22:00',
-      end_date: tomorrowStr,
-      end_time_hour: '03:00',
+      start_date: today,
+      start_time: '22:00',
+      end_date: today,
+      end_time: '03:00',
       genres: [],
       vibes: [],
       event_url: '',
@@ -273,1157 +252,1257 @@ export default function AdminEventsPage() {
       price_min: '',
       price_max: '',
       free_before_time: '',
+      ticket_source: '',
+      status: 'published',
       so_pick: false,
       sold_out: false,
       no_phones: false,
-      status: 'published'
     })
-  }
-
-  const closeModal = () => {
     setEditingEvent(null)
-    setIsCreating(false)
-    setSaveError(null)
-    setSaveSuccess(false)
   }
 
-  const toggleGenre = (genre: string) => {
-    setFormData(prev => ({
-      ...prev,
-      genres: prev.genres.includes(genre)
-        ? prev.genres.filter((g: string) => g !== genre)
-        : [...prev.genres, genre]
-    }))
+  const openNewForm = () => {
+    resetForm()
+    setShowForm(true)
+    setError('')
+    setSuccess('')
   }
 
-  const toggleVibe = (vibe: string) => {
-    setFormData(prev => ({
-      ...prev,
-      vibes: prev.vibes.includes(vibe)
-        ? prev.vibes.filter((v: string) => v !== vibe)
-        : [...prev.vibes, vibe]
-    }))
-  }
-
-  const addCustomGenre = () => {
-    const genre = newGenreInput.trim().toLowerCase()
-    if (genre && !availableGenres.includes(genre)) {
-      const newGenres = [...availableGenres, genre]
-      setAvailableGenres(newGenres)
-      const customGenres = newGenres.filter((g: string) => !DEFAULT_GENRES.includes(g))
-      localStorage.setItem('so_custom_genres', JSON.stringify(customGenres))
-    }
-    if (genre && !formData.genres.includes(genre)) {
-      setFormData(prev => ({ ...prev, genres: [...prev.genres, genre] }))
-    }
-    setNewGenreInput('')
-  }
-
-  const addCustomVibe = () => {
-    const vibe = newVibeInput.trim().toLowerCase()
-    if (vibe && !availableVibes.includes(vibe)) {
-      const newVibes = [...availableVibes, vibe]
-      setAvailableVibes(newVibes)
-      const customVibes = newVibes.filter((v: string) => !DEFAULT_VIBES.includes(v))
-      localStorage.setItem('so_custom_vibes', JSON.stringify(customVibes))
-    }
-    if (vibe && !formData.vibes.includes(vibe)) {
-      setFormData(prev => ({ ...prev, vibes: [...prev.vibes, vibe] }))
-    }
-    setNewVibeInput('')
+  const openEditForm = (event: Event) => {
+    const start = formatDateTime(event.start_time)
+    const end = event.end_time ? formatDateTime(event.end_time) : { date: start.date, time: '03:00' }
+    
+    setForm({
+      venue_id: event.venue_id,
+      brand_id: event.brand_id || '',
+      title: event.title,
+      description: event.description || '',
+      start_date: start.date,
+      start_time: start.time,
+      end_date: end.date,
+      end_time: end.time,
+      genres: event.genres ? event.genres.split(',').map(g => g.trim()) : [],
+      vibes: event.vibe ? event.vibe.split(',').map(v => v.trim()) : [],
+      event_url: event.event_url || '',
+      image_url: event.image_url || '',
+      price_type: event.price_type || 'unknown',
+      price_min: event.price_min?.toString() || '',
+      price_max: event.price_max?.toString() || '',
+      free_before_time: event.free_before_time || '',
+      ticket_source: event.ticket_source || '',
+      status: event.status || 'published',
+      so_pick: event.so_pick || false,
+      sold_out: event.sold_out || false,
+      no_phones: event.no_phones || false,
+    })
+    setEditingEvent(event)
+    setShowForm(true)
+    setError('')
+    setSuccess('')
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
-    setUploadingImage(true)
+    
+    setUploading(true)
+    setError('')
     
     try {
-      const fileExt = file.name.split('.').pop()
-      const fileName = `event-${Date.now()}.${fileExt}`
-      const filePath = `events/${fileName}`
-
+      const ext = file.name.split('.').pop()
+      const fileName = `event-${Date.now()}.${ext}`
+      
       const { error: uploadError } = await supabase.storage
         .from('images')
-        .upload(filePath, file)
-
+        .upload(fileName, file)
+      
       if (uploadError) throw uploadError
-
+      
       const { data: urlData } = supabase.storage
         .from('images')
-        .getPublicUrl(filePath)
-
-      setFormData(prev => ({ ...prev, image_url: urlData.publicUrl }))
-    } catch (error: any) {
-      alert(`Failed to upload image: ${error.message}`)
+        .getPublicUrl(fileName)
+      
+      setForm({ ...form, image_url: urlData.publicUrl })
+    } catch (err: any) {
+      console.error('Upload error:', err)
+      setError('Image upload failed: ' + err.message)
     }
-
-    setUploadingImage(false)
+    
+    setUploading(false)
   }
 
-  const getVenueName = (venueId: string): string => {
-    const venue = venues.find((v: Venue) => v.id === venueId)
-    return venue?.name || ''
+  const toggleGenre = (genre: string) => {
+    setForm(prev => ({
+      ...prev,
+      genres: prev.genres.includes(genre)
+        ? prev.genres.filter(g => g !== genre)
+        : [...prev.genres, genre]
+    }))
   }
 
-  const handleSave = async () => {
-    setSaving(true)
-    setSaveError(null)
-    setSaveSuccess(false)
+  const toggleVibe = (vibe: string) => {
+    setForm(prev => ({
+      ...prev,
+      vibes: prev.vibes.includes(vibe)
+        ? prev.vibes.filter(v => v !== vibe)
+        : [...prev.vibes, vibe]
+    }))
+  }
 
-    if (!formData.title.trim()) {
-      setSaveError('Title is required')
-      setSaving(false)
+  const addCustomGenre = () => {
+    if (!newGenre.trim()) return
+    const formatted = newGenre.toLowerCase().replace(/\s+/g, '_')
+    if (!customGenres.includes(formatted) && !PRESET_GENRES.includes(formatted)) {
+      setCustomGenres([...customGenres, formatted])
+    }
+    toggleGenre(formatted)
+    setNewGenre('')
+  }
+
+  const addCustomVibe = () => {
+    if (!newVibe.trim()) return
+    const formatted = newVibe.toLowerCase().replace(/\s+/g, '-')
+    if (!customVibes.includes(formatted) && !PRESET_VIBES.includes(formatted)) {
+      setCustomVibes([...customVibes, formatted])
+    }
+    toggleVibe(formatted)
+    setNewVibe('')
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+    
+    if (!form.venue_id) {
+      setError('Please select a venue')
       return
     }
-    if (!formData.venue_id) {
-      setSaveError('Please select a venue')
-      setSaving(false)
+    if (!form.title.trim()) {
+      setError('Please enter a title')
       return
     }
-    if (!formData.start_date) {
-      setSaveError('Start date is required')
-      setSaving(false)
-      return
+
+    // Build start/end times
+    let startTime = combineDateAndTime(form.start_date, form.start_time)
+    let endTime = null
+    
+    if (form.end_time) {
+      // If end time is before start time, assume next day
+      let endDate = form.end_date || form.start_date
+      if (form.end_time < form.start_time && endDate === form.start_date) {
+        const nextDay = new Date(form.start_date)
+        nextDay.setDate(nextDay.getDate() + 1)
+        endDate = nextDay.toISOString().split('T')[0]
+      }
+      endTime = combineDateAndTime(endDate, form.end_time)
     }
+
+    // Build event data
+    const eventData = {
+      venue_id: form.venue_id,
+      brand_id: form.brand_id || null,
+      title: form.title.trim(),
+      description: form.description.trim() || null,
+      start_time: startTime,
+      end_time: endTime,
+      genres: form.genres.length > 0 ? form.genres.join(', ') : null,
+      vibe: form.vibes.length > 0 ? form.vibes.join(', ') : null,
+      event_url: form.event_url.trim() || null,
+      image_url: form.image_url || null,
+      price_type: form.price_type,
+      price_min: form.price_type === 'paid' ? (parseFloat(form.price_min) || null) : (form.price_type === 'free' ? 0 : null),
+      price_max: form.price_type === 'paid' ? (parseFloat(form.price_max) || null) : null,
+      free_before_time: form.price_type === 'free_before' ? form.free_before_time : null,
+      ticket_source: form.ticket_source || null,
+      status: form.status,
+      so_pick: form.so_pick,
+      sold_out: form.sold_out,
+      no_phones: form.no_phones,
+    }
+
+    console.log('Saving event:', eventData)
 
     try {
-      const startDateTime = new Date(`${formData.start_date}T${formData.start_time_hour}:00`)
-      let endDateTime = new Date(`${formData.end_date || formData.start_date}T${formData.end_time_hour}:00`)
-      if (endDateTime <= startDateTime) {
-        endDateTime.setDate(endDateTime.getDate() + 1)
-      }
-
-      const eventData: Record<string, any> = {
-        venue_id: formData.venue_id,
-        brand_id: formData.brand_id || null,
-        venue_name: getVenueName(formData.venue_id),
-        title: formData.title.trim(),
-        description: formData.description?.trim() || null,
-        start_time: startDateTime.toISOString(),
-        end_time: endDateTime.toISOString(),
-        genres: formData.genres.length > 0 ? formData.genres.join(', ') : null,
-        vibe: formData.vibes.length > 0 ? formData.vibes.join(', ') : null,
-        event_url: formData.event_url?.trim() || null,
-        image_url: formData.image_url?.trim() || null,
-        price_type: formData.price_type,
-        price_min: formData.price_type === 'paid' && formData.price_min ? Number(formData.price_min) : null,
-        price_max: formData.price_type === 'paid' && formData.price_max ? Number(formData.price_max) : null,
-        free_before_time: formData.price_type === 'free_before' ? formData.free_before_time : null,
-        so_pick: formData.so_pick,
-        sold_out: formData.sold_out,
-        no_phones: formData.no_phones,
-        status: formData.status
-      }
-
-      if (isCreating) {
-        const { error } = await supabase
-          .from('events')
-          .insert([eventData])
-
-        if (error) throw error
-        setSaveSuccess(true)
-      } else if (editingEvent) {
-        const { error } = await supabase
+      if (editingEvent) {
+        const { error: updateError } = await supabase
           .from('events')
           .update(eventData)
           .eq('id', editingEvent.id)
-
-        if (error) throw error
-        setSaveSuccess(true)
+        
+        if (updateError) throw updateError
+        setSuccess('Event updated successfully!')
+      } else {
+        const { error: insertError } = await supabase
+          .from('events')
+          .insert(eventData)
+        
+        if (insertError) throw insertError
+        setSuccess('Event created successfully!')
       }
-
-      setTimeout(async () => {
-        await loadEvents()
-        closeModal()
-      }, 500)
-
-    } catch (error: any) {
-      setSaveError(error.message || 'Failed to save event')
-    }
-
-    setSaving(false)
-  }
-
-  const handleDuplicate = () => {
-    if (!editingEvent) return
-    
-    const newStartDate = new Date(formData.start_date)
-    newStartDate.setDate(newStartDate.getDate() + 7)
-    const newEndDate = new Date(formData.end_date)
-    newEndDate.setDate(newEndDate.getDate() + 7)
-    
-    setFormData(prev => ({
-      ...prev,
-      start_date: newStartDate.toISOString().split('T')[0],
-      end_date: newEndDate.toISOString().split('T')[0]
-    }))
-    
-    setEditingEvent(null)
-    setIsCreating(true)
-  }
-
-  const handleDelete = async () => {
-    if (!editingEvent) return
-    if (!confirm(`Delete "${editingEvent.title}"? This cannot be undone.`)) return
-
-    try {
-      const { error } = await supabase
-        .from('events')
-        .delete()
-        .eq('id', editingEvent.id)
-
-      if (error) throw error
-
-      await loadEvents()
-      closeModal()
-    } catch (error: any) {
-      alert(`Failed to delete event: ${error.message}`)
+      
+      await loadData()
+      setShowForm(false)
+      resetForm()
+    } catch (err: any) {
+      console.error('Save error:', err)
+      setError('Failed to save: ' + err.message)
     }
   }
 
-  const formatDate = (isoString: string) => {
-    const date = new Date(isoString)
-    return date.toLocaleDateString('en-GB', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short'
-    })
+  const handleDuplicate = async (event: Event) => {
+    // Create duplicate with +7 days
+    const newStart = new Date(event.start_time)
+    newStart.setDate(newStart.getDate() + 7)
+    
+    let newEnd = null
+    if (event.end_time) {
+      const endDate = new Date(event.end_time)
+      endDate.setDate(endDate.getDate() + 7)
+      newEnd = endDate.toISOString()
+    }
+
+    const { error: dupError } = await supabase
+      .from('events')
+      .insert({
+        venue_id: event.venue_id,
+        brand_id: event.brand_id,
+        title: event.title,
+        description: event.description,
+        start_time: newStart.toISOString(),
+        end_time: newEnd,
+        genres: event.genres,
+        vibe: event.vibe,
+        event_url: event.event_url,
+        image_url: event.image_url,
+        price_type: event.price_type,
+        price_min: event.price_min,
+        price_max: event.price_max,
+        free_before_time: event.free_before_time,
+        ticket_source: event.ticket_source,
+        status: 'published',
+        so_pick: event.so_pick,
+        sold_out: false,
+        no_phones: event.no_phones,
+      })
+
+    if (dupError) {
+      setError('Duplicate failed: ' + dupError.message)
+    } else {
+      setSuccess('Event duplicated (+7 days)')
+      await loadData()
+    }
   }
 
-  const formatTime = (isoString: string) => {
-    const date = new Date(isoString)
-    return date.toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+  const handleDelete = async (event: Event) => {
+    if (!confirm(`Delete "${event.title}"? This cannot be undone.`)) return
+    
+    const { error: delError } = await supabase
+      .from('events')
+      .delete()
+      .eq('id', event.id)
+
+    if (delError) {
+      setError('Delete failed: ' + delError.message)
+    } else {
+      setSuccess('Event deleted')
+      await loadData()
+    }
   }
 
-  const getPriceDisplay = (event: Event) => {
-    if (event.price_type === 'free') return 'Free'
-    if (event.price_type === 'free_before') return `Free before ${event.free_before_time || '?'}`
-    if (event.price_type === 'paid') {
-      if (event.price_min && event.price_max && event.price_min !== event.price_max) {
-        return `£${event.price_min}–£${event.price_max}`
+  // Filter events
+  const filteredEvents = events.filter(event => {
+    const now = new Date()
+    const eventDate = new Date(event.start_time)
+    
+    if (filter === 'upcoming' && eventDate < now) return false
+    if (filter === 'past' && eventDate >= now) return false
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      if (!event.title.toLowerCase().includes(query) &&
+          !event.venue?.name?.toLowerCase().includes(query) &&
+          !event.brand?.name?.toLowerCase().includes(query)) {
+        return false
       }
-      if (event.price_min) return `£${event.price_min}`
-      if (event.price_max) return `£${event.price_max}`
     }
-    return 'TBA'
-  }
+    
+    return true
+  })
 
+  // ============================================================================
   // PASSCODE SCREEN
-  if (!passcodeEntered) {
+  // ============================================================================
+  if (!authenticated) {
     return (
       <div style={{
         minHeight: '100vh',
-        background: '#000',
+        background: '#0a0a0b',
+        color: 'white',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px'
+        padding: '20px',
       }}>
-        <form onSubmit={handlePasscodeSubmit} style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '16px',
-          padding: '40px',
-          maxWidth: '320px',
+        <div style={{
           width: '100%',
-          textAlign: 'center'
+          maxWidth: '340px',
+          background: '#141416',
+          borderRadius: '20px',
+          padding: '32px',
         }}>
-          <h1 style={{ color: '#fff', fontSize: '24px', marginBottom: '8px' }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px', textAlign: 'center' }}>
             🔐 Admin Access
           </h1>
-          <p style={{ color: '#888', fontSize: '14px', marginBottom: '24px' }}>
+          <p style={{ fontSize: '13px', color: '#888', marginBottom: '24px', textAlign: 'center' }}>
             Enter passcode to continue
           </p>
-          <input
-            type="password"
-            value={passcodeInput}
-            onChange={(e) => setPasscodeInput(e.target.value)}
-            placeholder="Enter passcode"
-            maxLength={4}
-            style={{
-              width: '100%',
-              padding: '16px',
-              fontSize: '24px',
-              textAlign: 'center',
-              letterSpacing: '8px',
-              background: 'rgba(255,255,255,0.05)',
-              border: passcodeError ? '2px solid #f87171' : '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px',
-              color: '#fff',
+          
+          {error && (
+            <div style={{
+              padding: '12px',
+              background: 'rgba(248,113,113,0.15)',
+              borderRadius: '10px',
               marginBottom: '16px',
-              outline: 'none'
-            }}
-          />
-          {passcodeError && (
-            <p style={{ color: '#f87171', fontSize: '14px', marginBottom: '16px' }}>
-              Incorrect passcode
-            </p>
+              fontSize: '13px',
+              color: '#f87171',
+              textAlign: 'center',
+            }}>
+              {error}
+            </div>
           )}
-          <button type="submit" style={{
-            width: '100%',
-            padding: '14px',
-            background: '#ab67f7',
-            border: 'none',
-            borderRadius: '10px',
-            color: '#fff',
-            fontSize: '16px',
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}>
-            Enter
-          </button>
-        </form>
+          
+          <form onSubmit={handlePasscode}>
+            <input
+              type="password"
+              value={passcodeInput}
+              onChange={(e) => setPasscodeInput(e.target.value)}
+              placeholder="Enter passcode"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: '#1e1e24',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '10px',
+                color: 'white',
+                fontSize: '16px',
+                textAlign: 'center',
+                letterSpacing: '4px',
+                marginBottom: '16px',
+              }}
+            />
+            <button
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: '#ab67f7',
+                border: 'none',
+                borderRadius: '10px',
+                color: 'white',
+                fontSize: '15px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Enter
+            </button>
+          </form>
+          
+          <Link href="/admin" style={{ display: 'block', textAlign: 'center', marginTop: '16px', fontSize: '13px', color: '#666' }}>
+            ← Back to Hub
+          </Link>
+        </div>
       </div>
     )
   }
 
-  // MAIN UI
+  // ============================================================================
+  // MAIN ADMIN UI
+  // ============================================================================
   return (
-    <div style={{ minHeight: '100vh', background: '#000', color: '#fff' }}>
-      {/* Header */}
-      <header style={{
-        padding: '20px 24px',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link href="/admin" style={{ color: '#888', textDecoration: 'none' }}>
-            ← Back
-          </Link>
-          <h1 style={{ fontSize: '20px', fontWeight: 700 }}>
-            Events Manager
-          </h1>
-          <span style={{
-            background: 'rgba(171,103,247,0.15)',
-            color: '#ab67f7',
-            padding: '4px 10px',
-            borderRadius: '6px',
-            fontSize: '13px',
-            fontWeight: 600
-          }}>
-            {events.length} events
-          </span>
+    <div style={{
+      minHeight: '100vh',
+      background: '#0a0a0b',
+      color: 'white',
+      padding: '20px',
+      paddingTop: 'max(20px, env(safe-area-inset-top))',
+    }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <Link href="/admin" style={{ fontSize: '13px', color: '#ab67f7', textDecoration: 'none', marginBottom: '8px', display: 'inline-block' }}>
+              ← Back to Hub
+            </Link>
+            <h1 style={{ fontSize: '24px', fontWeight: 700 }}>Events Manager</h1>
+            <p style={{ fontSize: '13px', color: '#888' }}>{events.length} total events</p>
+          </div>
+          <button
+            onClick={openNewForm}
+            style={{
+              padding: '12px 24px',
+              background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+              border: 'none',
+              borderRadius: '10px',
+              color: 'white',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            + Add Event
+          </button>
         </div>
-        <button
-          onClick={openCreateModal}
-          style={{
-            padding: '10px 20px',
-            background: '#ab67f7',
-            border: 'none',
-            borderRadius: '8px',
-            color: '#fff',
-            fontSize: '14px',
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}
-        >
-          + Add Event
-        </button>
-      </header>
 
-      {/* Filters */}
-      <div style={{ padding: '20px 24px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          placeholder="Search events..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            flex: 1,
-            minWidth: '200px',
-            maxWidth: '400px',
-            padding: '12px 16px',
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)',
+        {/* Messages */}
+        {error && (
+          <div style={{
+            padding: '14px',
+            background: 'rgba(248,113,113,0.15)',
+            border: '1px solid rgba(248,113,113,0.3)',
             borderRadius: '10px',
-            color: '#fff',
+            marginBottom: '16px',
+            color: '#f87171',
             fontSize: '14px',
-            outline: 'none'
-          }}
-        />
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {(['upcoming', 'past', 'all'] as const).map((filter) => (
+          }}>
+            ❌ {error}
+          </div>
+        )}
+        {success && (
+          <div style={{
+            padding: '14px',
+            background: 'rgba(34,197,94,0.15)',
+            border: '1px solid rgba(34,197,94,0.3)',
+            borderRadius: '10px',
+            marginBottom: '16px',
+            color: '#22c55e',
+            fontSize: '14px',
+          }}>
+            ✅ {success}
+          </div>
+        )}
+
+        {/* Filters */}
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            placeholder="Search events..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              flex: 1,
+              minWidth: '200px',
+              padding: '12px 16px',
+              background: '#141416',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '10px',
+              color: 'white',
+              fontSize: '14px',
+            }}
+          />
+          {(['upcoming', 'past', 'all'] as const).map((f) => (
             <button
-              key={filter}
-              onClick={() => setFilterDate(filter)}
+              key={f}
+              onClick={() => setFilter(f)}
               style={{
-                padding: '10px 16px',
-                background: filterDate === filter ? '#ab67f7' : 'rgba(255,255,255,0.05)',
+                padding: '12px 20px',
+                background: filter === f ? '#ab67f7' : 'rgba(255,255,255,0.06)',
                 border: 'none',
-                borderRadius: '8px',
-                color: '#fff',
-                fontSize: '13px',
+                borderRadius: '10px',
+                color: filter === f ? 'white' : '#888',
+                fontSize: '14px',
                 fontWeight: 500,
                 cursor: 'pointer',
-                textTransform: 'capitalize'
+                textTransform: 'capitalize',
               }}
             >
-              {filter}
+              {f}
             </button>
           ))}
         </div>
-      </div>
 
-      {/* Events List */}
-      <main style={{ padding: '0 24px 40px' }}>
+        {/* Warning if no venues */}
+        {venues.length === 0 && (
+          <div style={{
+            padding: '20px',
+            background: 'rgba(255,200,50,0.1)',
+            border: '1px solid rgba(255,200,50,0.2)',
+            borderRadius: '12px',
+            marginBottom: '20px',
+          }}>
+            <p style={{ color: '#ffc832', fontWeight: 600, marginBottom: '8px' }}>⚠️ No venues found</p>
+            <p style={{ fontSize: '13px', color: '#999' }}>
+              Add venues first in the <Link href="/admin/venues" style={{ color: '#ab67f7' }}>Venues Manager</Link>
+            </p>
+          </div>
+        )}
+
+        {/* Events List */}
         {loading ? (
-          <p style={{ color: '#888', textAlign: 'center', padding: '40px' }}>Loading...</p>
-        ) : filteredEvents.length === 0 ? (
-          <p style={{ color: '#888', textAlign: 'center', padding: '40px' }}>
-            No events found.
-          </p>
+          <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
+            Loading events...
+          </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {filteredEvents.map((event: Event) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {filteredEvents.map((event) => (
               <div
                 key={event.id}
-                onClick={() => openEditModal(event)}
                 style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '12px',
                   padding: '16px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  gap: '16px',
-                  alignItems: 'center'
-                }}
-              >
-                <div style={{
-                  width: '80px',
-                  height: '80px',
-                  borderRadius: '8px',
-                  background: event.image_url
-                    ? `url(${event.image_url}) center/cover`
-                    : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                  flexShrink: 0,
+                  background: '#141416',
+                  borderRadius: '12px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  {!event.image_url && <span style={{ opacity: 0.3 }}>🎵</span>}
-                </div>
-
+                  gap: '16px',
+                }}
+              >
+                {/* Thumbnail */}
+                {event.image_url ? (
+                  <img
+                    src={event.image_url}
+                    alt=""
+                    style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}
+                  />
+                ) : (
+                  <div style={{
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '8px',
+                    background: 'rgba(171,103,247,0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '24px',
+                    flexShrink: 0,
+                  }}>
+                    🎵
+                  </div>
+                )}
+                
+                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>
+                    <span style={{ fontSize: '15px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {event.title}
-                    </h3>
-                    {event.so_pick && (
-                      <span style={{
-                        padding: '2px 6px',
-                        background: 'rgba(251,191,36,0.15)',
-                        borderRadius: '4px',
-                        fontSize: '10px',
-                        color: '#fbbf24',
-                        fontWeight: 600
+                    </span>
+                    {event.so_pick && <span style={{ fontSize: '10px', background: '#ab67f7', padding: '2px 6px', borderRadius: '4px' }}>SO PICK</span>}
+                    {event.sold_out && <span style={{ fontSize: '10px', background: '#f87171', padding: '2px 6px', borderRadius: '4px' }}>SOLD OUT</span>}
+                    {event.is_verified && <span style={{ fontSize: '10px', background: '#22c55e', padding: '2px 6px', borderRadius: '4px' }}>VERIFIED</span>}
+                  </div>
+                  
+                  {/* Brand attribution */}
+                  {event.brand && (
+                    <p style={{ fontSize: '12px', color: '#ab67f7', marginBottom: '2px' }}>
+                      by {event.brand.name} {event.brand.is_verified && '✓'}
+                    </p>
+                  )}
+                  
+                  <p style={{ fontSize: '12px', color: '#888', marginBottom: '2px' }}>
+                    {event.venue?.name} · {new Date(event.start_time).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </p>
+                  
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                    {event.genres?.split(',').slice(0, 3).map((g, i) => (
+                      <span key={i} style={{ fontSize: '10px', padding: '2px 8px', background: 'rgba(171,103,247,0.15)', borderRadius: '4px', color: '#ab67f7' }}>
+                        {formatGenre(g)}
+                      </span>
+                    ))}
+                    {event.price_type && (
+                      <span style={{ 
+                        fontSize: '10px', 
+                        padding: '2px 8px', 
+                        background: event.price_type === 'free' ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.08)', 
+                        borderRadius: '4px', 
+                        color: event.price_type === 'free' ? '#22c55e' : '#888' 
                       }}>
-                        SO PICK
+                        {event.price_type === 'free' ? 'FREE' : event.price_type === 'unknown' ? 'TBA' : event.price_type === 'free_before' ? `Free before ${event.free_before_time}` : `£${event.price_min}`}
+                      </span>
+                    )}
+                    {event.ticket_source && (
+                      <span style={{ fontSize: '10px', padding: '2px 8px', background: 'rgba(59,130,246,0.15)', borderRadius: '4px', color: '#3b82f6' }}>
+                        🎫 {event.ticket_source.toUpperCase()}
                       </span>
                     )}
                   </div>
-                  <p style={{ fontSize: '13px', color: '#888', margin: '0 0 4px' }}>
-                    {event.venue?.name || event.venue_name}
-                    {event.brand?.name && <span style={{ color: '#ab67f7' }}> · {event.brand.name}</span>}
-                  </p>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{
-                      padding: '3px 8px',
-                      background: 'rgba(171,103,247,0.15)',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      color: '#ab67f7'
-                    }}>
-                      {formatDate(event.start_time)} {formatTime(event.start_time)}
-                    </span>
-                    <span style={{
-                      padding: '3px 8px',
-                      background: event.price_type === 'free' ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.05)',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      color: event.price_type === 'free' ? '#22c55e' : '#888'
-                    }}>
-                      {getPriceDisplay(event)}
-                    </span>
-                  </div>
                 </div>
-
-                <span style={{
-                  padding: '4px 10px',
-                  background: event.status === 'published'
-                    ? 'rgba(34,197,94,0.15)'
-                    : 'rgba(248,113,113,0.15)',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  color: event.status === 'published' ? '#22c55e' : '#f87171',
-                  textTransform: 'uppercase'
-                }}>
-                  {event.status}
-                </span>
+                
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                  <button
+                    onClick={() => openEditForm(event)}
+                    style={{
+                      padding: '8px 14px',
+                      background: 'rgba(171,103,247,0.15)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#ab67f7',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDuplicate(event)}
+                    title="Duplicate +7 days"
+                    style={{
+                      padding: '8px 12px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#888',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    +7d
+                  </button>
+                  <button
+                    onClick={() => handleDelete(event)}
+                    style={{
+                      padding: '8px 12px',
+                      background: 'rgba(248,113,113,0.1)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#f87171',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
             ))}
+            
+            {filteredEvents.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
+                No events found
+              </div>
+            )}
           </div>
         )}
-      </main>
+      </div>
 
-      {/* Edit/Create Modal */}
-      {(editingEvent || isCreating) && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          zIndex: 1000,
-          overflow: 'auto'
-        }}>
-          <div style={{
-            background: '#111',
-            borderRadius: '16px',
-            maxWidth: '600px',
-            width: '100%',
-            maxHeight: '90vh',
-            overflow: 'auto'
-          }}>
-            <div style={{
-              padding: '20px 24px',
-              borderBottom: '1px solid rgba(255,255,255,0.08)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              position: 'sticky',
-              top: 0,
-              background: '#111',
-              zIndex: 10
-            }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>
-                {isCreating ? 'Add New Event' : `Edit: ${editingEvent?.title}`}
+      {/* ============================================================================ */}
+      {/* FORM MODAL */}
+      {/* ============================================================================ */}
+      {showForm && (
+        <div
+          onClick={() => setShowForm(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            padding: '20px',
+            overflowY: 'auto',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '600px',
+              background: '#1a1a1f',
+              borderRadius: '20px',
+              padding: '24px',
+              marginTop: '20px',
+              marginBottom: '40px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700 }}>
+                {editingEvent ? 'Edit Event' : 'Add Event'}
               </h2>
               <button
-                onClick={closeModal}
+                onClick={() => setShowForm(false)}
                 style={{
-                  background: 'none',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
                   border: 'none',
+                  background: 'rgba(255,255,255,0.1)',
                   color: '#888',
-                  fontSize: '24px',
-                  cursor: 'pointer'
+                  fontSize: '18px',
+                  cursor: 'pointer',
                 }}
               >
                 ×
               </button>
             </div>
 
-            <div style={{ padding: '24px' }}>
-              {saveError && (
-                <div style={{
-                  padding: '12px 16px',
-                  background: 'rgba(248,113,113,0.15)',
-                  border: '1px solid rgba(248,113,113,0.3)',
-                  borderRadius: '8px',
-                  marginBottom: '16px',
-                  color: '#f87171',
-                  fontSize: '14px'
-                }}>
-                  ❌ {saveError}
-                </div>
-              )}
-              {saveSuccess && (
-                <div style={{
-                  padding: '12px 16px',
-                  background: 'rgba(34,197,94,0.15)',
-                  border: '1px solid rgba(34,197,94,0.3)',
-                  borderRadius: '8px',
-                  marginBottom: '16px',
-                  color: '#22c55e',
-                  fontSize: '14px'
-                }}>
-                  ✅ Event saved!
-                </div>
-              )}
-
-              {/* Image Upload */}
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '8px' }}>
-                  Event Image
-                </label>
-                <div style={{
-                  height: '140px',
-                  background: formData.image_url
-                    ? `url(${formData.image_url}) center/cover`
-                    : 'rgba(255,255,255,0.05)',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  position: 'relative',
-                  overflow: 'hidden'
-                }}>
-                  {!formData.image_url && !uploadingImage && (
-                    <span style={{ color: '#666' }}>Click to upload</span>
-                  )}
-                  {uploadingImage && (
-                    <span style={{ color: '#ab67f7' }}>Uploading...</span>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      opacity: 0,
-                      cursor: 'pointer'
-                    }}
-                  />
-                </div>
-                {formData.image_url && (
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
-                    style={{
-                      marginTop: '8px',
-                      padding: '6px 12px',
-                      background: 'rgba(248,113,113,0.15)',
-                      border: 'none',
-                      borderRadius: '6px',
-                      color: '#f87171',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Remove image
-                  </button>
-                )}
-              </div>
-
-              {/* Venue */}
+            <form onSubmit={handleSubmit}>
+              {/* Venue Selection */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
                   Venue *
                 </label>
                 <select
-                  value={formData.venue_id}
-                  onChange={(e) => setFormData(prev => ({ ...prev, venue_id: e.target.value }))}
+                  required
+                  value={form.venue_id}
+                  onChange={(e) => setForm({ ...form, venue_id: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '12px',
-                    background: 'rgba(255,255,255,0.05)',
+                    background: '#141416',
                     border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px'
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '14px',
                   }}
                 >
-                  <option value="" style={{ background: '#111' }}>Select venue...</option>
-                  {venues.map((venue: Venue) => (
-                    <option key={venue.id} value={venue.id} style={{ background: '#111' }}>
-                      {venue.name}
-                    </option>
+                  <option value="">Select venue...</option>
+                  {venues.map((v) => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Brand */}
+              {/* ============================================ */}
+              {/* BRAND SELECTION - KEY FEATURE */}
+              {/* ============================================ */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                  Brand / Promoter (optional)
+                <label style={{ display: 'block', fontSize: '12px', color: '#ab67f7', marginBottom: '6px', fontWeight: 600 }}>
+                  🎵 Brand / Promoter
                 </label>
                 <select
-                  value={formData.brand_id}
-                  onChange={(e) => setFormData(prev => ({ ...prev, brand_id: e.target.value }))}
+                  value={form.brand_id}
+                  onChange={(e) => setForm({ ...form, brand_id: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '12px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px'
+                    background: '#141416',
+                    border: '1px solid rgba(171,103,247,0.3)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '14px',
                   }}
                 >
-                  <option value="" style={{ background: '#111' }}>No brand / Unknown</option>
-                  {brands.map((brand: Brand) => (
-                    <option key={brand.id} value={brand.id} style={{ background: '#111' }}>
-                      {brand.name} {brand.is_verified ? '✓' : ''}
+                  <option value="">No brand (venue event)</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} {b.is_verified ? '✓' : ''}
                     </option>
                   ))}
                 </select>
+                <p style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+                  Shows "by Underground Sound" on event cards
+                </p>
               </div>
 
               {/* Title */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
                   Event Title *
                 </label>
                 <input
                   type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="e.g. Shindig presents: Denis Sulta"
+                  required
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder="SHINDIG"
                   style={{
                     width: '100%',
                     padding: '12px',
-                    background: 'rgba(255,255,255,0.05)',
+                    background: '#141416',
                     border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px'
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '14px',
                   }}
                 />
               </div>
 
-              {/* Date & Time */}
+              {/* Date/Time - FULLY EDITABLE */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
                     Start Date *
                   </label>
                   <input
                     type="date"
-                    value={formData.start_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value, end_date: e.target.value }))}
+                    required
+                    value={form.start_date}
+                    onChange={(e) => setForm({ ...form, start_date: e.target.value })}
                     style={{
                       width: '100%',
                       padding: '12px',
-                      background: 'rgba(255,255,255,0.05)',
+                      background: '#141416',
                       border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
+                      borderRadius: '10px',
+                      color: 'white',
+                      fontSize: '14px',
                     }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                    Door Time
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                    Start Time *
                   </label>
                   <input
                     type="time"
-                    value={formData.start_time_hour}
-                    onChange={(e) => setFormData(prev => ({ ...prev, start_time_hour: e.target.value }))}
+                    required
+                    value={form.start_time}
+                    onChange={(e) => setForm({ ...form, start_time: e.target.value })}
                     style={{
                       width: '100%',
                       padding: '12px',
-                      background: 'rgba(255,255,255,0.05)',
+                      background: '#141416',
                       border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
+                      borderRadius: '10px',
+                      color: 'white',
+                      fontSize: '14px',
                     }}
                   />
                 </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
                     End Date
                   </label>
                   <input
                     type="date"
-                    value={formData.end_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
+                    value={form.end_date}
+                    onChange={(e) => setForm({ ...form, end_date: e.target.value })}
                     style={{
                       width: '100%',
                       padding: '12px',
-                      background: 'rgba(255,255,255,0.05)',
+                      background: '#141416',
                       border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
+                      borderRadius: '10px',
+                      color: 'white',
+                      fontSize: '14px',
                     }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
                     End Time
                   </label>
                   <input
                     type="time"
-                    value={formData.end_time_hour}
-                    onChange={(e) => setFormData(prev => ({ ...prev, end_time_hour: e.target.value }))}
+                    value={form.end_time}
+                    onChange={(e) => setForm({ ...form, end_time: e.target.value })}
                     style={{
                       width: '100%',
                       padding: '12px',
-                      background: 'rgba(255,255,255,0.05)',
+                      background: '#141416',
                       border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
+                      borderRadius: '10px',
+                      color: 'white',
+                      fontSize: '14px',
                     }}
                   />
                 </div>
               </div>
 
-              {/* Genres */}
+              {/* ============================================ */}
+              {/* PRICE TYPE SYSTEM */}
+              {/* ============================================ */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '8px' }}>
-                  Genres
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px' }}>
+                  Price Type
                 </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                  {availableGenres.map((genre: string) => (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {PRICE_TYPES.map((pt) => (
+                    <button
+                      key={pt.value}
+                      type="button"
+                      onClick={() => setForm({ ...form, price_type: pt.value })}
+                      style={{
+                        padding: '12px',
+                        background: form.price_type === pt.value ? 'rgba(171,103,247,0.2)' : '#141416',
+                        border: form.price_type === pt.value ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '10px',
+                        color: form.price_type === pt.value ? '#ab67f7' : '#888',
+                        fontSize: '13px',
+                        fontWeight: form.price_type === pt.value ? 600 : 400,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      {pt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Price inputs (conditional) */}
+              {form.price_type === 'paid' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                      Min Price (£)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={form.price_min}
+                      onChange={(e) => setForm({ ...form, price_min: e.target.value })}
+                      placeholder="5.00"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        background: '#141416',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '10px',
+                        color: 'white',
+                        fontSize: '14px',
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                      Max Price (£)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={form.price_max}
+                      onChange={(e) => setForm({ ...form, price_max: e.target.value })}
+                      placeholder="15.00"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        background: '#141416',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '10px',
+                        color: 'white',
+                        fontSize: '14px',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Free before time (conditional) */}
+              {form.price_type === 'free_before' && (
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                    Free Before Time
+                  </label>
+                  <input
+                    type="text"
+                    value={form.free_before_time}
+                    onChange={(e) => setForm({ ...form, free_before_time: e.target.value })}
+                    placeholder="11pm"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: '#141416',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '10px',
+                      color: 'white',
+                      fontSize: '14px',
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Ticket URL & Source */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                    Ticket URL
+                  </label>
+                  <input
+                    type="url"
+                    value={form.event_url}
+                    onChange={(e) => setForm({ ...form, event_url: e.target.value })}
+                    placeholder="https://ra.co/events/..."
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: '#141416',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '10px',
+                      color: 'white',
+                      fontSize: '14px',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                    🎫 Source
+                  </label>
+                  <select
+                    value={form.ticket_source}
+                    onChange={(e) => setForm({ ...form, ticket_source: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: '#141416',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '10px',
+                      color: 'white',
+                      fontSize: '14px',
+                    }}
+                  >
+                    {TICKET_SOURCES.map((ts) => (
+                      <option key={ts.value} value={ts.value}>{ts.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Image Upload */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                  Event Image
+                </label>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={uploading}
+                    style={{ flex: 1 }}
+                  />
+                  {form.image_url && (
+                    <>
+                      <img src={form.image_url} alt="" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px' }} />
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, image_url: '' })}
+                        style={{
+                          padding: '8px',
+                          background: 'rgba(248,113,113,0.15)',
+                          border: 'none',
+                          borderRadius: '6px',
+                          color: '#f87171',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </>
+                  )}
+                </div>
+                {uploading && <p style={{ fontSize: '12px', color: '#ab67f7', marginTop: '6px' }}>Uploading...</p>}
+              </div>
+
+              {/* Genres - Multi-select */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px' }}>
+                  Genres (click to select)
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                  {[...PRESET_GENRES, ...customGenres].map((genre) => (
                     <button
                       key={genre}
                       type="button"
                       onClick={() => toggleGenre(genre)}
                       style={{
-                        padding: '6px 12px',
-                        background: formData.genres.includes(genre)
-                          ? '#ab67f7'
-                          : 'rgba(255,255,255,0.05)',
-                        border: 'none',
+                        padding: '8px 12px',
+                        background: form.genres.includes(genre) ? '#ab67f7' : '#141416',
+                        border: form.genres.includes(genre) ? 'none' : '1px solid rgba(255,255,255,0.1)',
                         borderRadius: '6px',
-                        color: '#fff',
+                        color: form.genres.includes(genre) ? 'white' : '#888',
                         fontSize: '12px',
+                        fontWeight: form.genres.includes(genre) ? 600 : 400,
                         cursor: 'pointer',
-                        textTransform: 'capitalize'
                       }}
                     >
-                      {genre}
+                      {formatGenre(genre)}
                     </button>
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input
                     type="text"
-                    value={newGenreInput}
-                    onChange={(e) => setNewGenreInput(e.target.value)}
+                    value={newGenre}
+                    onChange={(e) => setNewGenre(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomGenre())}
                     placeholder="Add custom genre..."
                     style={{
                       flex: 1,
-                      padding: '10px',
-                      background: 'rgba(255,255,255,0.05)',
+                      padding: '8px 12px',
+                      background: '#141416',
                       border: '1px solid rgba(255,255,255,0.1)',
                       borderRadius: '6px',
-                      color: '#fff',
-                      fontSize: '13px'
+                      color: 'white',
+                      fontSize: '12px',
                     }}
                   />
                   <button
                     type="button"
                     onClick={addCustomGenre}
                     style={{
-                      padding: '10px 16px',
-                      background: 'rgba(171,103,247,0.2)',
+                      padding: '8px 16px',
+                      background: 'rgba(171,103,247,0.15)',
                       border: 'none',
                       borderRadius: '6px',
                       color: '#ab67f7',
-                      fontSize: '13px',
+                      fontSize: '12px',
                       fontWeight: 600,
-                      cursor: 'pointer'
+                      cursor: 'pointer',
                     }}
                   >
-                    + Add
+                    Add
                   </button>
                 </div>
               </div>
 
-              {/* Vibes */}
+              {/* Vibes - Multi-select */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '8px' }}>
-                  Vibes
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px' }}>
+                  Vibes (click to select)
                 </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                  {availableVibes.map((vibe: string) => (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                  {[...PRESET_VIBES, ...customVibes].map((vibe) => (
                     <button
                       key={vibe}
                       type="button"
                       onClick={() => toggleVibe(vibe)}
                       style={{
-                        padding: '6px 12px',
-                        background: formData.vibes.includes(vibe)
-                          ? '#3b82f6'
-                          : 'rgba(255,255,255,0.05)',
-                        border: 'none',
+                        padding: '8px 12px',
+                        background: form.vibes.includes(vibe) ? '#3b82f6' : '#141416',
+                        border: form.vibes.includes(vibe) ? 'none' : '1px solid rgba(255,255,255,0.1)',
                         borderRadius: '6px',
-                        color: '#fff',
+                        color: form.vibes.includes(vibe) ? 'white' : '#888',
                         fontSize: '12px',
+                        fontWeight: form.vibes.includes(vibe) ? 600 : 400,
                         cursor: 'pointer',
-                        textTransform: 'capitalize'
                       }}
                     >
-                      {vibe}
+                      {vibe.replace(/-/g, ' ')}
                     </button>
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input
                     type="text"
-                    value={newVibeInput}
-                    onChange={(e) => setNewVibeInput(e.target.value)}
+                    value={newVibe}
+                    onChange={(e) => setNewVibe(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomVibe())}
                     placeholder="Add custom vibe..."
                     style={{
                       flex: 1,
-                      padding: '10px',
-                      background: 'rgba(255,255,255,0.05)',
+                      padding: '8px 12px',
+                      background: '#141416',
                       border: '1px solid rgba(255,255,255,0.1)',
                       borderRadius: '6px',
-                      color: '#fff',
-                      fontSize: '13px'
+                      color: 'white',
+                      fontSize: '12px',
                     }}
                   />
                   <button
                     type="button"
                     onClick={addCustomVibe}
                     style={{
-                      padding: '10px 16px',
-                      background: 'rgba(59,130,246,0.2)',
+                      padding: '8px 16px',
+                      background: 'rgba(59,130,246,0.15)',
                       border: 'none',
                       borderRadius: '6px',
                       color: '#3b82f6',
-                      fontSize: '13px',
+                      fontSize: '12px',
                       fontWeight: 600,
-                      cursor: 'pointer'
+                      cursor: 'pointer',
                     }}
                   >
-                    + Add
+                    Add
                   </button>
                 </div>
               </div>
 
-              {/* Price Type */}
+              {/* Description */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                  Price Type
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                  Description
                 </label>
-                <select
-                  value={formData.price_type}
-                  onChange={(e) => setFormData(prev => ({ ...prev, price_type: e.target.value }))}
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={4}
+                  placeholder="Event description..."
                   style={{
                     width: '100%',
                     padding: '12px',
-                    background: 'rgba(255,255,255,0.05)',
+                    background: '#141416',
                     border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px'
-                  }}
-                >
-                  {PRICE_TYPES.map((pt) => (
-                    <option key={pt.value} value={pt.value} style={{ background: '#111' }}>
-                      {pt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Free Before Time */}
-              {formData.price_type === 'free_before' && (
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                    Free before what time?
-                  </label>
-                  <input
-                    type="time"
-                    value={formData.free_before_time}
-                    onChange={(e) => setFormData(prev => ({ ...prev, free_before_time: e.target.value }))}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Price Range */}
-              {formData.price_type === 'paid' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                      Min Price (£)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.price_min}
-                      onChange={(e) => setFormData(prev => ({ ...prev, price_min: e.target.value }))}
-                      placeholder="e.g. 5"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '8px',
-                        color: '#fff',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                      Max Price (£)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.price_max}
-                      onChange={(e) => setFormData(prev => ({ ...prev, price_max: e.target.value }))}
-                      placeholder="e.g. 15"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '8px',
-                        color: '#fff',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Ticket URL */}
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                  Ticket URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.event_url}
-                  onChange={(e) => setFormData(prev => ({ ...prev, event_url: e.target.value }))}
-                  placeholder="https://ra.co/events/..."
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px'
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '14px',
+                    resize: 'vertical',
                   }}
                 />
               </div>
 
               {/* Toggles */}
-              <div style={{ display: 'flex', gap: '20px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
-                    checked={formData.so_pick}
-                    onChange={(e) => setFormData(prev => ({ ...prev, so_pick: e.target.checked }))}
-                    style={{ width: '18px', height: '18px' }}
+                    checked={form.so_pick}
+                    onChange={(e) => setForm({ ...form, so_pick: e.target.checked })}
                   />
-                  <span style={{ fontSize: '14px' }}>⭐ SO Pick</span>
+                  <span style={{ fontSize: '13px', color: '#ab67f7' }}>⭐ SO Pick</span>
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
-                    checked={formData.sold_out}
-                    onChange={(e) => setFormData(prev => ({ ...prev, sold_out: e.target.checked }))}
-                    style={{ width: '18px', height: '18px' }}
+                    checked={form.sold_out}
+                    onChange={(e) => setForm({ ...form, sold_out: e.target.checked })}
                   />
-                  <span style={{ fontSize: '14px' }}>🚫 Sold Out</span>
+                  <span style={{ fontSize: '13px', color: '#f87171' }}>🎟️ Sold Out</span>
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
-                    checked={formData.no_phones}
-                    onChange={(e) => setFormData(prev => ({ ...prev, no_phones: e.target.checked }))}
-                    style={{ width: '18px', height: '18px' }}
+                    checked={form.no_phones}
+                    onChange={(e) => setForm({ ...form, no_phones: e.target.checked })}
                   />
-                  <span style={{ fontSize: '14px' }}>📵 No Phones</span>
+                  <span style={{ fontSize: '13px', color: '#ffc832' }}>📵 No Cameras</span>
                 </label>
               </div>
 
-              {/* Description */}
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                  Description
+              {/* Status */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                  Status
                 </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  rows={3}
-                  placeholder="Optional event description..."
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
                   style={{
                     width: '100%',
                     padding: '12px',
-                    background: 'rgba(255,255,255,0.05)',
+                    background: '#141416',
                     border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px',
-                    resize: 'vertical'
-                  }}
-                />
-              </div>
-
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  style={{
-                    flex: 1,
-                    padding: '14px',
-                    background: saving ? '#444' : '#ab67f7',
-                    border: 'none',
                     borderRadius: '10px',
-                    color: '#fff',
+                    color: 'white',
                     fontSize: '14px',
-                    fontWeight: 600,
-                    cursor: saving ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  {saving ? 'Saving...' : (isCreating ? 'Create Event' : 'Save Changes')}
-                </button>
-                {!isCreating && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleDuplicate}
-                      style={{
-                        padding: '14px 16px',
-                        background: 'rgba(59,130,246,0.15)',
-                        border: 'none',
-                        borderRadius: '10px',
-                        color: '#3b82f6',
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                      title="Duplicate +7 days"
-                    >
-                      📋 +7d
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      style={{
-                        padding: '14px 16px',
-                        background: 'rgba(248,113,113,0.15)',
-                        border: 'none',
-                        borderRadius: '10px',
-                        color: '#f87171',
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      🗑️
-                    </button>
-                  </>
-                )}
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                </select>
               </div>
-            </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: 'white',
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {editingEvent ? 'Update Event' : 'Create Event'}
+              </button>
+            </form>
           </div>
         </div>
       )}
