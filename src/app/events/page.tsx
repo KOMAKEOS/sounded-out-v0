@@ -1,298 +1,493 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
-import NavBar from '../../components/NavBar'
 
-interface Venue {
-  id: string
-  name: string
-  address: string
-}
+// ============================================================================
+// EVENTS LIST PAGE - /events/page.tsx
+// 
+// FIXES:
+// 1. All genres shown with expandable "Show more" option
+// 2. Slicker header with sign-in
+// 3. Better mobile layout
+// ============================================================================
 
-interface Event {
+type Event = {
   id: string
   title: string
-  start_time: string
-  end_time: string | null
+  date: string
+  start_time: string | null
   image_url: string | null
-  genres: string | null
+  ticket_url: string | null
+  ticket_source: string | null
+  price_type: string | null
   price_min: number | null
-  price_max: number | null
-  sold_out: boolean
-  so_pick: boolean
-  venue: Venue | null
+  genres: string | null
+  venue: {
+    id: string
+    name: string
+  } | null
+}
+
+// All available genres - add more as needed
+const ALL_GENRES = [
+  '140',
+  'Techno',
+  'Industrial',
+  'Disco',
+  'Balearic',
+  'House',
+  'Throwbacks',
+  'Garage',
+  'DnB',
+  'Jungle',
+  'Tech House',
+  'Minimal',
+  'Ambient',
+  'Breaks',
+  'Dub',
+  'Reggae',
+  'Hip Hop',
+  'R&B',
+  'Soul',
+  'Funk',
+  'Jazz',
+  'Electronic',
+  'Experimental',
+  'Live Music',
+]
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr)
+  const today = new Date()
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  
+  if (date.toDateString() === today.toDateString()) return 'Today'
+  if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow'
+  
+  return date.toLocaleDateString('en-GB', { 
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short'
+  })
+}
+
+function formatTime(time: string | null): string {
+  if (!time) return ''
+  const [h, m] = time.split(':')
+  return `${h}:${m}`
+}
+
+function formatPrice(event: Event): string {
+  if (event.price_type === 'free') return 'FREE'
+  if (event.price_min) return `£${event.price_min}+`
+  return ''
 }
 
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
+  
+  // Filters
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'tomorrow' | 'weekend'>('all')
-  const [genreFilter, setGenreFilter] = useState<string | null>(null)
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([])
+  const [showAllGenres, setShowAllGenres] = useState(false)
 
   useEffect(() => {
-    const loadEvents = async () => {
-      try {
-        const { data } = await supabase
-          .from('events')
-          .select('*, venue:venues(*)')
-          .eq('status', 'published')
-          .gte('start_time', new Date().toISOString().split('T')[0])
-          .order('start_time')
+    async function loadData() {
+      // Load user
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
 
-        if (data) setEvents(data as Event[])
-      } finally {
-        setLoading(false)
-      }
+      // Load events
+      let query = supabase
+        .from('events')
+        .select(`
+          id, title, date, start_time, image_url, ticket_url, 
+          ticket_source, price_type, price_min, genres,
+          venue:venues(id, name)
+        `)
+        .eq('status', 'published')
+        .gte('date', new Date().toISOString().split('T')[0])
+        .order('date', { ascending: true })
+        .order('start_time', { ascending: true })
+
+      const { data } = await query
+      if (data) setEvents(data)
+      setLoading(false)
     }
 
-    loadEvents()
+    loadData()
   }, [])
 
-  const formatDate = (date: string): string => {
-    const d = new Date(date)
-    const now = new Date()
-    const tomorrow = new Date(now)
+  // Filter events
+  const filteredEvents = events.filter(event => {
+    // Date filter
+    const eventDate = new Date(event.date)
+    const today = new Date()
+    const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
-
-    if (d.toDateString() === now.toDateString()) return 'Today'
-    if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow'
-    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-  }
-
-  const formatTime = (date: string): string => {
-    return new Date(date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  }
-
-  const formatPrice = (min: number | null, max: number | null): string | null => {
-    if (min === 0) return 'Free'
-    if (min == null && max == null) return null
-    if (min != null && max != null && min !== max) return `£${min}–£${max}`
-    return `£${min ?? max}`
-  }
-
-  const formatGenre = (genre: string): string => {
-    return genre.trim().replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-  }
-
-  // Filter logic
-  const isToday = (s: string) => new Date(s).toDateString() === new Date().toDateString()
-  const isTomorrow = (s: string) => {
-    const t = new Date()
-    t.setDate(t.getDate() + 1)
-    return new Date(s).toDateString() === t.toDateString()
-  }
-  const isWeekend = (s: string) => {
-    const d = new Date(s)
-    const day = d.getDay()
-    return day === 5 || day === 6 || day === 0
-  }
-
-  const filtered = useMemo(() => {
-    return events.filter((e) => {
-      if (dateFilter === 'today' && !isToday(e.start_time)) return false
-      if (dateFilter === 'tomorrow' && !isTomorrow(e.start_time)) return false
-      if (dateFilter === 'weekend' && !isWeekend(e.start_time)) return false
-      if (genreFilter && !e.genres?.toLowerCase().includes(genreFilter.toLowerCase())) return false
-      return true
-    })
-  }, [events, dateFilter, genreFilter])
-
-  // ✅ Get available genres (NO Set iteration → no TS downlevelIteration error)
-  const genres = useMemo(() => {
-    const seen: Record<string, true> = {}
-
-    for (const e of events) {
-      const parts = (e.genres || '')
-        .split(',')
-        .map((g) => g.trim().toLowerCase())
-        .filter(Boolean)
-
-      for (const g of parts) seen[g] = true
+    
+    if (dateFilter === 'today' && eventDate.toDateString() !== today.toDateString()) return false
+    if (dateFilter === 'tomorrow' && eventDate.toDateString() !== tomorrow.toDateString()) return false
+    if (dateFilter === 'weekend') {
+      const dayOfWeek = eventDate.getDay()
+      if (dayOfWeek !== 5 && dayOfWeek !== 6 && dayOfWeek !== 0) return false
     }
 
-    return Object.keys(seen).slice(0, 8)
-  }, [events])
+    // Genre filter
+    if (selectedGenres.length > 0) {
+      const eventGenres = event.genres?.toLowerCase().split(',').map(g => g.trim()) || []
+      const hasMatchingGenre = selectedGenres.some(sg => 
+        eventGenres.some(eg => eg.includes(sg.toLowerCase()))
+      )
+      if (!hasMatchingGenre) return false
+    }
+
+    return true
+  })
+
+  // Group by date
+  const groupedEvents: { [key: string]: Event[] } = {}
+  filteredEvents.forEach(event => {
+    const dateKey = event.date
+    if (!groupedEvents[dateKey]) groupedEvents[dateKey] = []
+    groupedEvents[dateKey].push(event)
+  })
+
+  const toggleGenre = (genre: string) => {
+    setSelectedGenres(prev => 
+      prev.includes(genre) 
+        ? prev.filter(g => g !== genre)
+        : [...prev, genre]
+    )
+  }
+
+  // Genres to show - first 8 or all
+  const visibleGenres = showAllGenres ? ALL_GENRES : ALL_GENRES.slice(0, 8)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white' }}>
-      <NavBar />
+    <div style={{ minHeight: '100vh', background: '#0a0a0b', color: '#fff' }}>
+      
+      {/* Header */}
+      <header
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '16px 20px',
+          paddingTop: 'max(16px, env(safe-area-inset-top))',
+          background: 'rgba(10,10,11,0.98)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+        }}
+      >
+        <Link href="/" style={{ color: '#888', textDecoration: 'none', fontSize: '14px' }}>
+          ← Map
+        </Link>
+        
+        <span style={{ fontSize: '16px', fontWeight: 700 }}>
+          Events
+        </span>
+        
+        {user ? (
+          <Link href="/profile" style={{ 
+            width: '32px', 
+            height: '32px', 
+            borderRadius: '50%', 
+            background: '#AB67F7',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '13px',
+            fontWeight: 600,
+            color: '#fff',
+            textDecoration: 'none',
+          }}>
+            {user.email?.charAt(0).toUpperCase()}
+          </Link>
+        ) : (
+          <Link 
+            href="/login" 
+            style={{ 
+              padding: '6px 12px',
+              background: '#AB67F7',
+              borderRadius: '6px',
+              color: '#fff',
+              fontSize: '12px',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            Sign In
+          </Link>
+        )}
+      </header>
 
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '8px' }}>Events</h1>
-        <p style={{ fontSize: '15px', color: '#888', marginBottom: '24px' }}>
-          Discover what&apos;s happening in Newcastle
+      {/* Filters */}
+      <div style={{ padding: '20px', paddingBottom: '8px' }}>
+        
+        {/* Page title */}
+        <h1 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '4px', letterSpacing: '-1px' }}>
+          Events
+        </h1>
+        <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
+          Discover what's happening in Newcastle
         </p>
 
-        {/* Filters */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
-          {(['all', 'today', 'tomorrow', 'weekend'] as const).map((f) => (
+        {/* Date filters */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+          {(['all', 'today', 'tomorrow', 'weekend'] as const).map(filter => (
             <button
-              key={f}
-              onClick={() => setDateFilter(f)}
+              key={filter}
+              onClick={() => setDateFilter(filter)}
               style={{
                 padding: '10px 18px',
-                borderRadius: '10px',
-                border: dateFilter === f ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.1)',
-                background: dateFilter === f ? 'rgba(171,103,247,0.15)' : 'transparent',
-                color: dateFilter === f ? '#ab67f7' : '#888',
+                borderRadius: '20px',
+                border: dateFilter === filter ? '2px solid #AB67F7' : '1px solid rgba(255,255,255,0.15)',
+                background: dateFilter === filter ? 'rgba(171,103,247,0.15)' : 'rgba(255,255,255,0.04)',
+                color: dateFilter === filter ? '#AB67F7' : '#999',
                 fontSize: '14px',
-                fontWeight: dateFilter === f ? 600 : 500,
+                fontWeight: 600,
                 cursor: 'pointer',
                 textTransform: 'capitalize',
               }}
             >
-              {f}
+              {filter === 'all' ? 'All' : filter}
             </button>
           ))}
         </div>
 
-        {/* Genre Filters */}
-        {genres.length > 0 && (
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '32px' }}>
-            {genres.map((genre) => (
+        {/* Genre filters - expandable */}
+        <div style={{ marginBottom: '8px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {visibleGenres.map(genre => (
               <button
                 key={genre}
-                onClick={() => setGenreFilter(genreFilter === genre ? null : genre)}
+                onClick={() => toggleGenre(genre)}
                 style={{
                   padding: '8px 14px',
-                  borderRadius: '8px',
-                  border: genreFilter === genre ? '1px solid #ab67f7' : '1px solid rgba(255,255,255,0.08)',
-                  background: genreFilter === genre ? 'rgba(171,103,247,0.15)' : 'rgba(255,255,255,0.04)',
-                  color: genreFilter === genre ? '#ab67f7' : '#888',
+                  borderRadius: '16px',
+                  border: selectedGenres.includes(genre) 
+                    ? '1px solid #AB67F7' 
+                    : '1px solid rgba(255,255,255,0.12)',
+                  background: selectedGenres.includes(genre) 
+                    ? 'rgba(171,103,247,0.15)' 
+                    : 'rgba(255,255,255,0.04)',
+                  color: selectedGenres.includes(genre) ? '#AB67F7' : '#888',
                   fontSize: '13px',
-                  fontWeight: 500,
                   cursor: 'pointer',
-                  textTransform: 'capitalize',
                 }}
               >
                 {genre}
               </button>
             ))}
-          </div>
-        )}
-
-        {/* Event Count */}
-        <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>
-          <span style={{ color: '#ab67f7', fontWeight: 700 }}>{filtered.length}</span> events found
-        </p>
-
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <div
+            
+            {/* Show more/less toggle */}
+            <button
+              onClick={() => setShowAllGenres(!showAllGenres)}
               style={{
-                width: '48px',
-                height: '48px',
-                border: '3px solid rgba(171,103,247,0.2)',
-                borderTopColor: '#ab67f7',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-                margin: '0 auto 16px',
+                padding: '8px 14px',
+                borderRadius: '16px',
+                border: '1px solid rgba(171,103,247,0.3)',
+                background: 'transparent',
+                color: '#AB67F7',
+                fontSize: '13px',
+                cursor: 'pointer',
+                fontWeight: 500,
               }}
-            />
-            <p style={{ color: '#888' }}>Loading events...</p>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            >
+              {showAllGenres ? '− Show less' : `+ ${ALL_GENRES.length - 8} more`}
+            </button>
           </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <p style={{ fontSize: '48px', marginBottom: '16px' }}>🌙</p>
-            <h3 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '8px' }}>No events found</h3>
-            <p style={{ fontSize: '14px', color: '#888' }}>Try adjusting your filters</p>
+          
+          {/* Clear filters if any selected */}
+          {selectedGenres.length > 0 && (
+            <button
+              onClick={() => setSelectedGenres([])}
+              style={{
+                marginTop: '12px',
+                padding: '6px 12px',
+                background: 'transparent',
+                border: 'none',
+                color: '#666',
+                fontSize: '12px',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >
+              Clear genre filters
+            </button>
+          )}
+        </div>
+
+        {/* Results count */}
+        <div style={{ 
+          color: '#AB67F7', 
+          fontSize: '14px', 
+          fontWeight: 600,
+          marginTop: '16px',
+        }}>
+          {filteredEvents.length} events found
+        </div>
+      </div>
+
+      {/* Events list */}
+      <main style={{ padding: '0 20px 100px' }}>
+        {loading ? (
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            padding: '60px 0',
+            color: '#666',
+          }}>
+            Loading events...
+          </div>
+        ) : Object.keys(groupedEvents).length === 0 ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '60px 20px',
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }}>🌙</div>
+            <p style={{ color: '#888', fontSize: '16px', marginBottom: '8px' }}>No events found</p>
+            <p style={{ color: '#666', fontSize: '14px' }}>Try different filters or check back later</p>
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: '20px',
-            }}
-          >
-            {filtered.map((event) => (
-              <Link
-                key={event.id}
-                href={`/events/${event.id}`}
-                style={{
-                  display: 'block',
-                  background: '#141416',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  overflow: 'hidden',
-                  textDecoration: 'none',
-                  color: 'white',
-                  transition: 'transform 150ms ease, box-shadow 150ms ease',
-                }}
-              >
-                {/* Image */}
-                {event.image_url ? (
-                  <div style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
-                    <img src={event.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                ) : (
-                  <div
+          Object.entries(groupedEvents).map(([date, dateEvents]) => (
+            <div key={date} style={{ marginBottom: '32px' }}>
+              {/* Date header */}
+              <div style={{ 
+                fontSize: '12px', 
+                fontWeight: 700, 
+                color: '#666',
+                letterSpacing: '1px',
+                marginBottom: '12px',
+                padding: '8px 0',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+              }}>
+                {formatDate(date).toUpperCase()}
+              </div>
+              
+              {/* Events for this date */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {dateEvents.map(event => (
+                  <Link
+                    key={event.id}
+                    href={`/events/${event.id}`}
                     style={{
-                      width: '100%',
-                      aspectRatio: '16/9',
-                      background: 'linear-gradient(135deg, #1a1a2e, #252530)',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      gap: '14px',
+                      padding: '14px',
+                      background: 'rgba(255,255,255,0.03)',
+                      borderRadius: '14px',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      textDecoration: 'none',
+                      transition: 'background 150ms ease',
                     }}
                   >
-                    <span style={{ fontSize: '36px', opacity: 0.4 }}>🎵</span>
-                  </div>
-                )}
-
-                {/* Content */}
-                <div style={{ padding: '16px' }}>
-                  <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, marginBottom: '6px' }}>
-                    {formatDate(event.start_time)} · {formatTime(event.start_time)}
-                  </p>
-
-                  <h3 style={{ fontSize: '17px', fontWeight: 700, marginBottom: '6px', lineHeight: 1.3 }}>
-                    {event.title}
-                  </h3>
-
-                  <p style={{ fontSize: '14px', color: '#888', marginBottom: '10px' }}>{event.venue?.name}</p>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    {event.sold_out && (
-                      <span
-                        style={{
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          color: '#f87171',
-                          background: 'rgba(248,113,113,0.15)',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                        }}
-                      >
-                        SOLD OUT
-                      </span>
-                    )}
-
-                    {formatPrice(event.price_min, event.price_max) && (
-                      <span
-                        style={{
-                          fontSize: '12px',
-                          fontWeight: event.price_min === 0 ? 700 : 500,
-                          color: event.price_min === 0 ? '#22c55e' : '#888',
-                        }}
-                      >
-                        {formatPrice(event.price_min, event.price_max)}
-                      </span>
-                    )}
-
-                    {event.genres && (
-                      <span style={{ fontSize: '11px', color: '#22d3ee' }}>
-                        {formatGenre(event.genres.split(',')[0])}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+                    {/* Event image */}
+                    <div
+                      style={{
+                        width: '72px',
+                        height: '72px',
+                        borderRadius: '10px',
+                        overflow: 'hidden',
+                        background: '#1a1a1f',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {event.image_url ? (
+                        <img 
+                          src={event.image_url} 
+                          alt="" 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div style={{ 
+                          width: '100%', 
+                          height: '100%', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          fontSize: '24px',
+                          opacity: 0.3,
+                        }}>
+                          ♪
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Event info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={{ 
+                        fontSize: '15px', 
+                        fontWeight: 600, 
+                        color: '#fff',
+                        marginBottom: '4px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {event.title}
+                      </h3>
+                      
+                      <div style={{ 
+                        fontSize: '13px', 
+                        color: '#888',
+                        marginBottom: '8px',
+                      }}>
+                        {event.venue?.name}
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '12px', color: '#AB67F7', fontWeight: 600 }}>
+                          {formatTime(event.start_time)}
+                        </span>
+                        
+                        {event.genres && (
+                          <span style={{ 
+                            fontSize: '11px', 
+                            color: '#666',
+                            background: 'rgba(255,255,255,0.06)',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                          }}>
+                            {event.genres.split(',')[0]?.trim()}
+                          </span>
+                        )}
+                        
+                        {event.ticket_source === 'ra' && (
+                          <span style={{ 
+                            fontSize: '10px', 
+                            color: '#ffcc00',
+                            background: 'rgba(255,204,0,0.1)',
+                            padding: '2px 5px',
+                            borderRadius: '3px',
+                            fontWeight: 600,
+                          }}>
+                            RA
+                          </span>
+                        )}
+                        
+                        {formatPrice(event) && (
+                          <span style={{ fontSize: '12px', color: '#666', marginLeft: 'auto' }}>
+                            {formatPrice(event)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </main>
     </div>
