@@ -1466,7 +1466,12 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         </Link>
 
         <button
-          onClick={(e: React.MouseEvent) => { e.stopPropagation(); { if (onSignOut) onSignOut(); if (onClose) onClose(); }}
+          onClick={(e: React.MouseEvent) => {
+  e.stopPropagation()
+  if (onSignOut) onSignOut()
+  if (onClose) onClose()
+}}
+
           style={{ display: 'block', width: '100%', padding: '14px 16px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '10px', color: '#f87171', fontSize: '15px', fontWeight: 500, marginBottom: '8px', cursor: 'pointer', textAlign: 'left' }}
         >
           Sign Out
@@ -1532,7 +1537,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
   {/* Sign In / User Button */}
   {user ? (
     <button
-      onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setShowMenu(!showMenu); trackMenuOpen() }}
+      onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(!showMenu); trackMenuOpen() }}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -1586,7 +1591,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
   )}
   {/* Menu button */}
   <button
-    onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setShowMenu(!showMenu); trackMenuOpen() }}
+    onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(!showMenu); trackMenuOpen() }}
               style={{
                 width: '44px',
                 height: '44px',
@@ -1621,7 +1626,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             return (
               <button 
                 key={f} 
-               onClick={(e: React.MouseEvent) => { e.stopPropagation(); { 
+               onClick={(e: React.MouseEvent) => { e.stopPropagation(); 
   if (dateFilter !== f) {
     setDateFilter(f)
     // DON'T reset currentIndex or close sheet - let user stay where they are
@@ -1680,7 +1685,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               {getNext7Days().map((d: { str: string; name: string; num: number }) => (
                 <button 
                   key={d.str} 
-                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); { 
+                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); 
   setDateFilter(d.str)
   setShowDatePicker(false)
   trackDateFilter(d.str, filtered.length)
@@ -1720,7 +1725,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               return (
                 <button
                   key={genre}
-                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); {
+                  onClick={(e: React.MouseEvent) => { e.stopPropagation();
   setActiveGenre(isSelected ? null : genre)
   trackGenreFilter(genre, filtered.length)
 }}
@@ -1746,7 +1751,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             {/* Clear filters button */}
             {(activeGenre || showFreeOnly) && (
               <button
-                onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setActiveGenre(null); setShowFreeOnly(false) }}
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActiveGenre(null); setShowFreeOnly(false) }}
                 style={{
                   padding: '8px 14px',
                   minHeight: '40px',
@@ -1992,7 +1997,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         }}>
           <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ab67f7' }}>Event Details</h3>
           <button
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setViewMode('map'); setSheetVisible(false); highlightMarker(null) }}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('map'); setSheetVisible(false); highlightMarker(null) }}
             style={{
               width: '44px',
               height: '44px',
@@ -2354,7 +2359,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         {/* Map - Full remaining width */}
         <div 
           style={{ flex: 1, position: 'relative', minWidth: 0 }}
-          onClick={(e: React.MouseEvent) => { e.stopPropagation(); {
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); 
             if (viewMode === 'preview' || viewMode === 'detail') {
               setViewMode('map')
               setSheetVisible(false)
@@ -2438,7 +2443,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         {/* Cluster Selection Modal */}
         {viewMode === 'cluster' && clusterEvents.length > 0 && (
           <div 
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setViewMode('map'); setClusterEvents([]) }}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('map'); setClusterEvents([]) }}
             style={{
               position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2449,7 +2454,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#ab67f7' }}>{clusterEvents.length} events here</h3>
-                <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setViewMode('map'); setClusterEvents([]) }} style={{
+                <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('map'); setClusterEvents([]) }} style={{
                   width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', borderRadius: '50%', border: 'none',
                   background: 'rgba(255,255,255,0.1)', color: '#999', fontSize: '16px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2625,7 +2630,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         {/* Welcome Overlay */}
         {showWelcome && !showIntro && (
           <div 
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setShowWelcome(false); localStorage.setItem('so_welcome_seen', 'true') }}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowWelcome(false); localStorage.setItem('so_welcome_seen', 'true') }}
             style={{
               position: 'absolute', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.85)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -2687,7 +2692,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             {/* Sign In / User Button */}
 {user ? (
   <button
-    onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setShowMenu(true); trackMenuOpen() }}
+    onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(true); trackMenuOpen() }}
     style={{
       display: 'flex',
       alignItems: 'center',
@@ -2818,7 +2823,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                 {getNext7Days().map((d: { str: string; name: string; num: number }) => (
                   <button 
                     key={d.str}
-                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setDateFilter(d.str); setShowDatePicker(false); trackDateFilter(d.str, filtered.length) }}
+                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDateFilter(d.str); setShowDatePicker(false); trackDateFilter(d.str, filtered.length) }}
                     style={{
                       width: '48px', minWidth: '48px', padding: '8px 4px', borderRadius: '12px', border: 'none', cursor: 'pointer',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
@@ -2915,7 +2920,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         {/* Pull-up Sheet - Peek state shows event count */}
         {viewMode === 'map' && (
           <div 
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); { openSheet('list'); trackListOpen(filtered.length) }}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); openSheet('list'); trackListOpen(filtered.length) }}
             style={{
               position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 15,
               background: '#141416', borderRadius: '20px 20px 0 0',
