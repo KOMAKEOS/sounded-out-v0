@@ -1380,6 +1380,7 @@ const EmptyStateNoEvents = ({ filterLabel, onReset }: EmptyStateProps): JSX.Elem
     </button>
   </div>
 )
+}
 
 // ============================================================================
 // P1 FIX: EVENT THUMBNAIL COMPONENT (with placeholder)
