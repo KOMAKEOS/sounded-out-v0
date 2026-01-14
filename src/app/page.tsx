@@ -1466,7 +1466,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         </Link>
 
         <button
-          onClick={() => { if (onSignOut) onSignOut(); if (onClose) onClose(); }}
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); { if (onSignOut) onSignOut(); if (onClose) onClose(); }}
           style={{ display: 'block', width: '100%', padding: '14px 16px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '10px', color: '#f87171', fontSize: '15px', fontWeight: 500, marginBottom: '8px', cursor: 'pointer', textAlign: 'left' }}
         >
           Sign Out
@@ -1532,7 +1532,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
   {/* Sign In / User Button */}
   {user ? (
     <button
-      onClick={() => { setShowMenu(!showMenu); trackMenuOpen() }}
+      onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setShowMenu(!showMenu); trackMenuOpen() }}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -1586,7 +1586,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
   )}
   {/* Menu button */}
   <button
-    onClick={() => { setShowMenu(!showMenu); trackMenuOpen() }}
+    onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setShowMenu(!showMenu); trackMenuOpen() }}
               style={{
                 width: '44px',
                 height: '44px',
@@ -1621,7 +1621,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             return (
               <button 
                 key={f} 
-               onClick={() => { 
+               onClick={(e: React.MouseEvent) => { e.stopPropagation(); { 
   if (dateFilter !== f) {
     setDateFilter(f)
     // DON'T reset currentIndex or close sheet - let user stay where they are
@@ -1650,7 +1650,8 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             )
           })}
           <button 
-            onClick={() => setShowDatePicker(!showDatePicker)} 
+  onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowDatePicker(!showDatePicker) }}
+  onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
             style={{
               padding: '10px 16px',
               minHeight: '44px',
@@ -1679,7 +1680,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               {getNext7Days().map((d: { str: string; name: string; num: number }) => (
                 <button 
                   key={d.str} 
-                  onClick={() => { 
+                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); { 
   setDateFilter(d.str)
   setShowDatePicker(false)
   trackDateFilter(d.str, filtered.length)
@@ -1719,7 +1720,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               return (
                 <button
                   key={genre}
-                  onClick={() => {
+                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); {
   setActiveGenre(isSelected ? null : genre)
   trackGenreFilter(genre, filtered.length)
 }}
@@ -1745,7 +1746,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             {/* Clear filters button */}
             {(activeGenre || showFreeOnly) && (
               <button
-                onClick={() => { setActiveGenre(null); setShowFreeOnly(false) }}
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setActiveGenre(null); setShowFreeOnly(false) }}
                 style={{
                   padding: '8px 14px',
                   minHeight: '40px',
@@ -1808,7 +1809,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               {evs.map((e: Event) => (
                 <div 
                   key={e.id} 
-                  onClick={() => selectEvent(e)} 
+                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); selectEvent(e)} 
                   style={{
                     display: 'flex', 
                     alignItems: 'flex-start', 
@@ -1991,7 +1992,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         }}>
           <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ab67f7' }}>Event Details</h3>
           <button
-            onClick={() => { setViewMode('map'); setSheetVisible(false); highlightMarker(null) }}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setViewMode('map'); setSheetVisible(false); highlightMarker(null) }}
             style={{
               width: '44px',
               height: '44px',
@@ -2178,7 +2179,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               </span>
             ))}
             {current.genres && current.genres.split(',').length > 4 && !showAllGenres && (
-              <button onClick={() => setShowAllGenres(true)} style={{
+              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAllGenres(true)} style={{
                 padding: '6px 12px', background: 'rgba(255,255,255,0.08)', borderRadius: '8px',
                 fontSize: '12px', color: '#999', border: 'none', cursor: 'pointer',
               }}>
@@ -2197,7 +2198,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
           {/* Description */}
           {current.description && (
             <div style={{ marginBottom: '16px' }}>
-              <button onClick={() => setShowDescription(!showDescription)} style={{
+              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowDescription(!showDescription)} style={{
                 width: '100%', padding: '12px 14px', background: 'rgba(255,255,255,0.05)',
                 border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#999',
                 fontSize: '13px', fontWeight: 600, cursor: 'pointer',
@@ -2245,7 +2246,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)'
           }}>
             <button 
-              onClick={() => navigate('prev')} 
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('prev')} 
               disabled={currentIndex === 0}
               style={{
                 minHeight: '44px',
@@ -2261,7 +2262,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             </button>
             <span style={{ fontSize: '12px', color: '#555' }}>{currentIndex + 1} / {filtered.length}</span>
             <button 
-              onClick={() => navigate('next')} 
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next')} 
               disabled={currentIndex === filtered.length - 1}
               style={{
                 minHeight: '44px',
@@ -2304,6 +2305,17 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
       outline: 2px solid #ab67f7;
       outline-offset: 2px;
     }
+
+     /* Mobile button touch fixes */
+    button, a, [role="button"] {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Prevent double-tap zoom on buttons */
+    button {
+      touch-action: manipulation;
+    }
     
     button:focus-visible,
     a:focus-visible {
@@ -2342,7 +2354,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         {/* Map - Full remaining width */}
         <div 
           style={{ flex: 1, position: 'relative', minWidth: 0 }}
-          onClick={() => {
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); {
             if (viewMode === 'preview' || viewMode === 'detail') {
               setViewMode('map')
               setSheetVisible(false)
@@ -2426,7 +2438,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         {/* Cluster Selection Modal */}
         {viewMode === 'cluster' && clusterEvents.length > 0 && (
           <div 
-            onClick={() => { setViewMode('map'); setClusterEvents([]) }}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setViewMode('map'); setClusterEvents([]) }}
             style={{
               position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2437,7 +2449,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#ab67f7' }}>{clusterEvents.length} events here</h3>
-                <button onClick={() => { setViewMode('map'); setClusterEvents([]) }} style={{
+                <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setViewMode('map'); setClusterEvents([]) }} style={{
                   width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', borderRadius: '50%', border: 'none',
                   background: 'rgba(255,255,255,0.1)', color: '#999', fontSize: '16px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2445,7 +2457,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto' }}>
                 {clusterEvents.map((e: Event) => (
-                  <div key={e.id} onClick={() => selectEvent(e)} style={{
+                  <div key={e.id} onClick={(e: React.MouseEvent) => { e.stopPropagation(); selectEvent(e)} style={{
                     display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
                     background: '#141416', borderRadius: '10px', cursor: 'pointer',
                   }}>
@@ -2469,7 +2481,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         {/* Desktop Menu Dropdown */}
         {showMenu && (
           <>
-            <div onClick={() => setShowMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />
+            <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />
             <div style={{
               position: 'fixed', top: '70px', left: deviceType === 'desktop' ? '290px' : '240px', 
               background: '#1a1a1f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', 
@@ -2482,7 +2494,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         
         {/* Admin Menu */}
         {showAdminMenu && (
-          <div onClick={() => setShowAdminMenu(false)} style={{
+          <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAdminMenu(false)} style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 200,
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
           }}>
@@ -2521,7 +2533,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                   </div>
                 </a>
               </div>
-              <button onClick={() => setShowAdminMenu(false)} style={{
+              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAdminMenu(false)} style={{
                 width: '100%', marginTop: '16px', padding: '12px', background: 'transparent',
                 border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px',
                 color: '#777', fontSize: '14px', cursor: 'pointer',
@@ -2613,7 +2625,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         {/* Welcome Overlay */}
         {showWelcome && !showIntro && (
           <div 
-            onClick={() => { setShowWelcome(false); localStorage.setItem('so_welcome_seen', 'true') }}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setShowWelcome(false); localStorage.setItem('so_welcome_seen', 'true') }}
             style={{
               position: 'absolute', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.85)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -2644,7 +2656,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         )}
         
         {/* Menu overlay */}
-        {showMenu && <div onClick={() => setShowMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 19, background: 'transparent' }} />}
+        {showMenu && <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 19, background: 'transparent' }} />}
 
         {/* Floating Header Elements */}
         <div style={{
@@ -2656,7 +2668,8 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
           <div style={{ display: 'flex', gap: '10px', pointerEvents: 'auto', marginBottom: '10px' }}>
             {/* Search/Filter bar */}
             <div 
-              onClick={() => { openSheet('list'); trackListOpen(filtered.length) }}
+  onClick={(e: React.MouseEvent) => { e.stopPropagation(); openSheet('list'); trackListOpen(filtered.length) }}
+  onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
               style={{
                 flex: 1, padding: '12px 16px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
                 WebkitBackdropFilter: 'blur(10px)',
@@ -2674,7 +2687,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             {/* Sign In / User Button */}
 {user ? (
   <button
-    onClick={() => { setShowMenu(true); trackMenuOpen() }}
+    onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setShowMenu(true); trackMenuOpen() }}
     style={{
       display: 'flex',
       alignItems: 'center',
@@ -2710,11 +2723,13 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
   </button>
 ) : (
   <Link
-    href="/login"
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      padding: '10px 16px',
+  href="/login"
+  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+  style={{
+    display: 'flex',
+    alignItems: 'center',
+    padding: '10px 16px',
+    touchAction: 'manipulation',
       minHeight: '48px',
       borderRadius: '14px',
       background: '#ab67f7',
@@ -2730,9 +2745,11 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 )}
 {/* Menu button */}
 <button
-  onClick={() => { setShowMenu(true); trackMenuOpen() }}
+  onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(true); trackMenuOpen() }}
+  onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
   style={{
     width: '48px', height: '48px', minWidth: '48px', minHeight: '48px', borderRadius: '14px',
+    touchAction: 'manipulation',
                 background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
                 WebkitBackdropFilter: 'blur(10px)',
                 border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
@@ -2753,13 +2770,15 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               const isSelected: boolean = dateFilter === f
               return (
                 <button 
-                  key={f}
-                  onClick={() => { 
-  if (dateFilter !== f) { 
-    setDateFilter(f)
-    trackDateFilter(f, filtered.length) 
-  }
-}}
+  key={f}
+  onClick={(e: React.MouseEvent) => { 
+    e.stopPropagation()
+    if (dateFilter !== f) { 
+      setDateFilter(f)
+      trackDateFilter(f, filtered.length) 
+    }
+  }}
+  onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
                   aria-pressed={isSelected}
                   style={{
                     padding: '10px 16px', minHeight: '44px', borderRadius: '22px', border: 'none',
@@ -2775,7 +2794,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               )
             })}
             <button 
-              onClick={() => setShowDatePicker(!showDatePicker)}
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowDatePicker(!showDatePicker)}
               style={{
                 padding: '10px 14px', minHeight: '44px', borderRadius: '22px', border: 'none',
                 fontSize: '13px', fontWeight: 600, cursor: 'pointer',
@@ -2799,7 +2818,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                 {getNext7Days().map((d: { str: string; name: string; num: number }) => (
                   <button 
                     key={d.str}
-                    onClick={() => { setDateFilter(d.str); setShowDatePicker(false); trackDateFilter(d.str, filtered.length) }}
+                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); { setDateFilter(d.str); setShowDatePicker(false); trackDateFilter(d.str, filtered.length) }}
                     style={{
                       width: '48px', minWidth: '48px', padding: '8px 4px', borderRadius: '12px', border: 'none', cursor: 'pointer',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
@@ -2822,8 +2841,13 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                 const isSelected: boolean = activeGenre === genre
                 return (
                   <button
-                    key={genre}
-                    onClick={() => { setActiveGenre(isSelected ? null : genre); trackGenreFilter(genre, filtered.length) }}
+  key={genre}
+  onClick={(e: React.MouseEvent) => { 
+    e.stopPropagation()
+    setActiveGenre(isSelected ? null : genre)
+    trackGenreFilter(genre, filtered.length) 
+  }}
+  onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
                     aria-pressed={isSelected}
                     style={{
                       padding: '10px 16px',
@@ -2850,8 +2874,9 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         {/* P1 FIX: Floating Map Controls with 48px touch targets */}
         <div style={{ position: 'absolute', bottom: '180px', right: '16px', zIndex: 15, display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {/* Reset View */}
-          <button
-            onClick={() => map.current?.flyTo({ center: [-1.6131, 54.9695], zoom: 13, duration: 800 })}
+<button
+  onClick={(e: React.MouseEvent) => { e.stopPropagation(); map.current?.flyTo({ center: [-1.6131, 54.9695], zoom: 13, duration: 800 }) }}
+  onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
             title="Reset view"
             aria-label="Reset view to Newcastle"
             style={{
@@ -2890,7 +2915,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         {/* Pull-up Sheet - Peek state shows event count */}
         {viewMode === 'map' && (
           <div 
-            onClick={() => { openSheet('list'); trackListOpen(filtered.length) }}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); { openSheet('list'); trackListOpen(filtered.length) }}
             style={{
               position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 15,
               background: '#141416', borderRadius: '20px 20px 0 0',
@@ -2940,7 +2965,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                   <div style={{ fontSize: '12px', fontWeight: 700, color: gi === 0 ? 'transparent' : '#666', textTransform: 'uppercase', marginBottom: '12px', paddingBottom: gi > 0 ? '8px' : '0', borderBottom: gi > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>{label}</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {evs.map((e: Event) => (
-                      <div key={e.id} onClick={() => selectEvent(e)} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '14px', minHeight: '72px', background: '#1e1e24', borderRadius: '14px', cursor: 'pointer' }}>
+                      <div key={e.id} onClick={(e: React.MouseEvent) => { e.stopPropagation(); selectEvent(e)} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '14px', minHeight: '72px', background: '#1e1e24', borderRadius: '14px', cursor: 'pointer' }}>
                         <span style={{ fontSize: '13px', color: '#ab67f7', fontWeight: 700, minWidth: '48px', paddingTop: '2px' }}>{formatTime(e.start_time)}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
@@ -2984,7 +3009,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#ab67f7', marginBottom: '14px' }}>{clusterEvents.length} events here</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '50vh', overflowY: 'auto' }}>
               {clusterEvents.map((e: Event) => (
-                <div key={e.id} onClick={() => selectEvent(e)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', minHeight: '64px', background: '#1e1e24', borderRadius: '14px', cursor: 'pointer' }}>
+                <div key={e.id} onClick={(e: React.MouseEvent) => { e.stopPropagation(); selectEvent(e)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', minHeight: '64px', background: '#1e1e24', borderRadius: '14px', cursor: 'pointer' }}>
                   <span style={{ fontSize: '13px', color: '#ab67f7', fontWeight: 700, minWidth: '48px' }}>{formatTime(e.start_time)}</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '2px' }}>{e.title}</div>
@@ -3052,7 +3077,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 
             {/* Action buttons - P1 FIX: Added save button */}
             <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-              <button onClick={() => setViewMode('detail')} style={{ flex: 1, padding: '14px', minHeight: '52px', background: '#ab67f7', border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>VIEW DETAILS</button>
+              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('detail')} style={{ flex: 1, padding: '14px', minHeight: '52px', background: '#ab67f7', border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>VIEW DETAILS</button>
               <SaveButton eventId={current.id} saved={isEventSaved(current.id)} onToggle={toggleSaveEvent} size="large" />
               <button
                 onClick={async (e: React.MouseEvent) => {
@@ -3076,7 +3101,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 
         {/* Detail Modal */}
         {viewMode === 'detail' && current && (
-          <div onClick={() => setViewMode('preview')} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }}>
+          <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('preview')} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }}>
             <MobileDetailSheet 
   current={current}
   currentIndex={currentIndex}
@@ -3115,9 +3140,9 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         {/* Menu Slide-over */}
         {showMenu && (
           <>
-            <div onClick={() => setShowMenu(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300 }} />
+            <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300 }} />
             <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '280px', maxWidth: '85vw', background: '#0a0a0b', borderLeft: '1px solid rgba(255,255,255,0.08)', padding: '24px', paddingTop: 'max(24px, env(safe-area-inset-top))', zIndex: 301, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-              <button onClick={() => setShowMenu(false)} style={{ position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', right: '16px', width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#999', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(false)} style={{ position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', right: '16px', width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#999', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
               <img src="/logo.svg" alt="Sounded Out" onClick={handleLogoTap} style={{ height: '24px', width: 'auto', marginBottom: '24px', marginTop: '8px', cursor: 'pointer' }} />
               
               <NavigationLinks onClose={() => setShowMenu(false)} user={user} onSignOut={handleSignOut} />
@@ -3127,14 +3152,14 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 
         {/* Admin Menu */}
         {showAdminMenu && (
-          <div onClick={() => setShowAdminMenu(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAdminMenu(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
             <div onClick={(e: React.MouseEvent) => e.stopPropagation()} style={{ background: '#1a1a1f', borderRadius: '20px', padding: '24px', width: '100%', maxWidth: '320px', border: '1px solid rgba(171,103,247,0.3)' }}>
               <div style={{ textAlign: 'center', marginBottom: '20px' }}><span style={{ fontSize: '32px' }}>🔐</span><h3 style={{ fontSize: '18px', fontWeight: 700, marginTop: '12px' }}>Admin Access</h3></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <a href="/admin/analytics" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px', background: 'linear-gradient(135deg, rgba(171,103,247,0.2), rgba(171,103,247,0.1))', border: '1px solid rgba(171,103,247,0.3)', borderRadius: '14px', color: 'white', textDecoration: 'none' }}><span style={{ width: '44px', height: '44px', background: '#ab67f7', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>📊</span><div><p style={{ fontSize: '15px', fontWeight: 700 }}>Analytics</p><p style={{ fontSize: '12px', color: '#999' }}>Sessions, conversions</p></div></a>
                 <a href="/admin" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', color: 'white', textDecoration: 'none' }}><span style={{ width: '44px', height: '44px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>⚙️</span><div><p style={{ fontSize: '15px', fontWeight: 700 }}>Content Admin</p><p style={{ fontSize: '12px', color: '#999' }}>Events, venues</p></div></a>
               </div>
-              <button onClick={() => setShowAdminMenu(false)} style={{ width: '100%', marginTop: '16px', padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#777', fontSize: '14px', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAdminMenu(false)} style={{ width: '100%', marginTop: '16px', padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#777', fontSize: '14px', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         )}
@@ -3330,7 +3355,7 @@ function MobileDetailSheet({
             <span key={i} style={{ padding: '8px 14px', background: 'rgba(171,103,247,0.12)', borderRadius: '10px', fontSize: '14px', color: '#ab67f7' }}>{formatGenre(g)}</span>
           ))}
           {current.genres && current.genres.split(',').length > 4 && !showAllGenres && (
-            <button onClick={() => setShowAllGenres(true)} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.08)', borderRadius: '10px', fontSize: '14px', color: '#999', border: 'none', cursor: 'pointer' }}>+{current.genres.split(',').length - 4} more</button>
+            <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAllGenres(true)} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.08)', borderRadius: '10px', fontSize: '14px', color: '#999', border: 'none', cursor: 'pointer' }}>+{current.genres.split(',').length - 4} more</button>
           )}
           {current.vibe && <span style={{ padding: '8px 14px', background: 'rgba(56, 189, 248, 0.15)', borderRadius: '10px', fontSize: '14px', color: '#38bdf8', fontStyle: 'italic' }}>{current.vibe}</span>}
         </div>
@@ -3342,7 +3367,7 @@ function MobileDetailSheet({
 
       {current.description && (
         <div style={{ marginBottom: '16px' }}>
-          <button onClick={() => setShowDescription(!showDescription)} style={{ width: '100%', padding: '14px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#999', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowDescription(!showDescription)} style={{ width: '100%', padding: '14px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#999', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>More Info</span>
             <span style={{ transform: showDescription ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 200ms ease' }}>▼</span>
           </button>
