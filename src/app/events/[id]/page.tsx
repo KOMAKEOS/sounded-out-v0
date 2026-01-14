@@ -12,6 +12,7 @@ import { supabase } from '../../../lib/supabase'
 // 1. Hero image max-height capped at 280px (no more crazy stretching)
 // 2. Back button uses router.back() to go to previous page
 // 3. RA badge in top right corner
+// 4. TypeScript types fixed
 // ============================================================================
 
 type Event = {
@@ -41,6 +42,14 @@ type Event = {
     name: string
     slug: string
   } | null
+}
+
+// Simplified type for related events list
+type RelatedEvent = {
+  id: string
+  title: string
+  date: string
+  start_time: string | null
 }
 
 function formatDate(dateStr: string): string {
@@ -87,7 +96,7 @@ export default function EventPage() {
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
-  const [moreEvents, setMoreEvents] = useState<Event[]>([])
+  const [moreEvents, setMoreEvents] = useState<RelatedEvent[]>([])
 
   useEffect(() => {
     async function loadEvent() {
@@ -115,7 +124,7 @@ export default function EventPage() {
             .order('date', { ascending: true })
             .limit(5)
           
-          if (venueEvents) setMoreEvents(venueEvents)
+          if (venueEvents) setMoreEvents(venueEvents as RelatedEvent[])
         }
 
         // Check if saved
