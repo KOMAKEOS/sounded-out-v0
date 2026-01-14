@@ -1784,150 +1784,171 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         </span>
       </div>
       
-      {/* Event list */}
-      <div 
+            {/* Event list */}
+      <div
         ref={listScrollRef}
         onScroll={handleListScroll}
-        style={{ 
-          flex: 1, 
-          overflowY: 'auto', 
+        style={{
+          flex: 1,
+          overflowY: 'auto',
           padding: '12px',
         }}
       >
-        {Object.entries(grouped).map(([label, evs]: [string, Event[]], gi: number) => (
-          <div 
-            key={label} 
-            ref={(el) => { if (el) daySectionRefs.current.set(label, el) }}
+        {Object.entries(grouped).map(([label, evs], gi) => (
+          <div
+            key={label}
+            ref={(el) => {
+              if (el) daySectionRefs.current.set(label, el)
+            }}
             style={{ marginTop: gi > 0 ? '20px' : '0' }}
           >
-            <div style={{ 
-              fontSize: '11px', 
-              fontWeight: 700, 
-              color: '#666', 
-              textTransform: 'uppercase', 
-              marginBottom: '10px',
-              paddingLeft: '4px',
-            }}>
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: '#666',
+                textTransform: 'uppercase',
+                marginBottom: '10px',
+                paddingLeft: '4px',
+              }}
+            >
               {label}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {evs.map((e: Event) => ( 
-                  <div
-  key={evt.id}
-  onClick={(clickEv: React.MouseEvent) => {
-    clickEv.stopPropagation()
-    selectEvent(evt)
-  }}
-  style={{
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '12px',
-    padding: '14px',
-    minHeight: '72px',
-    background: current?.id === evt.id ? 'rgba(171,103,247,0.1)' : 'rgba(255,255,255,0.02)',
-    border: current?.id === evt.id ? '1px solid rgba(171,103,247,0.3)' : '1px solid transparent',
-    borderRadius: '14px',
-    cursor: 'pointer',
-    transition: `all ${SPRING.feedbackDuration}ms ${SPRING.feedback}`,
-  }}
->
 
-                  {/* P1 FIX: Use EventThumbnail component */}
-                  <EventThumbnail imageUrl={e.image_url} genres={e.genres} size={52} />
-                  
-              <div style={{ flex: 1, minWidth: 0 }}>
-      {/* Title row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-        {e.so_pick && (
-          <img src="/so-icon.png" alt="Curated" style={{ height: '12px', width: 'auto' }} />
-        )}
-        <span style={{ 
-          fontSize: '13px', 
-          fontWeight: 600, 
-          whiteSpace: 'nowrap', 
-          overflow: 'hidden', 
-          textOverflow: 'ellipsis' 
-        }}>
-          {e.title}
-        </span>
-      </div>
-      
-      {/* ========================================== */}
-      {/* BRAND ATTRIBUTION - NEW */}
-      {/* ========================================== */}
-      {e.brand && (
-        <p style={{ fontSize: '11px', color: '#ab67f7', marginBottom: '2px' }}>
-          by {e.brand.name} {e.brand.is_verified && '✓'}
-        </p>
-      )}
-      
-      {/* Venue link */}
-      <Link 
-        href={`/venue/${e.venue?.id}`} 
-        onClick={(ev: React.MouseEvent) => ev.stopPropagation()}
-        style={{ fontSize: '11px', color: '#aaa', marginBottom: '2px', textDecoration: 'none', display: 'block' }}
-      >
-        {e.venue?.name}
-      </Link>
-      
-      {/* Time, Genre, Ticket Source */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 600 }}>
-          {formatTime(e.start_time)}
-        </span>
-        {e.genres && (
-          <span style={{ fontSize: '10px', color: '#22d3ee' }}>
-            {formatGenre(e.genres.split(',')[0])}
-          </span>
-        )}
-        {/* Ticket source badge - NEW */}
-        {e.event_url && (
-          <span style={{ 
-            fontSize: '9px', 
-            padding: '2px 6px', 
-            background: 'rgba(59,130,246,0.15)', 
-            borderRadius: '4px', 
-            color: '#3b82f6' 
-          }}>
-            🎫 {TICKET_SOURCES[e.ticket_source || detectTicketSource(e.event_url)]?.shortName || 'Tickets'}
-          </span>
-        )}
-      </div>
-    </div>
-                  
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {evs.map((evt: Event) => (
+                <div
+                  key={evt.id}
+                  onClick={(clickEv: React.MouseEvent) => {
+                    clickEv.stopPropagation()
+                    selectEvent(evt)
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                    padding: '14px',
+                    minHeight: '72px',
+                    background: current?.id === evt.id ? 'rgba(171,103,247,0.1)' : 'rgba(255,255,255,0.02)',
+                    border: current?.id === evt.id ? '1px solid rgba(171,103,247,0.3)' : '1px solid transparent',
+                    borderRadius: '14px',
+                    cursor: 'pointer',
+                    transition: `all ${SPRING.feedbackDuration}ms ${SPRING.feedback}`,
+                  }}
+                >
+                  <EventThumbnail imageUrl={evt.image_url} genres={evt.genres} size={52} />
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Title row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                      {evt.so_pick && (
+                        <img src="/so-icon.png" alt="Curated" style={{ height: '12px', width: 'auto' }} />
+                      )}
+                      <span
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {evt.title}
+                      </span>
+                    </div>
+
+                    {/* Brand attribution */}
+                    {evt.brand && (
+                      <p style={{ fontSize: '11px', color: '#ab67f7', marginBottom: '2px' }}>
+                        by {evt.brand.name} {evt.brand.is_verified ? '✓' : ''}
+                      </p>
+                    )}
+
+                    {/* Venue link */}
+                    <Link
+                      href={`/venue/${evt.venue?.id}`}
+                      onClick={(ev: React.MouseEvent) => ev.stopPropagation()}
+                      style={{
+                        fontSize: '11px',
+                        color: '#aaa',
+                        marginBottom: '2px',
+                        textDecoration: 'none',
+                        display: 'block',
+                      }}
+                    >
+                      {evt.venue?.name}
+                    </Link>
+
+                    {/* Time, Genre, Ticket Source */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 600 }}>
+                        {formatTime(evt.start_time)}
+                      </span>
+
+                      {evt.genres && (
+                        <span style={{ fontSize: '10px', color: '#22d3ee' }}>
+                          {formatGenre(evt.genres.split(',')[0])}
+                        </span>
+                      )}
+
+                      {evt.event_url && (
+                        <span
+                          style={{
+                            fontSize: '9px',
+                            padding: '2px 6px',
+                            background: 'rgba(59,130,246,0.15)',
+                            borderRadius: '4px',
+                            color: '#3b82f6',
+                          }}
+                        >
+                          🎫{' '}
+                          {TICKET_SOURCES[evt.ticket_source || detectTicketSource(evt.event_url)]?.shortName || 'Tickets'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Right side: Save button + Price */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
-                    {/* P1 FIX: Save button */}
-                    <SaveButton 
-                      eventId={e.id}
-                      saved={isEventSaved(e.id)}
+                    <SaveButton
+                      eventId={evt.id}
+                      saved={isEventSaved(evt.id)}
                       onToggle={toggleSaveEvent}
                       size="small"
                     />
-                    {e.sold_out && (
-                      <span style={{ 
-                        fontSize: '9px', 
-                        fontWeight: 700, 
-                        color: '#f87171', 
-                        background: 'rgba(248,113,113,0.15)', 
-                        padding: '2px 6px', 
-                        borderRadius: '4px' 
-                      }}>
+
+                    {evt.sold_out && (
+                      <span
+                        style={{
+                          fontSize: '9px',
+                          fontWeight: 700,
+                          color: '#f87171',
+                          background: 'rgba(248,113,113,0.15)',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                        }}
+                      >
                         SOLD OUT
                       </span>
                     )}
+
                     {(() => {
-                      const price = getPriceDisplay(e)
+                      const price = getPriceDisplay(evt)
                       if (!price) return null
                       return (
-                        <span style={{ 
-                          fontSize: price.type === 'free' ? '10px' : '11px', 
-                          fontWeight: price.type === 'free' ? 700 : 600, 
-                          color: price.type === 'free' || price.type === 'freeBefore' ? '#22c55e' : '#999',
-                          background: price.type === 'free' ? 'rgba(34,197,94,0.15)' : 'transparent',
-                          padding: price.type === 'free' ? '3px 6px' : '0',
-                          borderRadius: '4px',
-                        }}>
+                        <span
+                          style={{
+                            fontSize: price.type === 'free' ? '10px' : '11px',
+                            fontWeight: price.type === 'free' ? 700 : 600,
+                            color:
+                              price.type === 'free' || price.type === 'freeBefore'
+                                ? '#22c55e'
+                                : '#999',
+                            background: price.type === 'free' ? 'rgba(34,197,94,0.15)' : 'transparent',
+                            padding: price.type === 'free' ? '3px 6px' : '0',
+                            borderRadius: '4px',
+                          }}
+                        >
                           {price.text}
                         </span>
                       )
@@ -1938,19 +1959,21 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             </div>
           </div>
         ))}
-        
-        {/* P1 FIX: Use EmptyStateNoEvents component */}
+
         {filtered.length === 0 && (
-          <EmptyStateNoEvents 
-            filterLabel={filterLabel} 
-            onReset={() => { 
+          <EmptyStateNoEvents
+            filterLabel={filterLabel}
+            onReset={() => {
               setDateFilter('today')
               setActiveGenre(null)
               setShowFreeOnly(false)
-            }} 
+            }}
           />
         )}
       </div>
+
+
+                  
       
       {/* Footer with Privacy/Terms - P1 FIX: Better contrast */}
       <div style={{
