@@ -1408,8 +1408,7 @@ const EventThumbnail = ({ imageUrl, genres, size = 52 }: { imageUrl: string | nu
     }}>
       <span style={{ fontSize: size > 48 ? '24px' : '20px', opacity: 0.7 }}>{style.emoji}</span>
     </div>
-    )
-  }
+  )
 }
 
 // ============================================================================
