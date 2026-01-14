@@ -1811,23 +1811,27 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               {label}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {evs.map((e: Event) => (
-                <div 
-                  key={e.id} 
-                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); selectEvent(e)} 
-                  style={{
-                    display: 'flex', 
-                    alignItems: 'flex-start', 
-                    gap: '12px', 
-                    padding: '14px',
-                    minHeight: '72px',
-                    background: current?.id === e.id ? 'rgba(171,103,247,0.1)' : 'rgba(255,255,255,0.02)',
-                    border: current?.id === e.id ? '1px solid rgba(171,103,247,0.3)' : '1px solid transparent',
-                    borderRadius: '14px', 
-                    cursor: 'pointer',
-                    transition: `all ${SPRING.feedbackDuration}ms ${SPRING.feedback}`,
-                  }}
-                >
+              {evs.map((e: Event) => ( 
+                  <div
+  key={evt.id}
+  onClick={(clickEv: React.MouseEvent) => {
+    clickEv.stopPropagation()
+    selectEvent(evt)
+  }}
+  style={{
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '12px',
+    padding: '14px',
+    minHeight: '72px',
+    background: current?.id === evt.id ? 'rgba(171,103,247,0.1)' : 'rgba(255,255,255,0.02)',
+    border: current?.id === evt.id ? '1px solid rgba(171,103,247,0.3)' : '1px solid transparent',
+    borderRadius: '14px',
+    cursor: 'pointer',
+    transition: `all ${SPRING.feedbackDuration}ms ${SPRING.feedback}`,
+  }}
+>
+
                   {/* P1 FIX: Use EventThumbnail component */}
                   <EventThumbnail imageUrl={e.image_url} genres={e.genres} size={52} />
                   
