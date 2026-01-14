@@ -1410,6 +1410,7 @@ const EventThumbnail = ({ imageUrl, genres, size = 52 }: { imageUrl: string | nu
     </div>
   )
 }
+}
 
 // ============================================================================
 // NAVIGATION MENU COMPONENT (Shared between desktop/mobile)
