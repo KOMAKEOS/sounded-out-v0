@@ -53,7 +53,7 @@ export default function EventsPage() {
         .from('events')
         .select('id, title, date, start_time, image_url, ticket_source, price_type, price_min, genres, venue:venues(id, name)')
         .eq('status', 'published')
-        .gte('date', new Date().toISOString().split('T')[0])
+        .gte('start_time', new Date().toISOString())
         .order('date')
         .order('start_time')
 
