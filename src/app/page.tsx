@@ -2279,7 +2279,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)'
           }}>
             <button 
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('prev')} 
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('prev')}}
               disabled={currentIndex === 0}
               style={{
                 minHeight: '44px',
@@ -2295,7 +2295,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             </button>
             <span style={{ fontSize: '12px', color: '#555' }}>{currentIndex + 1} / {filtered.length}</span>
             <button 
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next')} 
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next')}}
               disabled={currentIndex === filtered.length - 1}
               style={{
                 minHeight: '44px',
