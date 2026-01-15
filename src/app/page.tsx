@@ -1994,6 +1994,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
       </div>
     </aside>
   )
+}
 
 
   // ============================================================================
