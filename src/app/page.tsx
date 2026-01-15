@@ -1508,7 +1508,8 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
   // ============================================================================
   // DESKTOP/TABLET SIDEBAR COMPONENT - P1 FIXES APPLIED
   // ============================================================================
-  const DesktopSidebar = () => (
+  const DesktopSidebar = () => {
+  return (
     <aside style={{
       width: deviceType === 'desktop' ? '380px' : '320px',
       height: '100%',
