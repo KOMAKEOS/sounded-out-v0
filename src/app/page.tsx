@@ -2003,7 +2003,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
   // ============================================================================
   const DesktopDetailPanel = () => {
     if (!current) return null
-    
     return (
       <div style={{
         width: deviceType === 'desktop' ? '420px' : '360px',
