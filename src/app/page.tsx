@@ -2338,6 +2338,160 @@ const DesktopDetailPanel: React.FC = () => {
 // This section contains the return statements and helper components
 // ============================================================================
 // ============================================================================
+  // RENDER - DESKTOP/TABLET LAYOUT
+  // ============================================================================
+  if (deviceType === 'desktop' || deviceType === 'tablet') {
+    return (
+      <div style={{ height: '100vh', width: '100vw', background: '#0a0a0b', display: 'flex', overflow: 'hidden' }}>
+        {/* Sidebar */}
+        <DesktopSidebar />
+        
+        {/* Map - Full remaining width */}
+        <div 
+          style={{ flex: 1, position: 'relative', minWidth: 0 }}
+          onClick={(e: React.MouseEvent) => { 
+            e.stopPropagation(); 
+            if (viewMode === 'preview' || viewMode === 'detail') {
+              setViewMode('map');
+              setSheetVisible(false);
+              highlightMarker(null);
+            }
+          }}
+        >
+          <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
+          
+          {/* Map Controls */}
+          <div style={{ position: 'absolute', bottom: '24px', right: '24px', display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 10 }}>
+            <button
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                map.current?.flyTo({ center: [-1.6131, 54.9695], zoom: 13, duration: 800 });
+              }}
+              title="Reset view"
+              style={{
+                width: '48px',
+                height: '48px',
+                minWidth: '48px',
+                minHeight: '48px',
+                borderRadius: '12px',
+                background: 'rgba(0,0,0,0.75)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: '#999',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '18px',
+              }}
+            >
+              ⌖
+            </button>
+            <button
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleUserLocation(); }}
+              title={showUserLocation ? 'Hide my location' : 'Show my location'}
+              style={{
+                width: '48px',
+                height: '48px',
+                minWidth: '48px',
+                minHeight: '48px',
+                borderRadius: '12px',
+                background: showUserLocation ? 'rgba(171,103,247,0.2)' : 'rgba(0,0,0,0.75)',
+                backdropFilter: 'blur(10px)',
+                border: showUserLocation ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.1)',
+                color: showUserLocation ? '#ab67f7' : '#999',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="4"/>
+                <line x1="12" y1="2" x2="12" y2="6"/>
+                <line x1="12" y1="18" x2="12" y2="22"/>
+                <line x1="2" y1="12" x2="6" y2="12"/>
+                <line x1="18" y1="12" x2="22" y2="12"/>
+              </svg>
+            </button>
+          </div>
+          
+          {loading && (
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#999' }}>
+              Loading events...
+            </div>
+          )}
+        </div>
+        
+        {/* Detail Panel */}
+        {(viewMode === 'preview' || viewMode === 'detail') && current && <DesktopDetailPanel />}
+        
+        {/* Modals and overlays - same as before */}
+        {viewMode === 'cluster' && clusterEvents.length > 0 && (
+          <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('map'); setClusterEvents([]); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {/* Cluster modal content */}
+          </div>
+        )}
+        
+        {showMenu && (
+          <>
+            <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(false); }} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />
+            <div style={{ position: 'fixed', top: '70px', left: deviceType === 'desktop' ? '290px' : '240px', background: '#1a1a1f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', padding: '12px', minWidth: '220px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', zIndex: 100 }}>
+              <NavigationLinks onClose={() => setShowMenu(false)} user={user} onSignOut={handleSignOut} />
+            </div>
+          </>
+        )}
+        
+        {showAdminMenu && (
+          <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAdminMenu(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            {/* Admin menu content */}
+          </div>
+        )}
+        
+        {showClaimModal && current && (
+          <ClaimModal 
+            current={current}
+            claimType={claimType}
+            claimForm={claimForm}
+            setClaimForm={setClaimForm}
+            claimSubmitting={claimSubmitting}
+            setClaimSubmitting={setClaimSubmitting}
+            claimSubmitted={claimSubmitted}
+            setClaimSubmitted={setClaimSubmitted}
+            claimError={claimError}
+            setClaimError={setClaimError}
+            onClose={() => {
+              setShowClaimModal(false);
+              setClaimSubmitted(false);
+              setClaimError('');
+              setClaimForm({ name: '', email: '', role: 'owner', proofUrl: '' });
+            }}
+            formatTime={formatTime}
+            getDateLabel={getDateLabel}
+          />
+        )}
+        
+        {showOnboarding && <OnboardingModal onComplete={completeOnboarding} />}
+        <LoginPromptModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} action="save" />
+        
+        <style jsx global>{globalStyles}</style>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // RENDER - MOBILE LAYOUT
+  // ============================================================================
+  return (
+    <div>Mobile layout - add your mobile render code here</div>
+  );
+} 
+
+
+
+
+  
+// ============================================================================
 // MOBILE DETAIL SHEET COMPONENT - P1 FIXES APPLIED
 // ============================================================================
 function MobileDetailSheet({
