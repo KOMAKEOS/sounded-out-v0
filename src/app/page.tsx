@@ -1494,8 +1494,7 @@ const EventThumbnail = ({ imageUrl, genres, size = 52 }: { imageUrl: string | nu
 // ============================================================================
 // NAVIGATION MENU COMPONENT (Shared between desktop/mobile)
 // ============================================================================
-const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; user?: { id: string; email?: string } | null; onSignOut?: () => void }) => (
-  return (
+const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; user?: { id: string; email?: string } | null; onSignOut?: () => void }) => {
   <>
     <p style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>
       Discover
