@@ -281,7 +281,7 @@ export default function Home() {
   const [isAnimating, setIsAnimating] = useState(false)
   const [sheetVisible, setSheetVisible] = useState(false)
   const [mapReady, setMapReady] = useState(false)
-  const [showIntro, setShowIntro] = useState(true)
+  const [showIntro, setShowIntro] = useState(false)
   const [introPhase, setIntroPhase] = useState<'logo' | 'zoom' | 'done'>('logo')
   
   // First-load welcome overlay
@@ -766,53 +766,11 @@ const detectTicketSource = (url: string | null): string => {
 
   // Intro animation sequence
   useEffect(() => {
-    if (!showIntro || !mapReady || !map.current) return
-    
-    const hasSeenIntro = localStorage.getItem('so_intro_seen')
-    if (hasSeenIntro) {
-      setShowIntro(false)
-      map.current?.jumpTo({ center: [-1.6131, 54.9695], zoom: 14 })
-      map.current?.dragPan.enable()
-      map.current?.scrollZoom.enable()
-      map.current?.doubleClickZoom.enable()
-      map.current?.touchZoomRotate.enable()
-      return
+    // Skip intro animation to prevent hydration errors
+    if (map.current && mapReady) {
+      map.current.jumpTo({ center: [-1.6131, 54.9695], zoom: 14 })
     }
-    
-    const zoomTimer = setTimeout(() => {
-      setIntroPhase('zoom')
-      map.current?.flyTo({
-        center: [-1.6131, 54.9695],
-        zoom: 14,
-        duration: 600,
-        easing: (t) => 1 - Math.pow(1 - t, 3),
-        essential: true,
-      })
-      setTimeout(() => {
-        if (map.current) {
-          map.current.dragPan.enable()
-          map.current.scrollZoom.enable()
-          map.current.doubleClickZoom.enable()
-          map.current.touchZoomRotate.enable()
-        }
-      }, 600)
-    }, 300)
-    
-    const fadeTimer = setTimeout(() => {
-      setIntroPhase('done')
-      localStorage.setItem('so_intro_seen', 'true')
-    }, 800)
-    
-    const removeTimer = setTimeout(() => {
-      setShowIntro(false)
-    }, 1000)
-    
-    return () => {
-      clearTimeout(zoomTimer)
-      clearTimeout(fadeTimer)
-      clearTimeout(removeTimer)
-    }
-  }, [showIntro, mapReady])
+  }, [mapReady])
 
   // ============================================================================
   // USER LOCATION
