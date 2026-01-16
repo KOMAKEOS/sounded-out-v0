@@ -1648,8 +1648,27 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
           Sign In
         </Link>
       </>
-    )
-  }
+    )}
+    
+    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
+
+    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+      <a href="https://instagram.com/sounded.out" target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: '#777', textDecoration: 'none' }}>
+        Instagram
+      </a>
+      <Link href="/about" onClick={onClose} style={{ fontSize: '13px', color: '#777', textDecoration: 'none' }}>
+        About
+      </Link>
+      <Link href="/privacy" onClick={onClose} style={{ fontSize: '13px', color: '#777', textDecoration: 'none' }}>
+        Privacy
+      </Link>
+      <Link href="/terms" onClick={onClose} style={{ fontSize: '13px', color: '#777', textDecoration: 'none' }}>
+        Terms
+      </Link>
+    </div>
+  </>
+  )
+}
 
   // ============================================================================
   // DESKTOP/TABLET SIDEBAR COMPONENT - P1 FIXES APPLIED
