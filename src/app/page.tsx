@@ -6,6 +6,16 @@ import { supabase } from '../lib/supabase'
 import Link from 'next/link'
 import EventActions from '../components/EventActions'
 import LoginPromptModal from '../components/LoginPromptModal'
+import {
+  formatUKTime,
+  formatUKDate,
+  getUKDateLabel,
+  isUKToday,
+  isUKTomorrow,
+  isUKWeekend,
+  getUKDateString,
+  toUKTime
+} from '../lib/ukTime'
 import { 
   initAnalytics, 
   trackEventView, 
@@ -419,43 +429,37 @@ const detectTicketSource = (url: string | null): string => {
   // ============================================================================
   // DATE HELPERS
   // ============================================================================
-  const getDateStr = (d: Date) => d.toDateString()
-  
-  const isTonight = (s: string) => getDateStr(new Date(s)) === getDateStr(new Date())
-  
-  const isTomorrow = (s: string) => {
-    const t = new Date()
-    t.setDate(t.getDate() + 1)
-    return getDateStr(new Date(s)) === getDateStr(t)
+  const getDateStr = (d: Date) => getUKDateString(d)
+
+const isTonight = (s: string) => {
+  if (!s) return false
+  return isUKToday(s)
+}
+
+const isTomorrow = (s: string) => {
+  if (!s) return false
+  return isUKTomorrow(s)
+}
+
+const isWeekend = (s: string) => {
+  if (!s) return false
+  return isUKWeekend(s)
+}
+
+const getDateLabel = (s: string) => {
+  if (!s) return 'TBC'
+  return getUKDateLabel(s)
+}
+
+const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
+  const d = new Date()
+  d.setDate(d.getDate() + i)
+  return { 
+    str: getDateStr(d), 
+    name: d.toLocaleDateString('en-GB', { weekday: 'short' }), 
+    num: d.getDate() 
   }
-  
-  const isWeekend = (s: string) => {
-    const d = new Date(s), now = new Date(), day = now.getDay()
-    const fri = new Date(now)
-    fri.setDate(now.getDate() + ((5 - day + 7) % 7 || 7))
-    if (day >= 5) fri.setDate(now.getDate())
-    fri.setHours(0, 0, 0, 0)
-    const sun = new Date(fri)
-    sun.setDate(fri.getDate() + (7 - fri.getDay()))
-    sun.setHours(23, 59, 59)
-    return d >= fri && d <= sun
-  }
-  
-  const getDateLabel = (s: string) => {
-    if (isTonight(s)) return 'Tonight'
-    if (isTomorrow(s)) return 'Tomorrow'
-    return new Date(s).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-  }
-  
-  const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() + i)
-    return { 
-      str: getDateStr(d), 
-      name: d.toLocaleDateString('en-GB', { weekday: 'short' }), 
-      num: d.getDate() 
-    }
-  })
+})
 
   // ============================================================================
   // FILTERED DATA - P1 FIX: Using for loops for TypeScript
@@ -569,8 +573,10 @@ const detectTicketSource = (url: string | null): string => {
   // ============================================================================
   // FORMAT HELPERS
   // ============================================================================
-  const formatTime = (s: string) => new Date(s).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  
+const formatTime = (s: string | null | undefined) => {
+  if (!s) return 'TBC'
+  return formatUKTime(s)
+}  
   const formatPrice = (min: number | null, max: number | null) => {
     if (min === 0 || (!min && !max)) return null
     const fmt = (n: number) => {
@@ -781,7 +787,7 @@ useEffect(() => {
 
   // Critical on iOS/Safari: allow Mapbox to own touch gestures
   const canvas = m.getCanvas()
-  canvas.style.touchAction = 'none'
+  canvas.style.touchAction = 'pan-x pan-y' // Changed from 'none'
 
   // If intro is showing, keep disabled
   if (showIntro) {
@@ -1192,50 +1198,44 @@ useEffect(() => {
         inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
       }
 
-      el.onclick = (e) => {
-        // ✅ FIX: Safari/iOS reliable tap handling
-const handleMarkerActivate = (e: any) => {
-  if (e?.preventDefault) e.preventDefault()
-  if (e?.stopPropagation) e.stopPropagation()
-
-  if (count > 1) {
-    setClusterEvents(evs)
-    setViewMode('cluster')
-  } else {
-    let idx = -1
-    for (let i = 0; i < filtered.length; i++) {
-      if (filtered[i].id === evs[0].id) {
-        idx = i
-        break
+      const handleMarkerClick = (e: Event) => {
+        e.preventDefault()
+        e.stopPropagation()
+        
+        if (count > 1) {
+          setClusterEvents(evs)
+          setViewMode('cluster')
+        } else {
+          let idx = -1
+          for (let i = 0; i < filtered.length; i++) {
+            if (filtered[i].id === evs[0].id) {
+              idx = i
+              break
+            }
+          }
+          setCurrentIndex(idx)
+          setViewMode('preview')
+          trackMarkerClick(evs[0].id, evs[0].title, v.name)
+          trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
+        }
+        
+        requestAnimationFrame(() => {
+          setSheetVisible(true)
+          highlightMarker(evs[0].id)
+        })
+        
+        const currentZoom = map.current?.getZoom() || 14
+        map.current?.easeTo({
+          center: [v.lng, v.lat],
+          zoom: Math.max(currentZoom, 14.5),
+          duration: 300,
+          easing: (t: number) => 1 - Math.pow(1 - t, 2),
+        })
       }
-    }
-    setCurrentIndex(idx)
-    setViewMode('preview')
-    trackMarkerClick(evs[0].id, evs[0].title, v.name)
-    trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
-  }
 
-  requestAnimationFrame(() => {
-    setSheetVisible(true)
-    highlightMarker(evs[0].id)
-  })
-
-  const currentZoom = map.current?.getZoom() || 14
-  map.current?.easeTo({
-    center: [v.lng, v.lat],
-    zoom: Math.max(currentZoom, 14.5),
-    duration: 300,
-    easing: (t: number) => 1 - Math.pow(1 - t, 2),
-  })
-}
-
-// IMPORTANT: make marker element tappable
-el.style.pointerEvents = 'auto'
-
-// Use addEventListener for cross-browser reliability
-el.addEventListener('click', handleMarkerActivate, { passive: false })
-el.addEventListener('touchend', handleMarkerActivate, { passive: false })
-
+      // Make marker tappable
+      el.style.pointerEvents = 'auto'
+      el.addEventListener('click', handleMarkerClick, { passive: false })
 
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([v.lng, v.lat])
@@ -1530,16 +1530,42 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 
     {user ? (
       <>
-        <div style={{ padding: '12px 16px', background: 'rgba(171,103,247,0.1)', borderRadius: '10px', marginBottom: '8px', border: '1px solid rgba(171,103,247,0.2)' }}>
+        <div style={{ 
+          padding: '12px 16px', 
+          background: 'rgba(171,103,247,0.1)', 
+          borderRadius: '10px', 
+          marginBottom: '8px', 
+          border: '1px solid rgba(171,103,247,0.2)' 
+        }}>
           <p style={{ fontSize: '13px', color: '#ab67f7', fontWeight: 600 }}>Signed in as</p>
           <p style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>{user.email}</p>
         </div>
 
-        <Link href="/profile" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
+        <Link href="/profile" onClick={onClose} style={{ 
+          display: 'block', 
+          padding: '14px 16px', 
+          background: 'rgba(255,255,255,0.04)', 
+          borderRadius: '10px', 
+          color: 'white', 
+          textDecoration: 'none', 
+          fontSize: '15px', 
+          fontWeight: 500, 
+          marginBottom: '8px' 
+        }}>
           👤 Profile
         </Link>
 
-        <Link href="/settings" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
+        <Link href="/settings" onClick={onClose} style={{ 
+          display: 'block', 
+          padding: '14px 16px', 
+          background: 'rgba(255,255,255,0.04)', 
+          borderRadius: '10px', 
+          color: 'white', 
+          textDecoration: 'none', 
+          fontSize: '15px', 
+          fontWeight: 500, 
+          marginBottom: '8px' 
+        }}>
           ⚙️ Settings
         </Link>
 
@@ -1549,35 +1575,79 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             if (onSignOut) onSignOut()
             if (onClose) onClose()
           }}
-          style={{ display: 'block', width: '100%', padding: '14px 16px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '10px', color: '#f87171', fontSize: '15px', fontWeight: 500, marginBottom: '8px', cursor: 'pointer', textAlign: 'left' }}
+          style={{ 
+            display: 'block', 
+            width: '100%', 
+            padding: '14px 16px', 
+            background: 'rgba(248,113,113,0.1)', 
+            border: '1px solid rgba(248,113,113,0.2)', 
+            borderRadius: '10px', 
+            color: '#f87171', 
+            fontSize: '15px', 
+            fontWeight: 500, 
+            marginBottom: '8px', 
+            cursor: 'pointer', 
+            textAlign: 'left' 
+          }}
         >
           Sign Out
         </button>
       </>
     ) : (
-      <Link href="/signup" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(171,103,247,0.15)', border: '1px solid rgba(171,103,247,0.3)', borderRadius: '10px', color: '#ab67f7', textDecoration: 'none', fontSize: '15px', fontWeight: 600, textAlign: 'center' }}>
-        Create Account
-      </Link>
+      <>
+        {/* IMPROVED SIGNUP/LOGIN */}
+        <div style={{ marginBottom: '16px' }}>
+          <Link 
+            href="/signup" 
+            onClick={onClose} 
+            style={{ 
+              display: 'block', 
+              padding: '16px', 
+              background: 'linear-gradient(135deg, #ab67f7, #c490ff)', 
+              borderRadius: '12px', 
+              color: 'white', 
+              textDecoration: 'none', 
+              fontSize: '15px', 
+              fontWeight: 700, 
+              textAlign: 'center',
+              marginBottom: '8px',
+              boxShadow: '0 4px 12px rgba(171,103,247,0.3)',
+            }}
+          >
+            Create Free Account
+          </Link>
+          
+          <p style={{ fontSize: '11px', color: '#777', textAlign: 'center', marginTop: '6px' }}>
+            Save events, get personalized recommendations
+          </p>
+        </div>
+
+        <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
+
+        <p style={{ fontSize: '11px', color: '#666', marginBottom: '8px', textAlign: 'center' }}>
+          Already have an account?
+        </p>
+
+        <Link 
+          href="/login" 
+          onClick={onClose} 
+          style={{ 
+            display: 'block', 
+            padding: '14px', 
+            background: 'rgba(255,255,255,0.04)', 
+            borderRadius: '10px', 
+            color: '#ab67f7', 
+            textDecoration: 'none', 
+            fontSize: '14px', 
+            fontWeight: 600, 
+            textAlign: 'center',
+            marginBottom: '8px',
+          }}
+        >
+          Sign In
+        </Link>
+      </>
     )}
-
-    <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
-
-    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-      <a href="https://instagram.com/sounded.out" target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: '#777', textDecoration: 'none' }}>
-        Instagram
-      </a>
-      <Link href="/about" onClick={onClose} style={{ fontSize: '13px', color: '#777', textDecoration: 'none' }}>
-        About
-      </Link>
-      <Link href="/privacy" onClick={onClose} style={{ fontSize: '13px', color: '#777', textDecoration: 'none' }}>
-        Privacy
-      </Link>
-      <Link href="/terms" onClick={onClose} style={{ fontSize: '13px', color: '#777', textDecoration: 'none' }}>
-        Terms
-      </Link>
-    </div>
-  </>
-)
 
   // ============================================================================
   // DESKTOP/TABLET SIDEBAR COMPONENT - P1 FIXES APPLIED
@@ -2092,17 +2162,29 @@ const DesktopDetailPanel: React.FC = () => {
       
       {/* Content - Scrollable */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-        {/* P1 FIX: Image with genre placeholder */}
-        {current.image_url ? (
-          <div style={{ 
-            width: '100%', 
-            aspectRatio: '16/9', 
-            borderRadius: '12px', 
-            overflow: 'hidden', 
-            marginBottom: '16px' 
-          }}>
-            <img src={current.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </div>
+        {/* Event Image - Full Display (No Cropping) */}
+      {current.image_url ? (
+        <div style={{ 
+          width: '100%', 
+          maxHeight: '400px',  // ← ADDED
+          borderRadius: '16px', 
+          overflow: 'hidden', 
+          marginBottom: '18px',
+          background: '#000',  // ← ADDED
+        }}>
+          <img 
+            src={current.image_url} 
+            alt="" 
+            style={{ 
+              width: '100%', 
+              height: 'auto',  // ← CHANGED FROM 100%
+              maxHeight: '400px',  // ← ADDED
+              objectFit: 'contain',  // ← CHANGED FROM 'cover'
+              pointerEvents: 'none',
+            }} 
+            draggable={false} 
+          />
+        </div>
         ) : (
           <div style={{ 
             width: '100%', 
@@ -2596,27 +2678,29 @@ const DesktopDetailPanel: React.FC = () => {
         top: 0,
         left: 0,
         right: 0,
-        padding: '12px 16px',
-        paddingTop: 'max(12px, env(safe-area-inset-top))',
+        padding: '10px 12px',
+        paddingTop: 'max(10px, env(safe-area-inset-top))',
         background: 'linear-gradient(180deg, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0.85) 70%, transparent 100%)',
         backdropFilter: 'blur(12px)',
         zIndex: 20,
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        gap: '8px',
       }}>
         <img 
           src="/logo.svg" 
           alt="Sounded Out" 
           onClick={handleLogoTap}
           style={{ 
-            height: '24px', 
+            height: '22px',  // ← CHANGED FROM 24px
             width: 'auto',
             cursor: 'pointer',
+            flexShrink: 0,  // ← ADDED
           }}
         />
         
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
           {user ? (
             <button
               onClick={(e: React.MouseEvent) => {
@@ -2628,53 +2712,61 @@ const DesktopDetailPanel: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '8px 12px',
-                minHeight: '44px',
+                padding: '6px 10px',  // ← CHANGED FROM 8px 12px
+                minHeight: '36px',  // ← CHANGED FROM 44px
                 background: 'rgba(171,103,247,0.15)',
                 border: '1px solid rgba(171,103,247,0.3)',
-                borderRadius: '22px',
+                borderRadius: '18px',  // ← CHANGED FROM 22px
                 color: '#ab67f7',
-                fontSize: '13px',
+                fontSize: '12px',  // ← CHANGED FROM 13px
                 fontWeight: 600,
                 cursor: 'pointer',
+                flexShrink: 0,  // ← ADDED
               }}
             >
               <span style={{
-                width: '24px',
-                height: '24px',
+                width: '20px',  // ← CHANGED FROM 24px
+                height: '20px',  // ← CHANGED FROM 24px
                 borderRadius: '50%',
                 background: '#ab67f7',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '11px',
+                fontSize: '10px',  // ← CHANGED FROM 11px
                 color: 'white',
                 fontWeight: 700,
+                flexShrink: 0,  // ← ADDED
               }}>
                 {user.email?.[0]?.toUpperCase() || 'U'}
               </span>
-              <span style={{ maxWidth: '60px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ 
+                maxWidth: '50px',  // ← CHANGED FROM 60px
+                overflow: 'hidden', 
+                textOverflow: 'ellipsis', 
+                whiteSpace: 'nowrap' 
+              }}>
                 {user.email?.split('@')[0] || 'Menu'}
               </span>
             </button>
           ) : (
             <Link
-              href="/login"
+              href="/signup"  // ← CHANGED FROM /login
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                padding: '10px 18px',
-                minHeight: '44px',
+                padding: '8px 14px',  // ← CHANGED FROM 10px 18px
+                minHeight: '36px',  // ← CHANGED FROM 44px
                 background: '#ab67f7',
-                borderRadius: '22px',
+                borderRadius: '18px',  // ← CHANGED FROM 22px
                 color: 'white',
                 textDecoration: 'none',
-                fontSize: '14px',
+                fontSize: '13px',  // ← CHANGED FROM 14px
                 fontWeight: 600,
                 boxShadow: '0 4px 12px rgba(171,103,247,0.3)',
+                flexShrink: 0,  // ← ADDED
               }}
             >
-              Sign In
+              Sign Up  {/* ← CHANGED FROM Sign In */}
             </Link>
           )}
           
@@ -2685,10 +2777,10 @@ const DesktopDetailPanel: React.FC = () => {
               trackMenuOpen()
             }}
             style={{
-              width: '44px',
-              height: '44px',
-              minWidth: '44px',
-              minHeight: '44px',
+              width: '36px',  // ← CHANGED FROM 44px
+              height: '36px',  // ← CHANGED FROM 44px
+              minWidth: '36px',  // ← CHANGED FROM 44px
+              minHeight: '36px',  // ← CHANGED FROM 44px
               borderRadius: '50%',
               border: '1px solid rgba(255,255,255,0.15)',
               background: 'rgba(0,0,0,0.4)',
@@ -2698,9 +2790,10 @@ const DesktopDetailPanel: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,  // ← ADDED
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="3" y1="6" x2="21" y2="6"/>
               <line x1="3" y1="12" x2="21" y2="12"/>
               <line x1="3" y1="18" x2="21" y2="18"/>
@@ -3154,6 +3247,32 @@ const DesktopDetailPanel: React.FC = () => {
                           {evt.title}
                         </span>
                       </div>
+                      {/* BRAND NAME - NEW */}
+                {evt.brand && (
+                  <p style={{ 
+                    fontSize: '12px', 
+                    color: '#ab67f7', 
+                    marginBottom: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}>
+                    by {evt.brand.name}
+                    {evt.brand.is_verified && (
+                      <span style={{
+                        width: '12px',
+                        height: '12px',
+                        background: '#ab67f7',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '7px',
+                        color: 'white',
+                      }}>✓</span>
+                    )}
+                  </p>
+                )}
 
                       {evt.brand && (
                         <p style={{ fontSize: '12px', color: '#ab67f7', marginBottom: '2px' }}>
