@@ -669,60 +669,65 @@ const detectTicketSource = (url: string | null): string => {
 // ============================================================================
   // DATA LOADING
   // ============================================================================
-  useEffect(() => {
-    const loadEvents = async () => {
-      console.log('🔍 Loading events...')
-      
-      const { data, error } = await supabase
+ useEffect(() => {
+  const loadEvents = async () => {
+    console.log('🔍 Loading events...')
+    
+    // Try with brands first
+    const { data, error } = await supabase
+      .from('events')
+      .select(`
+        *,
+        venue:venues(*),
+        brand:brands(id, name, slug, logo_url, is_verified, tagline)
+      `)
+      .eq('status', 'published')
+      .gte('start_time', new Date().toISOString().split('T')[0])
+      .order('start_time')
+    
+    if (error) {
+      console.error('❌ Events query failed:', error)
+      // Try without brands as fallback
+      const { data: fallbackData, error: fallbackError } = await supabase
         .from('events')
         .select(`
           *,
-          venue:venues(*),
-          brand:brands(id, name, slug, logo_url, is_verified, tagline)
+          venue:venues(*)
         `)
         .eq('status', 'published')
         .gte('start_time', new Date().toISOString().split('T')[0])
         .order('start_time')
       
-      if (error) {
-        console.error('❌ Events query failed:', error)
-        // Try without brands as fallback
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('events')
-          .select(`
-            *,
-            venue:venues(*)
-          `)
-          .eq('status', 'published')
-          .gte('start_time', new Date().toISOString().split('T')[0])
-          .order('start_time')
-        
-        if (fallbackError) {
-          console.error('❌ Fallback query also failed:', fallbackError)
-        } else if (fallbackData) {
-          console.log('✅ Loaded', fallbackData.length, 'events (without brands)')
-          setEvents(fallbackData)
-          const venueIds = new Set<string>()
-          for (let i = 0; i < fallbackData.length; i++) {
-            venueIds.add(fallbackData[i].venue_id)
-          }
-          trackMapLoaded(fallbackData.length, venueIds.size)
-        }
-      } else if (data) {
-        console.log('✅ Loaded', data.length, 'events (with brands)')
-        setEvents(data)
-        const venueIds = new Set<string>()
-        for (let i = 0; i < data.length; i++) {
-          venueIds.add(data[i].venue_id)
-        }
-        trackMapLoaded(data.length, venueIds.size)
+      if (fallbackError) {
+        console.error('❌ Fallback query also failed:', fallbackError)
+        setLoading(false)
+        return
       }
       
-      setLoading(false)
+      if (fallbackData) {
+        console.log('✅ Loaded', fallbackData.length, 'events (without brands)')
+        setEvents(fallbackData)
+        const venueIds = new Set<string>()
+        for (let i = 0; i < fallbackData.length; i++) {
+          venueIds.add(fallbackData[i].venue_id)
+        }
+        trackMapLoaded(fallbackData.length, venueIds.size)
+      }
+    } else if (data) {
+      console.log('✅ Loaded', data.length, 'events (with brands)')
+      setEvents(data)
+      const venueIds = new Set<string>()
+      for (let i = 0; i < data.length; i++) {
+        venueIds.add(data[i].venue_id)
+      }
+      trackMapLoaded(data.length, venueIds.size)
     }
     
-    loadEvents()
-  }, [])
+    setLoading(false)
+  }
+  
+  loadEvents()
+}, [])
   // ============================================================================
   // MAP INITIALIZATION - P1 FIX: minZoom changed from 10 to 12
   // ============================================================================
@@ -2510,22 +2515,1020 @@ const DesktopDetailPanel: React.FC = () => {
     );
   }
 
-// ============================================================================
-  // RENDER - MOBILE LAYOUT
+  // ============================================================================
+  // RENDER - MOBILE LAYOUT (WORKING VERSION)
   // ============================================================================
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#0a0a0b', display: 'flex', flexDirection: 'column' }}>
-      {/* Mobile content - simplified working version */}
-      <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
-      
-      {loading && (
-        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#999' }}>
-          Loading...
+    <div 
+      onClick={(e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (viewMode !== 'map' && sheetVisible) {
+          closeSheet()
+        }
+      }}
+      style={{ 
+        position: 'fixed', 
+        inset: 0, 
+        background: '#0a0a0b', 
+        display: 'flex', 
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Map Container */}
+      <div 
+        ref={mapContainer} 
+        style={{ 
+          position: 'absolute', 
+          inset: 0,
+          zIndex: 1,
+        }} 
+      />
+
+      {/* Top Bar with Logo and Menu */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        padding: '12px 16px',
+        paddingTop: 'max(12px, env(safe-area-inset-top))',
+        background: 'linear-gradient(180deg, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0.85) 70%, transparent 100%)',
+        backdropFilter: 'blur(12px)',
+        zIndex: 20,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}>
+        <img 
+          src="/logo.svg" 
+          alt="Sounded Out" 
+          onClick={handleLogoTap}
+          style={{ 
+            height: '24px', 
+            width: 'auto',
+            cursor: 'pointer',
+          }}
+        />
+        
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {user ? (
+            <button
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation()
+                setShowMenu(!showMenu)
+                trackMenuOpen()
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 12px',
+                minHeight: '44px',
+                background: 'rgba(171,103,247,0.15)',
+                border: '1px solid rgba(171,103,247,0.3)',
+                borderRadius: '22px',
+                color: '#ab67f7',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                background: '#ab67f7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '11px',
+                color: 'white',
+                fontWeight: 700,
+              }}>
+                {user.email?.[0]?.toUpperCase() || 'U'}
+              </span>
+              <span style={{ maxWidth: '60px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user.email?.split('@')[0] || 'Menu'}
+              </span>
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '10px 18px',
+                minHeight: '44px',
+                background: '#ab67f7',
+                borderRadius: '22px',
+                color: 'white',
+                textDecoration: 'none',
+                fontSize: '14px',
+                fontWeight: 600,
+                boxShadow: '0 4px 12px rgba(171,103,247,0.3)',
+              }}
+            >
+              Sign In
+            </Link>
+          )}
+          
+          <button
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation()
+              setShowMenu(!showMenu)
+              trackMenuOpen()
+            }}
+            style={{
+              width: '44px',
+              height: '44px',
+              minWidth: '44px',
+              minHeight: '44px',
+              borderRadius: '50%',
+              border: '1px solid rgba(255,255,255,0.15)',
+              background: 'rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(10px)',
+              color: '#999',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Date Filter Pills */}
+      <div style={{
+        position: 'fixed',
+        top: 'max(64px, calc(env(safe-area-inset-top) + 52px))',
+        left: 0,
+        right: 0,
+        padding: '0 16px 12px',
+        zIndex: 20,
+        display: 'flex',
+        gap: '8px',
+        overflowX: 'auto',
+        scrollbarWidth: 'none',
+      }}>
+        {(['today', 'tomorrow', 'weekend'] as const).map((f: 'today' | 'tomorrow' | 'weekend') => {
+          const isSelected: boolean = dateFilter === f
+          return (
+            <button
+              key={f}
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation()
+                if (dateFilter !== f) {
+                  setDateFilter(f)
+                  trackDateFilter(f, filtered.length)
+                }
+              }}
+              aria-pressed={isSelected}
+              style={{
+                padding: '10px 20px',
+                minHeight: '44px',
+                borderRadius: '22px',
+                border: 'none',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: isSelected
+                  ? 'linear-gradient(135deg, #ab67f7, #c490ff)'
+                  : 'rgba(0,0,0,0.5)',
+                backdropFilter: 'blur(10px)',
+                color: isSelected ? 'white' : '#bbb',
+                transition: 'all 200ms ease',
+                boxShadow: isSelected ? '0 4px 12px rgba(171,103,247,0.3)' : 'none',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {f === 'today' ? 'Tonight' : f === 'tomorrow' ? 'Tomorrow' : 'Weekend'}
+            </button>
+          )
+        })}
+        
+        <button
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation()
+            setShowDatePicker(!showDatePicker)
+          }}
+          style={{
+            padding: '10px 18px',
+            minHeight: '44px',
+            borderRadius: '22px',
+            border: 'none',
+            fontSize: '14px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            background: showDatePicker ? 'rgba(171,103,247,0.2)' : 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(10px)',
+            color: '#ab67f7',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
+        >
+          {showDatePicker ? '✕ Close' : '+ More'}
+        </button>
+      </div>
+
+      {/* Date Picker (if open) */}
+      {showDatePicker && (
+        <div style={{
+          position: 'fixed',
+          top: 'max(114px, calc(env(safe-area-inset-top) + 102px))',
+          left: '16px',
+          right: '16px',
+          zIndex: 25,
+          background: 'rgba(20,20,22,0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: '16px',
+          padding: '16px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
+            {getNext7Days().map((d: { str: string; name: string; num: number }) => (
+              <button
+                key={d.str}
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation()
+                  setDateFilter(d.str)
+                  setShowDatePicker(false)
+                  trackDateFilter(d.str, filtered.length)
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px 4px',
+                  minHeight: '60px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: dateFilter === d.str ? '#ab67f7' : 'transparent',
+                  color: dateFilter === d.str ? 'white' : '#999',
+                  transition: 'all 150ms ease',
+                }}
+              >
+                <span style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>
+                  {d.name}
+                </span>
+                <span style={{ fontSize: '18px', fontWeight: 700 }}>{d.num}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
+
+      {/* Genre Filter Pills */}
+      {availableGenres.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          top: showDatePicker 
+            ? 'max(198px, calc(env(safe-area-inset-top) + 186px))' 
+            : 'max(120px, calc(env(safe-area-inset-top) + 108px))',
+          left: 0,
+          right: 0,
+          padding: '0 16px 12px',
+          zIndex: 20,
+          display: 'flex',
+          gap: '8px',
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+          transition: 'top 200ms ease',
+        }}>
+          {availableGenres.map((genre: string) => {
+            const isSelected: boolean = activeGenre === genre
+            return (
+              <button
+                key={genre}
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation()
+                  setActiveGenre(isSelected ? null : genre)
+                  trackGenreFilter(genre, filtered.length)
+                }}
+                aria-pressed={isSelected}
+                style={{
+                  padding: '8px 16px',
+                  minHeight: '40px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: isSelected ? 600 : 500,
+                  cursor: 'pointer',
+                  background: isSelected ? 'rgba(171,103,247,0.25)' : 'rgba(0,0,0,0.5)',
+                  backdropFilter: 'blur(10px)',
+                  color: isSelected ? '#ab67f7' : '#aaa',
+                  textTransform: 'capitalize',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  transition: 'all 150ms ease',
+                }}
+              >
+                {genre}
+              </button>
+            )
+          })}
+          
+          {(activeGenre || showFreeOnly) && (
+            <button
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation()
+                setActiveGenre(null)
+                setShowFreeOnly(false)
+              }}
+              style={{
+                padding: '8px 16px',
+                minHeight: '40px',
+                borderRadius: '20px',
+                border: '1px solid rgba(248,113,113,0.3)',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: 'rgba(248,113,113,0.1)',
+                backdropFilter: 'blur(10px)',
+                color: '#f87171',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              ✕ Clear
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Map Controls (Bottom Right) */}
+      <div style={{
+        position: 'fixed',
+        bottom: viewMode === 'map' ? '24px' : '400px',
+        right: '16px',
+        zIndex: 15,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        transition: 'bottom 300ms ease',
+      }}>
+        <button
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation()
+            map.current?.flyTo({
+              center: [-1.6131, 54.9695],
+              zoom: 14,
+              duration: 800,
+            })
+          }}
+          title="Reset view"
+          style={{
+            width: '48px',
+            height: '48px',
+            minWidth: '48px',
+            minHeight: '48px',
+            borderRadius: '50%',
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: '#999',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          }}
+        >
+          ⌖
+        </button>
+        
+        <button
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation()
+            toggleUserLocation()
+          }}
+          title={showUserLocation ? 'Hide my location' : 'Show my location'}
+          style={{
+            width: '48px',
+            height: '48px',
+            minWidth: '48px',
+            minHeight: '48px',
+            borderRadius: '50%',
+            background: showUserLocation ? 'rgba(171,103,247,0.25)' : 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(10px)',
+            border: showUserLocation ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.1)',
+            color: showUserLocation ? '#ab67f7' : '#999',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="4"/>
+            <line x1="12" y1="2" x2="12" y2="6"/>
+            <line x1="12" y1="18" x2="12" y2="22"/>
+            <line x1="2" y1="12" x2="6" y2="12"/>
+            <line x1="18" y1="12" x2="22" y2="12"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* List View Button */}
+      {viewMode === 'map' && (
+        <button
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation()
+            openSheet('list')
+            trackListOpen(filtered.length)
+          }}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 20,
+            padding: '14px 28px',
+            minHeight: '52px',
+            background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: '26px',
+            border: '1px solid rgba(255,255,255,0.15)',
+            color: 'white',
+            fontSize: '15px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <span style={{ color: '#ab67f7', fontWeight: 700 }}>{filtered.length}</span>
+          <span>events {filterLabel}</span>
+        </button>
+      )}
+
+      {/* List View Sheet */}
+      {viewMode === 'list' && (
+        <div
+          onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            maxHeight: '80vh',
+            background: '#141416',
+            borderRadius: '24px 24px 0 0',
+            zIndex: 30,
+            display: 'flex',
+            flexDirection: 'column',
+            ...getSheetStyle(sheetVisible),
+          }}
+        >
+          {/* Handle */}
+          <div
+            onClick={closeSheet}
+            style={{
+              padding: '16px 20px 12px',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <div style={{
+              width: '48px',
+              height: '5px',
+              background: '#666',
+              borderRadius: '3px',
+            }} />
+            <span style={{ fontSize: '11px', color: '#777' }}>
+              Swipe down to close
+            </span>
+          </div>
+
+          {/* Header */}
+          <div style={{
+            padding: '0 20px 16px',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}>
+            <div>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '4px' }}>
+                Events {filterLabel}
+              </h2>
+              <p style={{ fontSize: '13px', color: '#999' }}>
+                <span style={{ color: '#ab67f7', fontWeight: 700 }}>{filtered.length}</span> happening
+              </p>
+            </div>
+            <button
+              onClick={closeSheet}
+              style={{
+                width: '44px',
+                height: '44px',
+                minWidth: '44px',
+                minHeight: '44px',
+                borderRadius: '50%',
+                border: 'none',
+                background: 'rgba(255,255,255,0.08)',
+                color: '#999',
+                fontSize: '18px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Event List */}
+          <div style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '16px 20px',
+            paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+          }}>
+            {filtered.length === 0 ? (
+              <EmptyStateNoEvents
+                filterLabel={filterLabel}
+                onReset={() => {
+                  setDateFilter('today')
+                  setActiveGenre(null)
+                  setShowFreeOnly(false)
+                }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {filtered.map((evt: Event) => (
+                  <div
+                    key={evt.id}
+                    onClick={(clickEv: React.MouseEvent) => {
+                      clickEv.stopPropagation()
+                      selectEvent(evt)
+                    }}
+                    style={{
+                      display: 'flex',
+                      gap: '14px',
+                      padding: '14px',
+                      minHeight: '90px',
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      transition: 'all 150ms ease',
+                    }}
+                  >
+                    <EventThumbnail imageUrl={evt.image_url} genres={evt.genres} size={64} />
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        {evt.so_pick && (
+                          <img src="/so-icon.png" alt="Curated" style={{ height: '14px', width: 'auto' }} />
+                        )}
+                        <span style={{
+                          fontSize: '15px',
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}>
+                          {evt.title}
+                        </span>
+                      </div>
+
+                      {evt.brand && (
+                        <p style={{ fontSize: '12px', color: '#ab67f7', marginBottom: '2px' }}>
+                          by {evt.brand.name} {evt.brand.is_verified ? '✓' : ''}
+                        </p>
+                      )}
+
+                      <p style={{ fontSize: '12px', color: '#aaa', marginBottom: '6px' }}>
+                        {evt.venue?.name}
+                      </p>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 600 }}>
+                          {formatTime(evt.start_time)}
+                        </span>
+
+                        {evt.genres && (
+                          <span style={{ fontSize: '11px', color: '#22d3ee' }}>
+                            {formatGenre(evt.genres.split(',')[0])}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                      <SaveButton
+                        eventId={evt.id}
+                        saved={isEventSaved(evt.id)}
+                        onToggle={toggleSaveEvent}
+                        size="small"
+                      />
+
+                      {evt.sold_out && (
+                        <span style={{
+                          fontSize: '9px',
+                          fontWeight: 700,
+                          color: '#f87171',
+                          background: 'rgba(248,113,113,0.15)',
+                          padding: '3px 7px',
+                          borderRadius: '6px',
+                        }}>
+                          SOLD OUT
+                        </span>
+                      )}
+
+                      {(() => {
+                        const price = getPriceDisplay(evt)
+                        if (!price) return null
+                        return (
+                          <span style={{
+                            fontSize: price.type === 'free' ? '10px' : '11px',
+                            fontWeight: price.type === 'free' ? 700 : 600,
+                            color:
+                              price.type === 'free' || price.type === 'freeBefore'
+                                ? '#22c55e'
+                                : '#999',
+                            background: price.type === 'free' ? 'rgba(34,197,94,0.15)' : 'transparent',
+                            padding: price.type === 'free' ? '3px 7px' : '0',
+                            borderRadius: '6px',
+                          }}>
+                            {price.text}
+                          </span>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Preview Card Sheet */}
+      {viewMode === 'preview' && current && (
+        <MobileDetailSheet
+          current={current}
+          currentIndex={currentIndex}
+          filtered={filtered}
+          showAllGenres={showAllGenres}
+          setShowAllGenres={setShowAllGenres}
+          showDescription={showDescription}
+          setShowDescription={setShowDescription}
+          setClaimType={setClaimType}
+          setShowClaimModal={setShowClaimModal}
+          setShowLoginModal={setShowLoginModal}
+          navigate={navigate}
+          formatTime={formatTime}
+          formatPrice={formatPrice}
+          getDateLabel={getDateLabel}
+          getGenres={getGenres}
+          getTicketUrl={getTicketUrl}
+          isFree={isFree}
+          mapsUrl={mapsUrl}
+          noSelectStyle={noSelectStyle}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          dragDirection={dragDirection}
+          getCardTransform={getCardTransform}
+          getDismissTransform={getDismissTransform}
+          dismissProgress={dismissProgress}
+          getGenreStyle={getGenreStyle}
+          isEventSaved={isEventSaved}
+          toggleSaveEvent={toggleSaveEvent}
+          user={user}
+        />
+      )}
+
+      {/* Cluster Modal */}
+      {viewMode === 'cluster' && clusterEvents.length > 0 && (
+        <div
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation()
+            setViewMode('map')
+            setClusterEvents([])
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: 40,
+            display: 'flex',
+            alignItems: 'flex-end',
+            padding: '0 0 max(0px, env(safe-area-inset-bottom))',
+          }}
+        >
+          <div
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxHeight: '80vh',
+              background: '#141416',
+              borderRadius: '24px 24px 0 0',
+              padding: '20px',
+              overflowY: 'auto',
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+            }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700 }}>
+                {clusterEvents.length} events at this venue
+              </h3>
+              <button
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation()
+                  setViewMode('map')
+                  setClusterEvents([])
+                }}
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  minWidth: '44px',
+                  minHeight: '44px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'rgba(255,255,255,0.08)',
+                  color: '#999',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {clusterEvents.map((evt: Event) => (
+                <div
+                  key={evt.id}
+                  onClick={(clickEv: React.MouseEvent) => {
+                    clickEv.stopPropagation()
+                    selectEvent(evt)
+                  }}
+                  style={{
+                    display: 'flex',
+                    gap: '14px',
+                    padding: '14px',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '16px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <EventThumbnail imageUrl={evt.image_url} genres={evt.genres} size={64} />
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '15px', fontWeight: 700, marginBottom: '4px' }}>
+                      {evt.title}
+                    </p>
+                    <p style={{ fontSize: '12px', color: '#ab67f7', marginBottom: '6px' }}>
+                      {formatTime(evt.start_time)}
+                    </p>
+                    {evt.genres && (
+                      <p style={{ fontSize: '11px', color: '#22d3ee' }}>
+                        {formatGenre(evt.genres.split(',')[0])}
+                      </p>
+                    )}
+                  </div>
+
+                  <SaveButton
+                    eventId={evt.id}
+                    saved={isEventSaved(evt.id)}
+                    onToggle={toggleSaveEvent}
+                    size="small"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Menu Overlay */}
+      {showMenu && (
+        <>
+          <div
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation()
+              setShowMenu(false)
+            }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.7)',
+              zIndex: 45,
+            }}
+          />
+          
+          <div
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: '72px',
+              right: '16px',
+              width: '280px',
+              maxHeight: '80vh',
+              background: '#1a1a1f',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '16px',
+              padding: '16px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+              zIndex: 50,
+              overflowY: 'auto',
+            }}
+          >
+            <NavigationLinks
+              onClose={() => setShowMenu(false)}
+              user={user}
+              onSignOut={handleSignOut}
+            />
+          </div>
+        </>
+      )}
+
+      {/* Admin Menu */}
+      {showAdminMenu && (
+        <div
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation()
+            setShowAdminMenu(false)
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.9)',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          <div
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              background: '#1a1a1f',
+              borderRadius: '20px',
+              padding: '24px',
+            }}
+          >
+            <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>
+              Admin Access
+            </h3>
+            <p style={{ fontSize: '14px', color: '#999', marginBottom: '20px' }}>
+              You've accessed the secret admin menu!
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <Link
+                href="/portal"
+                style={{
+                  display: 'block',
+                  padding: '14px',
+                  minHeight: '48px',
+                  background: 'rgba(171,103,247,0.15)',
+                  border: '1px solid rgba(171,103,247,0.3)',
+                  borderRadius: '12px',
+                  color: '#ab67f7',
+                  textDecoration: 'none',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  textAlign: 'center',
+                }}
+              >
+                Partner Portal
+              </Link>
+              <button
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation()
+                  setShowAdminMenu(false)
+                }}
+                style={{
+                  padding: '14px',
+                  minHeight: '48px',
+                  background: 'rgba(255,255,255,0.08)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: '#999',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Claim Modal */}
+      {showClaimModal && current && (
+        <ClaimModal
+          current={current}
+          claimType={claimType}
+          claimForm={claimForm}
+          setClaimForm={setClaimForm}
+          claimSubmitting={claimSubmitting}
+          setClaimSubmitting={setClaimSubmitting}
+          claimSubmitted={claimSubmitted}
+          setClaimSubmitted={setClaimSubmitted}
+          claimError={claimError}
+          setClaimError={setClaimError}
+          onClose={() => {
+            setShowClaimModal(false)
+            setClaimSubmitted(false)
+            setClaimError('')
+            setClaimForm({ name: '', email: '', role: 'owner', proofUrl: '' })
+          }}
+          formatTime={formatTime}
+          getDateLabel={getDateLabel}
+        />
+      )}
+
+      {/* Onboarding */}
+      {showOnboarding && <OnboardingModal onComplete={completeOnboarding} />}
+
+      {/* Login Prompt */}
+      <LoginPromptModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        action="save"
+      />
+
+      {/* Loading State */}
+      {loading && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          color: '#999',
+          zIndex: 10,
+        }}>
+          Loading events...
+        </div>
+      )}
+
+      {/* Intro Animation Overlay */}
+      {showIntro && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: '#0a0a0b',
+          zIndex: 200,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: introPhase === 'done' ? 0 : 1,
+          transition: 'opacity 200ms ease-out',
+          pointerEvents: introPhase === 'done' ? 'none' : 'auto',
+        }}>
+          <img
+            src="/logo.svg"
+            alt="Sounded Out"
+            style={{
+              height: '48px',
+              width: 'auto',
+              opacity: introPhase === 'logo' ? 1 : 0,
+              transition: 'opacity 200ms ease-out',
+            }}
+          />
+        </div>
+      )}
+
+      <style jsx global>{globalStyles}</style>
     </div>
   );
 }
+
+    
 
 // ============================================================================
 // MOBILE DETAIL SHEET COMPONENT - P1 FIXES APPLIED
