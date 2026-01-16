@@ -1415,7 +1415,6 @@ const EventThumbnail = ({ imageUrl, genres, size = 52 }: { imageUrl: string | nu
 // ============================================================================
 const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; user?: { id: string; email?: string } | null; onSignOut?: () => void }) => (
   <>
-    {/* Discover Section */}
     <p style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>
       Discover
     </p>
@@ -1434,7 +1433,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 
     <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
 
-    {/* Partner Section */}
     <p style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>
       Partner
     </p>
@@ -1445,7 +1443,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 
     <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
 
-    {/* Account Section */}
     <p style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', paddingLeft: '4px' }}>
       Account
     </p>
@@ -1467,27 +1464,23 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 
         <button
           onClick={(e: React.MouseEvent) => {
-  e.stopPropagation()
-  if (onSignOut) onSignOut()
-  if (onClose) onClose()
-}}
-
+            e.stopPropagation()
+            if (onSignOut) onSignOut()
+            if (onClose) onClose()
+          }}
           style={{ display: 'block', width: '100%', padding: '14px 16px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '10px', color: '#f87171', fontSize: '15px', fontWeight: 500, marginBottom: '8px', cursor: 'pointer', textAlign: 'left' }}
         >
           Sign Out
         </button>
       </>
     ) : (
-      <>
-        <Link href="/signup" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(171,103,247,0.15)', border: '1px solid rgba(171,103,247,0.3)', borderRadius: '10px', color: '#ab67f7', textDecoration: 'none', fontSize: '15px', fontWeight: 600, textAlign: 'center' }}>
-          Create Account
-        </Link>
-      </>
+      <Link href="/signup" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(171,103,247,0.15)', border: '1px solid rgba(171,103,247,0.3)', borderRadius: '10px', color: '#ab67f7', textDecoration: 'none', fontSize: '15px', fontWeight: 600, textAlign: 'center' }}>
+        Create Account
+      </Link>
     )}
 
     <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
 
-    {/* Footer Links */}
     <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
       <a href="https://instagram.com/sounded.out" target="_blank" rel="noopener noreferrer" style={{ fontSize: '13px', color: '#777', textDecoration: 'none' }}>
         Instagram
