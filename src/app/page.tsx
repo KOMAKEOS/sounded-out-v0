@@ -1198,9 +1198,9 @@ useEffect(() => {
         inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
       }
 
-      const handleMarkerClick = (e: Event) => {
-        e.preventDefault()
-        e.stopPropagation()
+      const handleMarkerClick = (e: MouseEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
         
         if (count > 1) {
           setClusterEvents(evs)
