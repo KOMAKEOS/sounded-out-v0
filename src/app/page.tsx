@@ -773,6 +773,36 @@ const detectTicketSource = (url: string | null): string => {
     m.remove()
   }
 }, [deviceType, showIntro])
+  // ✅ FIX: Ensure map interactions are enabled once the map is ready
+useEffect(() => {
+  if (!map.current || !mapReady) return
+
+  const m = map.current
+
+  // Critical on iOS/Safari: allow Mapbox to own touch gestures
+  const canvas = m.getCanvas()
+  canvas.style.touchAction = 'none'
+
+  // If intro is showing, keep disabled
+  if (showIntro) {
+    m.dragPan.disable()
+    m.scrollZoom.disable()
+    m.doubleClickZoom.disable()
+    m.touchZoomRotate.disable()
+    return
+  }
+
+  // Otherwise ALWAYS enable
+  m.dragPan.enable()
+  m.scrollZoom.enable()
+  m.doubleClickZoom.enable()
+  m.touchZoomRotate.enable()
+
+  // Optional but helps on desktop
+  m.boxZoom.enable()
+  m.keyboard.enable()
+}, [mapReady, showIntro])
+
 
 // Intro animation sequence
   useEffect(() => {
@@ -1163,39 +1193,49 @@ const detectTicketSource = (url: string | null): string => {
       }
 
       el.onclick = (e) => {
-        e.stopPropagation()
-        e.preventDefault()
-        
-        if (count > 1) {
-          setClusterEvents(evs)
-          setViewMode('cluster')
-        } else {
-          let idx = -1
-          for (let i = 0; i < filtered.length; i++) {
-            if (filtered[i].id === evs[0].id) {
-              idx = i
-              break
-            }
-          }
-          setCurrentIndex(idx)
-          setViewMode('preview')
-          trackMarkerClick(evs[0].id, evs[0].title, v.name)
-          trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
-        }
-        
-        requestAnimationFrame(() => {
-          setSheetVisible(true)
-          highlightMarker(evs[0].id)
-        })
-        
-        const currentZoom = map.current?.getZoom() || 14
-        map.current?.easeTo({ 
-          center: [v.lng, v.lat], 
-          zoom: Math.max(currentZoom, 14.5),
-          duration: 300,
-          easing: (t) => 1 - Math.pow(1 - t, 2)
-        })
+        // ✅ FIX: Safari/iOS reliable tap handling
+const handleMarkerActivate = (e: any) => {
+  if (e?.preventDefault) e.preventDefault()
+  if (e?.stopPropagation) e.stopPropagation()
+
+  if (count > 1) {
+    setClusterEvents(evs)
+    setViewMode('cluster')
+  } else {
+    let idx = -1
+    for (let i = 0; i < filtered.length; i++) {
+      if (filtered[i].id === evs[0].id) {
+        idx = i
+        break
       }
+    }
+    setCurrentIndex(idx)
+    setViewMode('preview')
+    trackMarkerClick(evs[0].id, evs[0].title, v.name)
+    trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
+  }
+
+  requestAnimationFrame(() => {
+    setSheetVisible(true)
+    highlightMarker(evs[0].id)
+  })
+
+  const currentZoom = map.current?.getZoom() || 14
+  map.current?.easeTo({
+    center: [v.lng, v.lat],
+    zoom: Math.max(currentZoom, 14.5),
+    duration: 300,
+    easing: (t: number) => 1 - Math.pow(1 - t, 2),
+  })
+}
+
+// IMPORTANT: make marker element tappable
+el.style.pointerEvents = 'auto'
+
+// Use addEventListener for cross-browser reliability
+el.addEventListener('click', handleMarkerActivate, { passive: false })
+el.addEventListener('touchend', handleMarkerActivate, { passive: false })
+
 
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([v.lng, v.lat])
@@ -2399,7 +2439,7 @@ const DesktopDetailPanel: React.FC = () => {
             }
           }}
         >
-          <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
+<div ref={mapContainer} style={{ position: 'absolute', inset: 0, touchAction: 'none' }} />
           
           {/* Map Controls */}
           <div style={{ position: 'absolute', bottom: '24px', right: '24px', display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 10 }}>
