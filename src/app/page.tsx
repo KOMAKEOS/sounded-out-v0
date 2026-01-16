@@ -1508,7 +1508,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
   // ============================================================================
   // DESKTOP/TABLET SIDEBAR COMPONENT - P1 FIXES APPLIED
   // ============================================================================
-  const DesktopSidebar = () => {
+const DesktopSidebar = () => {
   return (
     <aside style={{
       width: deviceType === 'desktop' ? '380px' : '320px',
@@ -1526,7 +1526,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         borderBottom: '1px solid rgba(255,255,255,0.08)',
         flexShrink: 0,
       }}>
-        {/* Logo */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <img 
             src="/logo.svg" 
@@ -1534,65 +1533,63 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             onClick={handleLogoTap}
             style={{ height: '28px', width: 'auto', cursor: 'pointer' }}
           />
-         <div style={{ display: 'flex', gap: '8px' }}>
-  {/* Sign In / User Button */}
-  {user ? (
-    <button
-      onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(!showMenu); trackMenuOpen() }}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '8px 14px',
-        background: 'rgba(171,103,247,0.15)',
-        border: '1px solid rgba(171,103,247,0.3)',
-        borderRadius: '10px',
-        color: '#ab67f7',
-        fontSize: '13px',
-        fontWeight: 500,
-        cursor: 'pointer',
-      }}
-    >
-      <span style={{
-        width: '24px',
-        height: '24px',
-        borderRadius: '50%',
-        background: '#ab67f7',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '11px',
-        color: 'white',
-        fontWeight: 700,
-      }}>
-        {user.email?.[0]?.toUpperCase() || 'U'}
-      </span>
-      <span style={{ maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {user.email?.split('@')[0] || 'Account'}
-      </span>
-    </button>
-  ) : (
-    <Link
-      href="/login"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        padding: '10px 18px',
-        background: '#ab67f7',
-        borderRadius: '10px',
-        color: 'white',
-        textDecoration: 'none',
-        fontSize: '14px',
-        fontWeight: 600,
-        boxShadow: '0 4px 12px rgba(171,103,247,0.3)',
-      }}
-    >
-      Sign In
-    </Link>
-  )}
-  {/* Menu button */}
-  <button
-    onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(!showMenu); trackMenuOpen() }}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {user ? (
+              <button
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(!showMenu); trackMenuOpen() }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 14px',
+                  background: 'rgba(171,103,247,0.15)',
+                  border: '1px solid rgba(171,103,247,0.3)',
+                  borderRadius: '10px',
+                  color: '#ab67f7',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                <span style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  background: '#ab67f7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '11px',
+                  color: 'white',
+                  fontWeight: 700,
+                }}>
+                  {user.email?.[0]?.toUpperCase() || 'U'}
+                </span>
+                <span style={{ maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user.email?.split('@')[0] || 'Account'}
+                </span>
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '10px 18px',
+                  background: '#ab67f7',
+                  borderRadius: '10px',
+                  color: 'white',
+                  textDecoration: 'none',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(171,103,247,0.3)',
+                }}
+              >
+                Sign In
+              </Link>
+            )}
+            <button
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(!showMenu); trackMenuOpen() }}
               style={{
                 width: '44px',
                 height: '44px',
@@ -1617,23 +1614,21 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
           </div>
         </div>
         
-        {/* Location label - P1 FIX: Better contrast */}
         <p style={{ fontSize: '12px', color: '#777', marginBottom: '12px' }}>Newcastle</p>
         
-        {/* P1 FIX: Date filters with 44px touch targets and better selected state */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
           {(['today', 'tomorrow', 'weekend'] as const).map((f: 'today' | 'tomorrow' | 'weekend') => {
             const isSelected: boolean = dateFilter === f
             return (
               <button 
                 key={f} 
-               onClick={(e: React.MouseEvent) => { e.stopPropagation(); 
-  if (dateFilter !== f) {
-    setDateFilter(f)
-    // DON'T reset currentIndex or close sheet - let user stay where they are
-    trackDateFilter(f, filtered.length)
-  }
-}}
+                onClick={(e: React.MouseEvent) => { 
+                  e.stopPropagation(); 
+                  if (dateFilter !== f) {
+                    setDateFilter(f)
+                    trackDateFilter(f, filtered.length)
+                  }
+                }}
                 aria-pressed={isSelected}
                 style={{
                   padding: '10px 18px',
@@ -1656,8 +1651,8 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             )
           })}
           <button 
-  onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowDatePicker(!showDatePicker) }}
-  onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowDatePicker(!showDatePicker) }}
+            onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
             style={{
               padding: '10px 16px',
               minHeight: '44px',
@@ -1674,7 +1669,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
           </button>
         </div>
         
-        {/* Date picker */}
         {showDatePicker && (
           <div style={{ 
             padding: '14px', 
@@ -1686,11 +1680,12 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               {getNext7Days().map((d: { str: string; name: string; num: number }) => (
                 <button 
                   key={d.str} 
-                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); 
-  setDateFilter(d.str)
-  setShowDatePicker(false)
-  trackDateFilter(d.str, filtered.length)
-}}
+                  onClick={(e: React.MouseEvent) => { 
+                    e.stopPropagation(); 
+                    setDateFilter(d.str)
+                    setShowDatePicker(false)
+                    trackDateFilter(d.str, filtered.length)
+                  }}
                   style={{
                     width: '48px',
                     minWidth: '48px',
@@ -1714,7 +1709,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
           </div>
         )}
         
-        {/* P1 FIX: Genre chips with better touch targets and states */}
         {availableGenres.length > 0 && (
           <div style={{ 
             display: 'flex', 
@@ -1726,10 +1720,11 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
               return (
                 <button
                   key={genre}
-                  onClick={(e: React.MouseEvent) => { e.stopPropagation();
-  setActiveGenre(isSelected ? null : genre)
-  trackGenreFilter(genre, filtered.length)
-}}
+                  onClick={(e: React.MouseEvent) => { 
+                    e.stopPropagation();
+                    setActiveGenre(isSelected ? null : genre)
+                    trackGenreFilter(genre, filtered.length)
+                  }}
                   aria-pressed={isSelected}
                   style={{
                     padding: '8px 14px',
@@ -1749,7 +1744,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                 </button>
               )
             })}
-            {/* Clear filters button */}
             {(activeGenre || showFreeOnly) && (
               <button
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActiveGenre(null); setShowFreeOnly(false) }}
@@ -1772,7 +1766,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         )}
       </div>
       
-      {/* Event count - P1 FIX: Better contrast */}
       <div style={{ 
         padding: '12px 20px', 
         borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -1785,7 +1778,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         </span>
       </div>
       
-      {/* Event list */}
       <div
         ref={listScrollRef}
         onScroll={handleListScroll}
@@ -1803,16 +1795,14 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
             }}
             style={{ marginTop: gi > 0 ? '20px' : '0' }}
           >
-            <div
-              style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                color: '#666',
-                textTransform: 'uppercase',
-                marginBottom: '10px',
-                paddingLeft: '4px',
-              }}
-            >
+            <div style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              color: '#666',
+              textTransform: 'uppercase',
+              marginBottom: '10px',
+              paddingLeft: '4px',
+            }}>
               {label}
             </div>
 
@@ -1844,15 +1834,13 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                       {evt.so_pick && (
                         <img src="/so-icon.png" alt="Curated" style={{ height: '12px', width: 'auto' }} />
                       )}
-                      <span
-                        style={{
-                          fontSize: '13px',
-                          fontWeight: 600,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
+                      <span style={{
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}>
                         {evt.title}
                       </span>
                     </div>
@@ -1889,15 +1877,13 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                       )}
 
                       {evt.event_url && (
-                        <span
-                          style={{
-                            fontSize: '9px',
-                            padding: '2px 6px',
-                            background: 'rgba(59,130,246,0.15)',
-                            borderRadius: '4px',
-                            color: '#3b82f6',
-                          }}
-                        >
+                        <span style={{
+                          fontSize: '9px',
+                          padding: '2px 6px',
+                          background: 'rgba(59,130,246,0.15)',
+                          borderRadius: '4px',
+                          color: '#3b82f6',
+                        }}>
                           🎫{' '}
                           {TICKET_SOURCES[evt.ticket_source || detectTicketSource(evt.event_url)]?.shortName || 'Tickets'}
                         </span>
@@ -1914,16 +1900,14 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                     />
 
                     {evt.sold_out && (
-                      <span
-                        style={{
-                          fontSize: '9px',
-                          fontWeight: 700,
-                          color: '#f87171',
-                          background: 'rgba(248,113,113,0.15)',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                        }}
-                      >
+                      <span style={{
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        color: '#f87171',
+                        background: 'rgba(248,113,113,0.15)',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                      }}>
                         SOLD OUT
                       </span>
                     )}
@@ -1932,19 +1916,17 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                       const price = getPriceDisplay(evt)
                       if (!price) return null
                       return (
-                        <span
-                          style={{
-                            fontSize: price.type === 'free' ? '10px' : '11px',
-                            fontWeight: price.type === 'free' ? 700 : 600,
-                            color:
-                              price.type === 'free' || price.type === 'freeBefore'
-                                ? '#22c55e'
-                                : '#999',
-                            background: price.type === 'free' ? 'rgba(34,197,94,0.15)' : 'transparent',
-                            padding: price.type === 'free' ? '3px 6px' : '0',
-                            borderRadius: '4px',
-                          }}
-                        >
+                        <span style={{
+                          fontSize: price.type === 'free' ? '10px' : '11px',
+                          fontWeight: price.type === 'free' ? 700 : 600,
+                          color:
+                            price.type === 'free' || price.type === 'freeBefore'
+                              ? '#22c55e'
+                              : '#999',
+                          background: price.type === 'free' ? 'rgba(34,197,94,0.15)' : 'transparent',
+                          padding: price.type === 'free' ? '3px 6px' : '0',
+                          borderRadius: '4px',
+                        }}>
                           {price.text}
                         </span>
                       )
@@ -1968,7 +1950,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         )}
       </div>
       
-      {/* Footer */}
       <div style={{
         padding: '16px 20px',
         borderTop: '1px solid rgba(255,255,255,0.06)',
