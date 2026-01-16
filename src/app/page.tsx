@@ -1840,7 +1840,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                   <EventThumbnail imageUrl={evt.image_url} genres={evt.genres} size={52} />
 
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    {/* Title row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
                       {evt.so_pick && (
                         <img src="/so-icon.png" alt="Curated" style={{ height: '12px', width: 'auto' }} />
@@ -1858,14 +1857,12 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                       </span>
                     </div>
 
-                    {/* Brand attribution */}
                     {evt.brand && (
                       <p style={{ fontSize: '11px', color: '#ab67f7', marginBottom: '2px' }}>
                         by {evt.brand.name} {evt.brand.is_verified ? '✓' : ''}
                       </p>
                     )}
 
-                    {/* Venue link */}
                     <Link
                       href={`/venue/${evt.venue?.id}`}
                       onClick={(ev: React.MouseEvent) => ev.stopPropagation()}
@@ -1880,7 +1877,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                       {evt.venue?.name}
                     </Link>
 
-                    {/* Time, Genre, Ticket Source */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 600 }}>
                         {formatTime(evt.start_time)}
@@ -1909,7 +1905,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                     </div>
                   </div>
 
-                  {/* Right side: Save button + Price */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                     <SaveButton
                       eventId={evt.id}
@@ -1993,6 +1988,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
     </aside>
   )
 }
+  
 const DesktopDetailPanel = () => {
     if (!current) return null
     return (
