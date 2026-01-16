@@ -281,7 +281,7 @@ export default function Home() {
   const [isAnimating, setIsAnimating] = useState(false)
   const [sheetVisible, setSheetVisible] = useState(false)
   const [mapReady, setMapReady] = useState(false)
-  const [showIntro, setShowIntro] = useState(false)
+  const [showIntro, setShowIntro] = useState(true)
   const [introPhase, setIntroPhase] = useState<'logo' | 'zoom' | 'done'>('logo')
   
   // First-load welcome overlay
@@ -764,13 +764,55 @@ const detectTicketSource = (url: string | null): string => {
     return () => m.remove()
   }, [deviceType])
 
-  // Intro animation sequence
+// Intro animation sequence
   useEffect(() => {
-    // Skip intro animation to prevent hydration errors
-    if (map.current && mapReady) {
-      map.current.jumpTo({ center: [-1.6131, 54.9695], zoom: 14 })
+    if (!showIntro || !mapReady || !map.current) return
+    
+    const hasSeenIntro = localStorage.getItem('so_intro_seen')
+    if (hasSeenIntro) {
+      setShowIntro(false)
+      map.current?.jumpTo({ center: [-1.6131, 54.9695], zoom: 14 })
+      map.current?.dragPan.enable()
+      map.current?.scrollZoom.enable()
+      map.current?.doubleClickZoom.enable()
+      map.current?.touchZoomRotate.enable()
+      return
     }
-  }, [mapReady])
+    
+    const zoomTimer = setTimeout(() => {
+      setIntroPhase('zoom')
+      map.current?.flyTo({
+        center: [-1.6131, 54.9695],
+        zoom: 14,
+        duration: 600,
+        easing: (t) => 1 - Math.pow(1 - t, 3),
+        essential: true,
+      })
+      setTimeout(() => {
+        if (map.current) {
+          map.current.dragPan.enable()
+          map.current.scrollZoom.enable()
+          map.current.doubleClickZoom.enable()
+          map.current.touchZoomRotate.enable()
+        }
+      }, 600)
+    }, 300)
+    
+    const fadeTimer = setTimeout(() => {
+      setIntroPhase('done')
+      localStorage.setItem('so_intro_seen', 'true')
+    }, 800)
+    
+    const removeTimer = setTimeout(() => {
+      setShowIntro(false)
+    }, 1000)
+    
+    return () => {
+      clearTimeout(zoomTimer)
+      clearTimeout(fadeTimer)
+      clearTimeout(removeTimer)
+    }
+  }, [showIntro, mapReady])
 
   // ============================================================================
   // USER LOCATION
@@ -2468,18 +2510,23 @@ const DesktopDetailPanel: React.FC = () => {
     );
   }
 
-  // ============================================================================
+// ============================================================================
   // RENDER - MOBILE LAYOUT
   // ============================================================================
   return (
-    <div>Mobile layout - add your mobile render code here</div>
+    <div style={{ position: 'fixed', inset: 0, background: '#0a0a0b', display: 'flex', flexDirection: 'column' }}>
+      {/* Mobile content - simplified working version */}
+      <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
+      
+      {loading && (
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#999' }}>
+          Loading...
+        </div>
+      )}
+    </div>
   );
-} 
+}
 
-
-
-
-  
 // ============================================================================
 // MOBILE DETAIL SHEET COMPONENT - P1 FIXES APPLIED
 // ============================================================================
