@@ -1785,7 +1785,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         </span>
       </div>
       
-            {/* Event list */}
+      {/* Event list */}
       <div
         ref={listScrollRef}
         onScroll={handleListScroll}
@@ -1972,9 +1972,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
           />
         )}
       </div>
-
-
-                  
       
       {/* Footer with Privacy/Terms - P1 FIX: Better contrast */}
       <div style={{
@@ -1996,8 +1993,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
     </aside>
   )
 }
-
-
   // ============================================================================
   // DESKTOP/TABLET DETAIL PANEL - P1 FIXES APPLIED
   // ============================================================================
