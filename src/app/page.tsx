@@ -1199,12 +1199,42 @@ useEffect(() => {
 el.style.pointerEvents = 'auto'
 el.style.cursor = 'pointer'
 
-// CRITICAL: Use both click and touchend for mobile
-el.addEventListener('click', handleMarkerClick, { passive: false })
-el.addEventListener('touchend', (e: any) => {
+const handleMarkerClick = (e: Event) => {
   e.preventDefault()
-  handleMarkerClick(e)
-}, { passive: false })
+  e.stopPropagation()
+  
+  if (count > 1) {
+    setClusterEvents(evs)
+    setViewMode('cluster')
+  } else {
+    let idx = -1
+    for (let i = 0; i < filtered.length; i++) {
+      if (filtered[i].id === evs[0].id) {
+        idx = i
+        break
+      }
+    }
+    setCurrentIndex(idx)
+    setViewMode('preview')
+    trackMarkerClick(evs[0].id, evs[0].title, v.name)
+    trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
+  }
+  
+  requestAnimationFrame(() => {
+    setSheetVisible(true)
+    highlightMarker(evs[0].id)
+  })
+  
+  const currentZoom = map.current?.getZoom() || 14
+  map.current?.easeTo({
+    center: [v.lng, v.lat],
+    zoom: Math.max(currentZoom, 14.5),
+    duration: 300,
+    easing: (t: number) => 1 - Math.pow(1 - t, 2),
+  })
+}
+
+el.addEventListener('click', handleMarkerClick, { passive: false })
 
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([v.lng, v.lat])
