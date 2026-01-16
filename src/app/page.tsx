@@ -2578,327 +2578,79 @@ const DesktopDetailPanel: React.FC = () => {
   }
 
   // ============================================================================
-  // RENDER - MOBILE LAYOUT (Pull-up sheet pattern)
-  // ============================================================================
+// RENDER - DESKTOP/TABLET LAYOUT
+// ============================================================================
+if (deviceType === 'desktop' || deviceType === 'tablet') {
   return (
-    <div style={{ height: '100vh', width: '100vw', background: '#0a0a0b', overflow: 'hidden' }}>
-      <main style={{ height: '100%', width: '100%', position: 'relative' }}>
+    <div style={{ height: '100vh', width: '100vw', background: '#0a0a0b', display: 'flex', overflow: 'hidden' }}>
+      {/* Sidebar */}
+      <DesktopSidebar />
+      
+      {/* Map - Full remaining width */}
+      <div 
+        style={{ flex: 1, position: 'relative', minWidth: 0 }}
+        onClick={(e: React.MouseEvent) => { 
+          e.stopPropagation(); 
+          if (viewMode === 'preview' || viewMode === 'detail') {
+            setViewMode('map');
+            setSheetVisible(false);
+            highlightMarker(null);
+          }
+        }}
+      >
+        <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
         
-        {/* Map - Full Screen */}
-        <div ref={mapContainer} style={{ position: 'absolute', inset: 0, zIndex: 1 }} />
-
-        {/* Intro Loading Screen */}
-        {showIntro && (
-          <div style={{
-            position: 'absolute', inset: 0, zIndex: 100, background: '#0a0a0b',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            opacity: introPhase === 'done' ? 0 : 1, transition: 'opacity 500ms ease-out',
-            pointerEvents: introPhase === 'done' ? 'none' : 'auto',
-          }}>
-            <div style={{
-              transform: introPhase === 'zoom' ? 'scale(0.8) translateY(-20px)' : 'scale(1)',
-              opacity: introPhase === 'zoom' ? 0.6 : 1,
-              transition: 'all 800ms cubic-bezier(0.4, 0, 0.2, 1)',
-            }}>
-              <img src="/logo.svg" alt="Sounded Out" style={{ 
-                height: '40px', width: 'auto',
-                filter: 'drop-shadow(0 4px 20px rgba(171, 103, 247, 0.3))',
-              }} />
-            </div>
-            <div style={{ marginTop: '24px', opacity: introPhase === 'logo' ? 1 : 0, transition: 'opacity 300ms ease' }}>
-              <div style={{ width: '40px', height: '3px', background: 'rgba(171, 103, 247, 0.2)', borderRadius: '2px', overflow: 'hidden' }}>
-                <div style={{ width: '50%', height: '100%', background: '#ab67f7', borderRadius: '2px', animation: 'loadingSlide 1s ease-in-out infinite' }} />
-              </div>
-            </div>
-            <p style={{
-              marginTop: '16px', fontSize: '13px', color: '#777', letterSpacing: '2px', textTransform: 'uppercase',
-              opacity: introPhase === 'zoom' ? 1 : 0, transform: introPhase === 'zoom' ? 'translateY(0)' : 'translateY(10px)',
-              transition: 'all 600ms cubic-bezier(0.4, 0, 0.2, 1)',
-            }}>Newcastle</p>
-          </div>
-        )}
-
-        {/* Welcome Overlay */}
-        {showWelcome && !showIntro && (
-          <div 
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowWelcome(false); localStorage.setItem('so_welcome_seen', 'true') }}
-            style={{
-              position: 'absolute', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.85)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              padding: '40px 30px', animation: 'fadeIn 300ms ease-out',
-            }}
-          >
-            <img src="/logo.svg" alt="Sounded Out" style={{ height: '44px', marginBottom: '24px' }} />
-            <h2 style={{ fontSize: '24px', fontWeight: 700, textAlign: 'center', marginBottom: '12px', lineHeight: 1.3 }}>
-              Find the best nights out<br />near you — instantly
-            </h2>
-            <p style={{ fontSize: '14px', color: '#999', textAlign: 'center', marginBottom: '32px' }}>
-              Tap events on the map or swipe up to browse
-            </p>
-            <button
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowWelcome(false); localStorage.setItem('so_welcome_seen', 'true') }}
-              style={{
-                padding: '14px 32px', background: '#ab67f7',
-                border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: 'pointer',
-              }}
-            >Let&apos;s Go</button>
-            <p style={{ fontSize: '12px', color: '#666', marginTop: '16px' }}>Tap anywhere to dismiss</p>
-          </div>
-        )}
-
-        {/* Click overlay for closing sheets */}
-        {(viewMode === 'preview' || viewMode === 'cluster') && (
-          <div onClick={closeSheet} style={{ position: 'absolute', inset: 0, zIndex: 10, background: 'transparent', cursor: 'pointer' }} />
-        )}
-        
-        {/* Menu overlay */}
-        {showMenu && <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 19, background: 'transparent' }} />}
-
-        {/* Floating Header Elements */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20,
-          padding: '12px 16px', paddingTop: 'max(12px, env(safe-area-inset-top))',
-          pointerEvents: 'none',
-        }}>
-          {/* Top row: Search bar + Profile */}
-          <div style={{ display: 'flex', gap: '10px', pointerEvents: 'auto', marginBottom: '10px' }}>
-            {/* Search/Filter bar */}
-            <div 
-  onClick={(e: React.MouseEvent) => { e.stopPropagation(); openSheet('list'); trackListOpen(filtered.length) }}
-  onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
-              style={{
-                flex: 1, padding: '12px 16px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
-                borderRadius: '14px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '10px', minHeight: '48px',
-              }}
-            >
-              <span style={{ fontSize: '14px', opacity: 0.6 }}>🔍</span>
-              <span style={{ fontSize: '14px', color: '#999' }}>
-                {loading ? 'Loading...' : `${filtered.length} events ${filterLabel}`}
-              </span>
-            </div>
-            
-            {/* P1 FIX: Profile button with 48px touch target */}
-            {/* Sign In / User Button */}
-{user ? (
-  <button
-    onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(true); trackMenuOpen() }}
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
-      padding: '8px 12px',
-      minHeight: '48px',
-      borderRadius: '14px',
-      background: 'rgba(0,0,0,0.75)',
-      backdropFilter: 'blur(10px)',
-      WebkitBackdropFilter: 'blur(10px)',
-      border: '1px solid rgba(171,103,247,0.3)',
-      color: '#ab67f7',
-      fontSize: '12px',
-      fontWeight: 500,
-      cursor: 'pointer',
-    }}
-  >
-    <span style={{
-      width: '24px',
-      height: '24px',
-      borderRadius: '50%',
-      background: '#ab67f7',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: '10px',
-      color: 'white',
-      fontWeight: 700,
-      flexShrink: 0,
-    }}>
-      {user.email?.[0]?.toUpperCase() || 'U'}
-    </span>
-  </button>
-) : (
-  <Link
-  href="/login"
-  onClick={(e: React.MouseEvent) => e.stopPropagation()}
-  style={{
-    display: 'flex',
-    alignItems: 'center',
-    padding: '10px 16px',
-    touchAction: 'manipulation',
-      minHeight: '48px',
-      borderRadius: '14px',
-      background: '#ab67f7',
-      color: 'white',
-      textDecoration: 'none',
-      fontSize: '13px',
-      fontWeight: 600,
-      boxShadow: '0 4px 12px rgba(171,103,247,0.3)',
-    }}
-  >
-    Sign In
-  </Link>
-)}
-{/* Menu button */}
-<button
-  onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(true); trackMenuOpen() }}
-  onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
-  style={{
-    width: '48px', height: '48px', minWidth: '48px', minHeight: '48px', borderRadius: '14px',
-    touchAction: 'manipulation',
-                background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px',
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <line x1="3" y1="12" x2="21" y2="12"/>
-                <line x1="3" y1="18" x2="21" y2="18"/>
-              </svg>
-            </button>
-          </div>
-          
-          {/* P1 FIX: Date filter chips with 44px touch targets */}
-          <div style={{ display: 'flex', gap: '8px', pointerEvents: 'auto', overflowX: 'auto', paddingBottom: '4px', WebkitOverflowScrolling: 'touch' }}>
-            {(['today', 'tomorrow', 'weekend'] as const).map((f: 'today' | 'tomorrow' | 'weekend') => {
-              const isSelected: boolean = dateFilter === f
-              return (
-                <button 
-  key={f}
-  onClick={(e: React.MouseEvent) => { 
-    e.stopPropagation()
-    if (dateFilter !== f) { 
-      setDateFilter(f)
-      trackDateFilter(f, filtered.length) 
-    }
-  }}
-  onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
-                  aria-pressed={isSelected}
-                  style={{
-                    padding: '10px 16px', minHeight: '44px', borderRadius: '22px', border: 'none',
-                    fontSize: '13px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-                    background: isSelected ? '#ab67f7' : 'rgba(0,0,0,0.75)',
-                    backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-                    color: isSelected ? 'white' : '#999',
-                    boxShadow: isSelected ? '0 4px 12px rgba(171,103,247,0.3)' : 'none',
-                  }}
-                >
-                  {f === 'today' ? 'Today' : f === 'tomorrow' ? 'Tomorrow' : 'Weekend'}
-                </button>
-              )
-            })}
-            <button 
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowDatePicker(!showDatePicker)}
-              style={{
-                padding: '10px 14px', minHeight: '44px', borderRadius: '22px', border: 'none',
-                fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)', 
-                WebkitBackdropFilter: 'blur(10px)', color: '#ab67f7',
-              }}
-            >
-              {showDatePicker ? '✕' : 'More'}
-            </button>
-          </div>
-          
-          {/* Date picker dropdown */}
-          {showDatePicker && (
-            <div style={{ 
-              marginTop: '8px', padding: '14px', background: 'rgba(20,20,22,0.95)',
-              backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-              borderRadius: '14px', pointerEvents: 'auto',
-              animation: 'slideDown 200ms ease-out',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                {getNext7Days().map((d: { str: string; name: string; num: number }) => (
-                  <button 
-                    key={d.str}
-                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDateFilter(d.str); setShowDatePicker(false); trackDateFilter(d.str, filtered.length) }}
-                    style={{
-                      width: '48px', minWidth: '48px', padding: '8px 4px', borderRadius: '12px', border: 'none', cursor: 'pointer',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                      background: dateFilter === d.str ? '#ab67f7' : 'transparent',
-                      color: dateFilter === d.str ? 'white' : '#999',
-                    }}
-                  >
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase' }}>{d.name}</span>
-                    <span style={{ fontSize: '16px', fontWeight: 600 }}>{d.num}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {/* P1 FIX: Genre chips with better touch targets */}
-          {availableGenres.length > 0 && !showDatePicker && (
-            <div style={{ marginTop: '8px', display: 'flex', gap: '8px', overflowX: 'auto', pointerEvents: 'auto', paddingBottom: '4px', WebkitOverflowScrolling: 'touch' }}>
-              {availableGenres.map((genre: string) => {
-                const isSelected: boolean = activeGenre === genre
-                return (
-                  <button
-  key={genre}
-  onClick={(e: React.MouseEvent) => { 
-    e.stopPropagation()
-    setActiveGenre(isSelected ? null : genre)
-    trackGenreFilter(genre, filtered.length) 
-  }}
-  onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
-                    aria-pressed={isSelected}
-                    style={{
-                      padding: '10px 16px',
-                      minHeight: '44px',
-                      borderRadius: '22px',
-                      border: isSelected ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
-                      fontSize: '12px',
-                      fontWeight: isSelected ? 700 : 500,
-                      cursor: 'pointer',
-                      background: isSelected ? '#ab67f7' : 'transparent',
-                      color: isSelected ? 'white' : '#aaa',
-                      textTransform: 'capitalize',
-                      transition: 'all 150ms ease',
-                    }}
-                  >
-                    {genre}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* P1 FIX: Floating Map Controls with 48px touch targets */}
-        <div style={{ position: 'absolute', bottom: '180px', right: '16px', zIndex: 15, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {/* P1 FIX: Map Controls with reset button and 48px touch targets */}
+        <div style={{ position: 'absolute', bottom: '24px', right: '24px', display: 'flex', flexDirection: 'column', gap: '8px', zIndex: 10 }}>
           {/* Reset View */}
-<button
-  onClick={(e: React.MouseEvent) => { e.stopPropagation(); map.current?.flyTo({ center: [-1.6131, 54.9695], zoom: 13, duration: 800 }) }}
-  onTouchEnd={(e: React.TouchEvent) => e.stopPropagation()}
+          <button
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation();
+              map.current?.flyTo({ center: [-1.6131, 54.9695], zoom: 13, duration: 800 });
+            }}
             title="Reset view"
             aria-label="Reset view to Newcastle"
             style={{
-              width: '48px', height: '48px', minWidth: '48px', minHeight: '48px', borderRadius: '50%',
-              background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.15)', color: '#999',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px',
+              width: '48px',
+              height: '48px',
+              minWidth: '48px',
+              minHeight: '48px',
+              borderRadius: '12px',
+              background: 'rgba(0,0,0,0.75)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: '#999',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px',
             }}
           >
             ⌖
           </button>
           {/* Location */}
           <button
-            onClick={toggleUserLocation}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleUserLocation(); }}
             title={showUserLocation ? 'Hide my location' : 'Show my location'}
             aria-label={showUserLocation ? 'Hide my location' : 'Show my location'}
             style={{
-              width: '48px', height: '48px', minWidth: '48px', minHeight: '48px', borderRadius: '50%',
+              width: '48px',
+              height: '48px',
+              minWidth: '48px',
+              minHeight: '48px',
+              borderRadius: '12px',
               background: showUserLocation ? 'rgba(171,103,247,0.2)' : 'rgba(0,0,0,0.75)',
-              backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-              border: showUserLocation ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.15)',
+              backdropFilter: 'blur(10px)',
+              border: showUserLocation ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.1)',
               color: showUserLocation ? '#ab67f7' : '#999',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="4"/>
               <line x1="12" y1="2" x2="12" y2="6"/>
               <line x1="12" y1="18" x2="12" y2="22"/>
@@ -2907,292 +2659,162 @@ const DesktopDetailPanel: React.FC = () => {
             </svg>
           </button>
         </div>
-
-        {/* Pull-up Sheet - Peek state shows event count */}
-        {viewMode === 'map' && (
-          <div 
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); openSheet('list'); trackListOpen(filtered.length) }}
-            style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 15,
-              background: '#141416', borderRadius: '20px 20px 0 0',
-              padding: '16px 20px', paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
-              cursor: 'pointer', boxShadow: '0 -4px 20px rgba(0,0,0,0.4)', minHeight: '72px',
-            }}
-          >
-            <div style={{ width: '40px', height: '4px', background: '#444', borderRadius: '2px', margin: '0 auto 12px' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '15px' }}>
-                <span style={{ color: '#ab67f7', fontWeight: 700 }}>{filtered.length}</span>
-                {' '}{filtered.length === 1 ? 'event' : 'events'} {filterLabel}
-              </span>
-              <span style={{ color: '#ab67f7', fontSize: '18px' }}>↑</span>
-            </div>
+        
+        {/* Loading */}
+        {loading && (
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#999' }}>
+            Loading events...
           </div>
         )}
-
-        {/* List View Sheet */}
-        {viewMode === 'list' && (
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            background: '#141416', borderRadius: '24px 24px 0 0', zIndex: 30,
-            display: 'flex', flexDirection: 'column', maxHeight: '75vh',
-            ...getSheetStyle(sheetVisible), ...getDismissTransform(),
+      </div>
+      
+      {/* Detail Panel */}
+      {(viewMode === 'preview' || viewMode === 'detail') && current && <DesktopDetailPanel />}
+      
+      {/* Cluster Selection Modal */}
+      {viewMode === 'cluster' && clusterEvents.length > 0 && (
+        <div 
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('map'); setClusterEvents([]); }}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <div onClick={(e: React.MouseEvent) => e.stopPropagation()} style={{
+            background: '#1a1a1f', borderRadius: '16px', padding: '20px', width: '90%', maxWidth: '400px',
           }}>
-            {/* Handle area */}
-            <div 
-              onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-              style={{ padding: '12px 20px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, cursor: 'grab', touchAction: 'none' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <div style={{ width: '44px' }} />
-                <div onClick={closeSheet} style={{ width: '48px', height: '5px', background: dismissProgress > 0.5 ? '#ab67f7' : '#777', borderRadius: '3px', cursor: 'pointer' }} />
-                <button onClick={closeSheet} style={{ width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#999', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ab67f7', textTransform: 'uppercase' }}>{visibleDayLabel || Object.keys(grouped)[0] || filterLabel}</h3>
-                <span style={{ fontSize: '12px', color: '#666' }}>{filtered.length} events</span>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#ab67f7' }}>{clusterEvents.length} events here</h3>
+              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('map'); setClusterEvents([]); }} style={{
+                width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', borderRadius: '50%', border: 'none',
+                background: 'rgba(255,255,255,0.1)', color: '#999', fontSize: '16px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>✕</button>
             </div>
-            
-            {/* Scrollable list */}
-            <div ref={listScrollRef} onScroll={handleListScroll} style={{ flex: 1, overflowY: 'auto', padding: '8px 20px 30px', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}>
-              {Object.entries(grouped).map(([label, evs]: [string, Event[]], gi: number) => (
-                <div key={label} ref={(el) => { if (el) daySectionRefs.current.set(label, el) }} style={{ marginTop: gi > 0 ? '24px' : '0' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: gi === 0 ? 'transparent' : '#666', textTransform: 'uppercase', marginBottom: '12px', paddingBottom: gi > 0 ? '8px' : '0', borderBottom: gi > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>{label}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {evs.map((e: Event) => (
-                      <div key={e.id} onClick={(e: React.MouseEvent) => { e.stopPropagation(); selectEvent(e)} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '14px', minHeight: '72px', background: '#1e1e24', borderRadius: '14px', cursor: 'pointer' }}>
-                        <span style={{ fontSize: '13px', color: '#ab67f7', fontWeight: 700, minWidth: '48px', paddingTop: '2px' }}>{formatTime(e.start_time)}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-                            {e.so_pick && <img src="/so-icon.png" alt="Curated" style={{ height: '14px', width: 'auto', flexShrink: 0, opacity: 0.9 }} />}
-                            <span style={{ fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.title}</span>
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>{e.venue?.name}</div>
-                          {(e.genres || e.vibe) && <div style={{ fontSize: '11px', color: '#22d3ee', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.genres?.split(',').slice(0, 2).map((g: string) => formatGenre(g)).join(' · ') || e.vibe}</div>}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                          {e.sold_out && <span style={{ fontSize: '10px', fontWeight: 700, color: '#f87171', background: 'rgba(248,113,113,0.15)', padding: '3px 6px', borderRadius: '4px' }}>SOLD OUT</span>}
-                          {isFree(e.price_min, e.price_max) ? <span style={{ fontSize: '11px', fontWeight: 700, color: '#22c55e', background: 'rgba(34,197,94,0.15)', padding: '4px 8px', borderRadius: '6px' }}>FREE</span> : formatPrice(e.price_min, e.price_max) && <span style={{ fontSize: '12px', color: '#999', fontWeight: 600 }}>{formatPrice(e.price_min, e.price_max)}</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              {filtered.length === 0 && (
-                <EmptyStateNoEvents 
-                  filterLabel={filterLabel} 
-                  onReset={() => { setDateFilter('today'); setActiveGenre(null); setShowFreeOnly(false) }} 
-                />
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Cluster Selection Sheet */}
-        {viewMode === 'cluster' && (
-          <div onClick={(e: React.MouseEvent) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0, background: '#141416', borderRadius: '24px 24px 0 0',
-            padding: '12px 20px 40px', paddingBottom: 'max(40px, env(safe-area-inset-bottom))', zIndex: 30,
-            ...getSheetStyle(sheetVisible), ...getDismissTransform(),
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div style={{ width: '44px' }} />
-              <div onClick={closeSheet} style={{ width: '48px', height: '5px', background: dismissProgress > 0.5 ? '#ab67f7' : '#777', borderRadius: '3px', cursor: 'pointer' }} />
-              <button onClick={closeSheet} style={{ width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#999', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-            </div>
-            <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#ab67f7', marginBottom: '14px' }}>{clusterEvents.length} events here</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '50vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto' }}>
               {clusterEvents.map((e: Event) => (
-                <div key={e.id} onClick={(e: React.MouseEvent) => { e.stopPropagation(); selectEvent(e)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', minHeight: '64px', background: '#1e1e24', borderRadius: '14px', cursor: 'pointer' }}>
+                <div key={e.id} onClick={(ev: React.MouseEvent) => { ev.stopPropagation(); selectEvent(e); }} style={{
+                  display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
+                  background: '#141416', borderRadius: '10px', cursor: 'pointer',
+                }}>
                   <span style={{ fontSize: '13px', color: '#ab67f7', fontWeight: 700, minWidth: '48px' }}>{formatTime(e.start_time)}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '2px' }}>{e.title}</div>
-                    <div style={{ fontSize: '12px', color: '#22d3ee' }}>{getGenres(e.genres)}</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>{e.title}</div>
+                    <div style={{ fontSize: '11px', color: '#22d3ee' }}>{getGenres(e.genres)}</div>
                   </div>
-                  {isFree(e.price_min, e.price_max) ? <span style={{ fontSize: '11px', fontWeight: 700, color: '#22c55e', background: 'rgba(34,197,94,0.15)', padding: '4px 8px', borderRadius: '6px' }}>FREE</span> : formatPrice(e.price_min, e.price_max) && <span style={{ fontSize: '12px', color: '#999' }}>{formatPrice(e.price_min, e.price_max)}</span>}
+                  {isFree(e.price_min, e.price_max) ? (
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#22c55e', background: 'rgba(34,197,94,0.15)', padding: '3px 6px', borderRadius: '4px' }}>FREE</span>
+                  ) : formatPrice(e.price_min, e.price_max) && (
+                    <span style={{ fontSize: '11px', color: '#999' }}>{formatPrice(e.price_min, e.price_max)}</span>
+                  )}
                 </div>
               ))}
             </div>
           </div>
-        )}
-
-        {/* Preview Card Sheet */}
-        {viewMode === 'preview' && current && (
-          <div
-            onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, background: '#141416', borderRadius: '24px 24px 0 0',
-              padding: '12px 20px 40px', paddingBottom: 'max(40px, env(safe-area-inset-bottom))', zIndex: 30,
-              minHeight: '320px', maxHeight: '380px',
-              ...noSelectStyle, ...getSheetStyle(sheetVisible),
-              ...(dragDirection === 'horizontal' ? getCardTransform() : getDismissTransform()),
-            }}
-          >
-            {/* Peek indicators */}
-            {showPrevPeek && prevEvent && <div style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', background: 'rgba(171,103,247,0.9)', borderRadius: '4px', padding: '4px 8px', opacity: peekProgress * 0.9, fontSize: '11px', fontWeight: 600, color: 'white' }}>← {prevEvent.title.slice(0, 12)}...</div>}
-            {showNextPeek && nextEvent && <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'rgba(171,103,247,0.9)', borderRadius: '4px', padding: '4px 8px', opacity: peekProgress * 0.9, fontSize: '11px', fontWeight: 600, color: 'white' }}>{nextEvent.title.slice(0, 12)}... →</div>}
-
-            {/* Handle */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '8px 0' }}>
-              <div style={{ width: '44px' }} />
-              <div onClick={closeSheet} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                <div style={{ width: '48px', height: '5px', background: dismissProgress > 0.8 ? '#ab67f7' : '#777', borderRadius: '3px' }} />
-                <span style={{ fontSize: '10px', color: dismissProgress > 0.8 ? '#ab67f7' : '#666' }}>{dismissProgress > 0.8 ? 'Release to close' : 'Pull down to close'}</span>
-              </div>
-              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); closeSheet() }} style={{ width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#999', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+        </div>
+      )}
+      
+      {/* Desktop Menu Dropdown */}
+      {showMenu && (
+        <>
+          <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(false); }} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />
+          <div style={{
+            position: 'fixed', top: '70px', left: deviceType === 'desktop' ? '290px' : '240px', 
+            background: '#1a1a1f', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', 
+            padding: '12px', minWidth: '220px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', zIndex: 100,
+          }}>
+            <NavigationLinks onClose={() => setShowMenu(false)} user={user} onSignOut={handleSignOut} />
+          </div>
+        </>
+      )}
+      
+      {/* Admin Menu */}
+      {showAdminMenu && (
+        <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAdminMenu(false); }} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 200,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
+        }}>
+          <div onClick={(e: React.MouseEvent) => e.stopPropagation()} style={{
+            background: '#1a1a1f', borderRadius: '20px', padding: '24px', width: '100%', maxWidth: '320px',
+            border: '1px solid rgba(171,103,247,0.3)',
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <span style={{ fontSize: '32px' }}>🔐</span>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, marginTop: '12px' }}>Admin Access</h3>
             </div>
-
-            {/* Progress dots */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '14px', marginTop: '8px' }}>
-              {filtered.slice(0, 8).map((_: Event, i: number) => <div key={i} style={{ width: i === currentIndex ? '20px' : '6px', height: '6px', borderRadius: '3px', background: i === currentIndex ? '#ab67f7' : 'rgba(255,255,255,0.15)' }} />)}
-              {filtered.length > 8 && <span style={{ fontSize: '10px', color: '#555' }}>+{filtered.length - 8}</span>}
-            </div>
-
-            {/* Content */}
-            <div style={{ display: 'flex', gap: '14px', ...noSelectStyle }}>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, marginBottom: '6px' }}>{formatTime(current.start_time)} · {getDateLabel(current.start_time)}</p>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
-                  {current.so_pick && <img src="/so-icon.png" alt="Curated" style={{ height: '18px', width: 'auto', flexShrink: 0, marginTop: '3px', opacity: 0.9 }} />}
-                  <h3 style={{ fontSize: '20px', fontWeight: 800, lineHeight: 1.2 }}>{current.title}</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <a href="/admin/analytics" style={{
+                display: 'flex', alignItems: 'center', gap: '14px', padding: '16px',
+                background: 'linear-gradient(135deg, rgba(171,103,247,0.2), rgba(171,103,247,0.1))',
+                border: '1px solid rgba(171,103,247,0.3)', borderRadius: '14px',
+                color: 'white', textDecoration: 'none',
+              }}>
+                <span style={{ width: '44px', height: '44px', background: '#ab67f7', borderRadius: '12px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>📊</span>
+                <div>
+                  <p style={{ fontSize: '15px', fontWeight: 700 }}>Analytics</p>
+                  <p style={{ fontSize: '12px', color: '#999' }}>Sessions, conversions, metrics</p>
                 </div>
-                <p style={{ fontSize: '14px', color: '#999', marginBottom: '10px' }}>{current.venue?.name}</p>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {current.sold_out && <span style={{ padding: '5px 10px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px', fontWeight: 700, color: '#777' }}>SOLD OUT</span>}
-                  {isFree(current.price_min, current.price_max) && <span style={{ padding: '5px 10px', background: 'rgba(34,197,94,0.15)', borderRadius: '8px', fontSize: '12px', fontWeight: 700, color: '#22c55e' }}>FREE</span>}
-                  {formatPrice(current.price_min, current.price_max) && <span style={{ padding: '5px 10px', background: 'rgba(255,255,255,0.08)', borderRadius: '8px', fontSize: '12px', fontWeight: 600 }}>{formatPrice(current.price_min, current.price_max)}</span>}
-                  {getGenres(current.genres) && <span style={{ padding: '5px 10px', background: 'rgba(171,103,247,0.12)', borderRadius: '8px', fontSize: '12px', color: '#ab67f7' }}>{getGenres(current.genres)}</span>}
+              </a>
+              <a href="/admin" style={{
+                display: 'flex', alignItems: 'center', gap: '14px', padding: '16px',
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '14px', color: 'white', textDecoration: 'none',
+              }}>
+                <span style={{ width: '44px', height: '44px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>⚙️</span>
+                <div>
+                  <p style={{ fontSize: '15px', fontWeight: 700 }}>Content Admin</p>
+                  <p style={{ fontSize: '12px', color: '#999' }}>Events, venues, claims</p>
                 </div>
-              </div>
-              {/* P1 FIX: Use EventThumbnail with genre placeholder */}
-              <EventThumbnail imageUrl={current.image_url} genres={current.genres} size={75} />
+              </a>
             </div>
-
-            {/* Action buttons - P1 FIX: Added save button */}
-            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('detail')} style={{ flex: 1, padding: '14px', minHeight: '52px', background: '#ab67f7', border: 'none', borderRadius: '14px', fontSize: '15px', fontWeight: 700, color: 'white', cursor: 'pointer' }}>VIEW DETAILS</button>
-              <SaveButton eventId={current.id} saved={isEventSaved(current.id)} onToggle={toggleSaveEvent} size="large" />
-              <button
-                onClick={async (e: React.MouseEvent) => {
-                  e.stopPropagation()
-                  const shareUrl = `${window.location.origin}/event/${current.id}`
-                  trackShareClick(current.id, current.title, 'preview_sheet')
-                  try { if (navigator.share) { await navigator.share({ title: current.title, text: `${current.title} at ${current.venue?.name}`, url: shareUrl }) } else { await navigator.clipboard.writeText(shareUrl); alert('Link copied!') } } catch (err) { console.log('Share failed:', err) }
-                }}
-                style={{ width: '52px', minWidth: '52px', padding: '14px', minHeight: '52px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '14px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >📤</button>
-            </div>
-
-            {/* Navigation - P1 FIX: 44px buttons */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '14px' }}>
-              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('prev') }} disabled={currentIndex === 0} style={{ minHeight: '44px', minWidth: '44px', background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.2)', border: currentIndex === 0 ? 'none' : '1px solid rgba(171,103,247,0.3)', borderRadius: '12px', padding: '12px 18px', color: currentIndex === 0 ? '#444' : '#ab67f7', fontSize: '14px', fontWeight: 600, cursor: currentIndex === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', ...noSelectStyle }}><span style={{ fontSize: '18px' }}>←</span> Prev</button>
-              <span style={{ fontSize: '13px', color: '#666' }}>{currentIndex + 1} / {filtered.length}</span>
-              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next') }} disabled={currentIndex === filtered.length - 1} style={{ minHeight: '44px', minWidth: '44px', background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.2)', border: currentIndex === filtered.length - 1 ? 'none' : '1px solid rgba(171,103,247,0.3)', borderRadius: '12px', padding: '12px 18px', color: currentIndex === filtered.length - 1 ? '#444' : '#ab67f7', fontSize: '14px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', ...noSelectStyle }}>Next <span style={{ fontSize: '18px' }}>→</span></button>
-            </div>
+            <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAdminMenu(false); }} style={{
+              width: '100%', marginTop: '16px', padding: '12px', background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px',
+              color: '#777', fontSize: '14px', cursor: 'pointer',
+            }}>Cancel</button>
           </div>
-        )}
+        </div>
+      )}
+      
+      {/* Claim Modal */}
+      {showClaimModal && current && (
+        <ClaimModal 
+          current={current}
+          claimType={claimType}
+          claimForm={claimForm}
+          setClaimForm={setClaimForm}
+          claimSubmitting={claimSubmitting}
+          setClaimSubmitting={setClaimSubmitting}
+          claimSubmitted={claimSubmitted}
+          setClaimSubmitted={setClaimSubmitted}
+          claimError={claimError}
+          setClaimError={setClaimError}
+          onClose={() => {
+            setShowClaimModal(false);
+            setClaimSubmitted(false);
+            setClaimError('');
+            setClaimForm({ name: '', email: '', role: 'owner', proofUrl: '' });
+          }}
+          formatTime={formatTime}
+          getDateLabel={getDateLabel}
+        />
+      )}
+      
+      {/* P1 FIX: Onboarding Modal */}
+      {showOnboarding && <OnboardingModal onComplete={completeOnboarding} />}
 
-        {/* Detail Modal */}
-        {viewMode === 'detail' && current && (
-          <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('preview')} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }}>
-            <MobileDetailSheet 
-  current={current}
-  currentIndex={currentIndex}
-  filtered={filtered}
-  showAllGenres={showAllGenres}
-  setShowAllGenres={setShowAllGenres}
-  showDescription={showDescription}
-  setShowDescription={setShowDescription}
-  setClaimType={setClaimType}
-  setShowClaimModal={setShowClaimModal}
-  setShowLoginModal={setShowLoginModal}
-  navigate={navigate}
-  formatTime={formatTime}
-  formatPrice={formatPrice}
-  getDateLabel={getDateLabel}
-  getGenres={getGenres}
-  getTicketUrl={getTicketUrl}
-  isFree={isFree}
-  mapsUrl={mapsUrl}
-  noSelectStyle={noSelectStyle}
-  onTouchStart={onTouchStart}
-  onTouchMove={onTouchMove}
-  onTouchEnd={onTouchEnd}
-  dragDirection={dragDirection}
-  getCardTransform={getCardTransform}
-  getDismissTransform={getDismissTransform}
-  dismissProgress={dismissProgress}
-  getGenreStyle={getGenreStyle}
-  isEventSaved={isEventSaved}
-  toggleSaveEvent={toggleSaveEvent}
-  user={user}
-/>
-          </div>
-        )}
-
-        {/* Menu Slide-over */}
-        {showMenu && (
-          <>
-            <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 300 }} />
-            <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '280px', maxWidth: '85vw', background: '#0a0a0b', borderLeft: '1px solid rgba(255,255,255,0.08)', padding: '24px', paddingTop: 'max(24px, env(safe-area-inset-top))', zIndex: 301, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowMenu(false)} style={{ position: 'absolute', top: 'max(16px, env(safe-area-inset-top))', right: '16px', width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#999', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-              <img src="/logo.svg" alt="Sounded Out" onClick={handleLogoTap} style={{ height: '24px', width: 'auto', marginBottom: '24px', marginTop: '8px', cursor: 'pointer' }} />
-              
-              <NavigationLinks onClose={() => setShowMenu(false)} user={user} onSignOut={handleSignOut} />
-            </div>
-          </>
-        )}
-
-        {/* Admin Menu */}
-        {showAdminMenu && (
-          <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAdminMenu(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-            <div onClick={(e: React.MouseEvent) => e.stopPropagation()} style={{ background: '#1a1a1f', borderRadius: '20px', padding: '24px', width: '100%', maxWidth: '320px', border: '1px solid rgba(171,103,247,0.3)' }}>
-              <div style={{ textAlign: 'center', marginBottom: '20px' }}><span style={{ fontSize: '32px' }}>🔐</span><h3 style={{ fontSize: '18px', fontWeight: 700, marginTop: '12px' }}>Admin Access</h3></div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <a href="/admin/analytics" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px', background: 'linear-gradient(135deg, rgba(171,103,247,0.2), rgba(171,103,247,0.1))', border: '1px solid rgba(171,103,247,0.3)', borderRadius: '14px', color: 'white', textDecoration: 'none' }}><span style={{ width: '44px', height: '44px', background: '#ab67f7', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>📊</span><div><p style={{ fontSize: '15px', fontWeight: 700 }}>Analytics</p><p style={{ fontSize: '12px', color: '#999' }}>Sessions, conversions</p></div></a>
-                <a href="/admin" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', color: 'white', textDecoration: 'none' }}><span style={{ width: '44px', height: '44px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>⚙️</span><div><p style={{ fontSize: '15px', fontWeight: 700 }}>Content Admin</p><p style={{ fontSize: '12px', color: '#999' }}>Events, venues</p></div></a>
-              </div>
-              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAdminMenu(false)} style={{ width: '100%', marginTop: '16px', padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#777', fontSize: '14px', cursor: 'pointer' }}>Cancel</button>
-            </div>
-          </div>
-        )}
-
-        {/* Claim Modal */}
-        {showClaimModal && current && (
-          <ClaimModal 
-            current={current}
-            claimType={claimType}
-            claimForm={claimForm}
-            setClaimForm={setClaimForm}
-            claimSubmitting={claimSubmitting}
-            setClaimSubmitting={setClaimSubmitting}
-            claimSubmitted={claimSubmitted}
-            setClaimSubmitted={setClaimSubmitted}
-            claimError={claimError}
-            setClaimError={setClaimError}
-            onClose={() => { setShowClaimModal(false); setClaimSubmitted(false); setClaimError(''); setClaimForm({ name: '', email: '', role: 'owner', proofUrl: '' }) }}
-            formatTime={formatTime}
-            getDateLabel={getDateLabel}
-          />
-        )}
-
-        {/* P1 FIX: Onboarding Modal */}
-        {showOnboarding && <OnboardingModal onComplete={completeOnboarding} />}
-
-        {/* Login Prompt Modal */}
-<LoginPromptModal
-  isOpen={showLoginModal}
-  onClose={() => setShowLoginModal(false)}
-  action="save"
-/>
-
-        <style jsx global>{globalStyles}</style>
-      </main>
+      {/* Login Prompt Modal */}
+      <LoginPromptModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        action="save"
+      />
+      
+      <style jsx global>{globalStyles}</style>
     </div>
-  )
+  );
 }
 
 // ============================================================================
