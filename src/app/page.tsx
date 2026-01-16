@@ -659,28 +659,57 @@ const detectTicketSource = (url: string | null): string => {
         const rect: DOMRect = el.getBoundingClientRect()
         const containerRect: DOMRect = listScrollRef.current.getBoundingClientRect()
         if (rect.top <= containerRect.top + 50 && rect.bottom > containerRect.top) {
-          setVisibleDayLabel(label)
+          setVisibleDayLabel(prev => prev === label ? prev : label)
           break
         }
       }
     }
   }, [grouped])
 
-  // ============================================================================
+// ============================================================================
   // DATA LOADING
   // ============================================================================
- useEffect(() => {
-  supabase.from('events')
-    .select(`
-      *,
-      venue:venues(*),
-      brand:brands(id, name, slug, logo_url, is_verified, tagline)
-    `)
-    .eq('status', 'published')
-    .gte('start_time', new Date().toISOString().split('T')[0])
-    .order('start_time')
-    .then(({ data }: { data: Event[] | null }) => { 
-      if (data) {
+  useEffect(() => {
+    const loadEvents = async () => {
+      console.log('🔍 Loading events...')
+      
+      const { data, error } = await supabase
+        .from('events')
+        .select(`
+          *,
+          venue:venues(*),
+          brand:brands(id, name, slug, logo_url, is_verified, tagline)
+        `)
+        .eq('status', 'published')
+        .gte('start_time', new Date().toISOString().split('T')[0])
+        .order('start_time')
+      
+      if (error) {
+        console.error('❌ Events query failed:', error)
+        // Try without brands as fallback
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('events')
+          .select(`
+            *,
+            venue:venues(*)
+          `)
+          .eq('status', 'published')
+          .gte('start_time', new Date().toISOString().split('T')[0])
+          .order('start_time')
+        
+        if (fallbackError) {
+          console.error('❌ Fallback query also failed:', fallbackError)
+        } else if (fallbackData) {
+          console.log('✅ Loaded', fallbackData.length, 'events (without brands)')
+          setEvents(fallbackData)
+          const venueIds = new Set<string>()
+          for (let i = 0; i < fallbackData.length; i++) {
+            venueIds.add(fallbackData[i].venue_id)
+          }
+          trackMapLoaded(fallbackData.length, venueIds.size)
+        }
+      } else if (data) {
+        console.log('✅ Loaded', data.length, 'events (with brands)')
         setEvents(data)
         const venueIds = new Set<string>()
         for (let i = 0; i < data.length; i++) {
@@ -688,10 +717,12 @@ const detectTicketSource = (url: string | null): string => {
         }
         trackMapLoaded(data.length, venueIds.size)
       }
-      setLoading(false) 
-    })
-}, [])
-
+      
+      setLoading(false)
+    }
+    
+    loadEvents()
+  }, [])
   // ============================================================================
   // MAP INITIALIZATION - P1 FIX: minZoom changed from 10 to 12
   // ============================================================================
