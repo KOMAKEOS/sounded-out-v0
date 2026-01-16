@@ -733,6 +733,8 @@ const detectTicketSource = (url: string | null): string => {
   // ============================================================================
   useEffect(() => {
     if (!mapContainer.current) return
+
+     setMapReady(false)
     
     if (map.current) {
       map.current.remove()
@@ -765,9 +767,12 @@ const detectTicketSource = (url: string | null): string => {
       setMapReady(true)
     })
     
-    map.current = m
-    return () => m.remove()
-  }, [deviceType])
+      map.current = m
+
+  return () => {
+    m.remove()
+  }
+}, [deviceType, showIntro])
 
 // Intro animation sequence
   useEffect(() => {
