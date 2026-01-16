@@ -1963,319 +1963,320 @@ const DesktopSidebar = () => {
   )
 }
   
-const DesktopDetailPanel = () => {
-    if (!current) return null
-    return (
-      <div style={{
-        width: deviceType === 'desktop' ? '420px' : '360px',
-        height: '100%',
-        background: '#0a0a0b',
-        borderLeft: '1px solid rgba(255,255,255,0.08)',
+const DesktopDetailPanel: React.FC = () => {
+  if (!current) return null;
+  
+  return (
+    <div style={{
+      width: deviceType === 'desktop' ? '420px' : '360px',
+      height: '100%',
+      background: '#0a0a0b',
+      borderLeft: '1px solid rgba(255,255,255,0.08)',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      flexShrink: 0,
+    }}>
+      {/* Header - P1 FIX: 44px close button */}
+      <div style={{ 
+        padding: '16px 20px', 
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
         display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         flexShrink: 0,
       }}>
-        {/* Header - P1 FIX: 44px close button */}
-        <div style={{ 
-          padding: '16px 20px', 
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexShrink: 0,
+        <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ab67f7' }}>Event Details</h3>
+        <button
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('map'); setSheetVisible(false); highlightMarker(null); }}
+          style={{
+            width: '44px',
+            height: '44px',
+            minWidth: '44px',
+            minHeight: '44px',
+            borderRadius: '50%',
+            border: 'none',
+            background: 'rgba(255,255,255,0.1)',
+            color: '#999',
+            fontSize: '16px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          ✕
+        </button>
+      </div>
+      
+      {/* Content - Scrollable */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+        {/* P1 FIX: Image with genre placeholder */}
+        {current.image_url ? (
+          <div style={{ 
+            width: '100%', 
+            aspectRatio: '16/9', 
+            borderRadius: '12px', 
+            overflow: 'hidden', 
+            marginBottom: '16px' 
+          }}>
+            <img src={current.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        ) : (
+          <div style={{ 
+            width: '100%', 
+            aspectRatio: '16/9', 
+            background: getGenreStyle(current.genres).gradient, 
+            borderRadius: '12px', 
+            marginBottom: '16px', 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center', 
+            justifyContent: 'center',
+            gap: '8px',
+          }}>
+            <span style={{ fontSize: '40px', opacity: 0.6 }}>{getGenreStyle(current.genres).emoji}</span>
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              {current.genres?.split(',')[0]?.trim() || 'Live Event'}
+            </span>
+          </div>
+        )}
+        
+        {/* Date/Time - P1 FIX: Better contrast */}
+        <p style={{ 
+          fontSize: '12px', 
+          color: '#ab67f7', 
+          fontWeight: 700, 
+          textTransform: 'uppercase', 
+          marginBottom: '8px' 
         }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ab67f7' }}>Event Details</h3>
-          <button
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('map'); setSheetVisible(false); highlightMarker(null) }}
+          {getDateLabel(current.start_time)} · {formatTime(current.start_time)}
+          {current.end_time && ` – ${formatTime(current.end_time)}`}
+        </p>
+        
+        {/* Title */}
+        <h2 style={{ fontSize: '22px', fontWeight: 800, lineHeight: 1.2, marginBottom: '6px' }}>
+          {current.title}
+        </h2>
+
+        
+        {/* ========================================== */}
+        {/* BRAND ATTRIBUTION - NEW */}
+        {/* ========================================== */}
+        {current.brand && (
+          <Link
+            href={`/brand/${current.brand.slug}`}
             style={{
-              width: '44px',
-              height: '44px',
-              minWidth: '44px',
-              minHeight: '44px',
-              borderRadius: '50%',
-              border: 'none',
-              background: 'rgba(255,255,255,0.1)',
-              color: '#999',
-              fontSize: '16px',
-              cursor: 'pointer',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              justifyContent: 'center',
+              gap: '10px',
+              marginBottom: '12px',
+              padding: '10px 16px',
+              background: 'rgba(171,103,247,0.1)',
+              border: '1px solid rgba(171,103,247,0.2)',
+              borderRadius: '12px',
+              textDecoration: 'none',
             }}
           >
-            ✕
-          </button>
+            {current.brand.logo_url ? (
+              <img 
+                src={current.brand.logo_url} 
+                alt="" 
+                style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }} 
+              />
+            ) : (
+              <div style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '6px',
+                background: '#ab67f7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '14px',
+              }}>🎵</div>
+            )}
+            <div>
+              <p style={{ fontSize: '10px', color: '#888', marginBottom: '1px' }}>Presented by</p>
+              <p style={{ fontSize: '14px', color: '#ab67f7', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {current.brand.name}
+                {current.brand.is_verified && (
+                  <span style={{
+                    width: '14px',
+                    height: '14px',
+                    background: '#ab67f7',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '8px',
+                    color: 'white',
+                  }}>✓</span>
+                )}
+              </p>
+            </div>
+            <span style={{ color: '#666', marginLeft: '8px' }}>→</span>
+          </Link>
+        )}
+        
+        {/* Badges */}
+        {current.so_pick && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <img src="/so-icon.png" alt="Curated" style={{ height: '14px', width: 'auto' }} />
+            <span style={{ fontSize: '11px', color: '#999' }}>Curated by Sounded Out</span>
+          </div>
+        )}
+        
+        {current.is_verified && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+            <span style={{ 
+              width: '16px', height: '16px', background: '#ab67f7', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: 'white'
+            }}>✓</span>
+            <span style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 600 }}>Verified</span>
+          </div>
+        )}
+        
+        {/* Venue - P1 FIX: Better contrast */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+          <span style={{ fontSize: '14px', color: '#999' }}>{current.venue?.name}</span>
+          {current.venue?.instagram_url && (
+            <a href={current.venue.instagram_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px' }}>📸</a>
+          )}
         </div>
         
-        {/* Content - Scrollable */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-          {/* P1 FIX: Image with genre placeholder */}
-          {current.image_url ? (
-            <div style={{ 
-              width: '100%', 
-              aspectRatio: '16/9', 
-              borderRadius: '12px', 
-              overflow: 'hidden', 
-              marginBottom: '16px' 
-            }}>
-              <img src={current.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </div>
-          ) : (
-            <div style={{ 
-              width: '100%', 
-              aspectRatio: '16/9', 
-              background: getGenreStyle(current.genres).gradient, 
-              borderRadius: '12px', 
-              marginBottom: '16px', 
-              display: 'flex', 
-              flexDirection: 'column',
-              alignItems: 'center', 
-              justifyContent: 'center',
-              gap: '8px',
-            }}>
-              <span style={{ fontSize: '40px', opacity: 0.6 }}>{getGenreStyle(current.genres).emoji}</span>
-              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                {current.genres?.split(',')[0]?.trim() || 'Live Event'}
-              </span>
-            </div>
-          )}
-          
-          {/* Date/Time - P1 FIX: Better contrast */}
-          <p style={{ 
-            fontSize: '12px', 
-            color: '#ab67f7', 
-            fontWeight: 700, 
-            textTransform: 'uppercase', 
-            marginBottom: '8px' 
+        {/* No-phones policy */}
+        {(current.no_phones || current.venue?.no_phones) && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px',
+            background: 'rgba(255,200,50,0.08)', borderRadius: '12px', marginBottom: '16px',
+            border: '1px solid rgba(255,200,50,0.15)',
           }}>
-            {getDateLabel(current.start_time)} · {formatTime(current.start_time)}
-            {current.end_time && ` – ${formatTime(current.end_time)}`}
+            <span style={{ fontSize: '16px' }}>📵</span>
+            <span style={{ fontSize: '12px', color: '#ffc832' }}>No phones policy — enjoy the moment</span>
+          </div>
+        )}
+        
+        {/* Tags */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+          {current.sold_out && (
+            <span style={{ padding: '6px 12px', background: 'rgba(248,113,113,0.15)', borderRadius: '8px', fontSize: '12px', fontWeight: 700, color: '#f87171' }}>
+              SOLD OUT
+            </span>
+          )}
+          {isFree(current.price_min, current.price_max) && (
+            <span style={{ padding: '6px 12px', background: 'rgba(34,197,94,0.15)', borderRadius: '8px', fontSize: '12px', fontWeight: 700, color: '#22c55e' }}>
+              FREE
+            </span>
+          )}
+          {current.genres?.split(',').slice(0, showAllGenres ? undefined : 4).map((g: string, i: number) => (
+            <span key={i} style={{ padding: '6px 12px', background: 'rgba(171,103,247,0.12)', borderRadius: '8px', fontSize: '12px', color: '#ab67f7' }}>
+              {formatGenre(g)}
+            </span>
+          ))}
+          {current.genres && current.genres.split(',').length > 4 && !showAllGenres && (
+            <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAllGenres(true); }} style={{
+              padding: '6px 12px', background: 'rgba(255,255,255,0.08)', borderRadius: '8px',
+              fontSize: '12px', color: '#999', border: 'none', cursor: 'pointer',
+            }}>
+              +{current.genres.split(',').length - 4} more
+            </button>
+          )}
+        </div>
+        
+        {/* Price */}
+        {!isFree(current.price_min, current.price_max) && formatPrice(current.price_min, current.price_max) && (
+          <p style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px' }}>
+            {formatPrice(current.price_min, current.price_max)}
           </p>
-          
-          {/* Title */}
-          <h2 style={{ fontSize: '22px', fontWeight: 800, lineHeight: 1.2, marginBottom: '6px' }}>
-            {current.title}
-          </h2>
-
-          
-          {/* ========================================== */}
-          {/* BRAND ATTRIBUTION - NEW */}
-          {/* ========================================== */}
-          {current.brand && (
-            <Link
-              href={`/brand/${current.brand.slug}`}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '10px',
-                marginBottom: '12px',
-                padding: '10px 16px',
-                background: 'rgba(171,103,247,0.1)',
-                border: '1px solid rgba(171,103,247,0.2)',
-                borderRadius: '12px',
-                textDecoration: 'none',
-              }}
-            >
-              {current.brand.logo_url ? (
-                <img 
-                  src={current.brand.logo_url} 
-                  alt="" 
-                  style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }} 
-                />
-              ) : (
-                <div style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '6px',
-                  background: '#ab67f7',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '14px',
-                }}>🎵</div>
-              )}
-              <div>
-                <p style={{ fontSize: '10px', color: '#888', marginBottom: '1px' }}>Presented by</p>
-                <p style={{ fontSize: '14px', color: '#ab67f7', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {current.brand.name}
-                  {current.brand.is_verified && (
-                    <span style={{
-                      width: '14px',
-                      height: '14px',
-                      background: '#ab67f7',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '8px',
-                      color: 'white',
-                    }}>✓</span>
-                  )}
-                </p>
-              </div>
-              <span style={{ color: '#666', marginLeft: '8px' }}>→</span>
-            </Link>
-          )}
-          
-          {/* Badges */}
-          {current.so_pick && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <img src="/so-icon.png" alt="Curated" style={{ height: '14px', width: 'auto' }} />
-              <span style={{ fontSize: '11px', color: '#999' }}>Curated by Sounded Out</span>
-            </div>
-          )}
-          
-          {current.is_verified && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
-              <span style={{ 
-                width: '16px', height: '16px', background: '#ab67f7', borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: 'white'
-              }}>✓</span>
-              <span style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 600 }}>Verified</span>
-            </div>
-          )}
-          
-          {/* Venue - P1 FIX: Better contrast */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-            <span style={{ fontSize: '14px', color: '#999' }}>{current.venue?.name}</span>
-            {current.venue?.instagram_url && (
-              <a href={current.venue.instagram_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '14px' }}>📸</a>
-            )}
-          </div>
-          
-          {/* No-phones policy */}
-          {(current.no_phones || current.venue?.no_phones) && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px',
-              background: 'rgba(255,200,50,0.08)', borderRadius: '12px', marginBottom: '16px',
-              border: '1px solid rgba(255,200,50,0.15)',
+        )}
+        
+        {/* Description */}
+        {current.description && (
+          <div style={{ marginBottom: '16px' }}>
+            <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowDescription(!showDescription); }} style={{
+              width: '100%', padding: '12px 14px', background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#999',
+              fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
-              <span style={{ fontSize: '16px' }}>📵</span>
-              <span style={{ fontSize: '12px', color: '#ffc832' }}>No phones policy — enjoy the moment</span>
-            </div>
-          )}
-          
-          {/* Tags */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
-            {current.sold_out && (
-              <span style={{ padding: '6px 12px', background: 'rgba(248,113,113,0.15)', borderRadius: '8px', fontSize: '12px', fontWeight: 700, color: '#f87171' }}>
-                SOLD OUT
-              </span>
-            )}
-            {isFree(current.price_min, current.price_max) && (
-              <span style={{ padding: '6px 12px', background: 'rgba(34,197,94,0.15)', borderRadius: '8px', fontSize: '12px', fontWeight: 700, color: '#22c55e' }}>
-                FREE
-              </span>
-            )}
-            {current.genres?.split(',').slice(0, showAllGenres ? undefined : 4).map((g: string, i: number) => (
-              <span key={i} style={{ padding: '6px 12px', background: 'rgba(171,103,247,0.12)', borderRadius: '8px', fontSize: '12px', color: '#ab67f7' }}>
-                {formatGenre(g)}
-              </span>
-            ))}
-            {current.genres && current.genres.split(',').length > 4 && !showAllGenres && (
-              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAllGenres(true)} style={{
-                padding: '6px 12px', background: 'rgba(255,255,255,0.08)', borderRadius: '8px',
-                fontSize: '12px', color: '#999', border: 'none', cursor: 'pointer',
+              <span>More Info</span>
+              <span style={{ transform: showDescription ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 200ms ease' }}>▼</span>
+            </button>
+            {showDescription && (
+              <div style={{
+                padding: '12px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '0 0 10px 10px',
+                marginTop: '-1px', borderLeft: '1px solid rgba(255,255,255,0.1)',
+                borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)',
               }}>
-                +{current.genres.split(',').length - 4} more
-              </button>
+                <p style={{ fontSize: '13px', color: '#999', lineHeight: 1.6 }}>{current.description}</p>
+              </div>
             )}
           </div>
-          
-          {/* Price */}
-          {!isFree(current.price_min, current.price_max) && formatPrice(current.price_min, current.price_max) && (
-            <p style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px' }}>
-              {formatPrice(current.price_min, current.price_max)}
-            </p>
-          )}
-          
-          {/* Description */}
-          {current.description && (
-            <div style={{ marginBottom: '16px' }}>
-              <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowDescription(!showDescription)} style={{
-                width: '100%', padding: '12px 14px', background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#999',
-                fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              }}>
-                <span>More Info</span>
-                <span style={{ transform: showDescription ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 200ms ease' }}>▼</span>
-              </button>
-              {showDescription && (
-                <div style={{
-                  padding: '12px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '0 0 10px 10px',
-                  marginTop: '-1px', borderLeft: '1px solid rgba(255,255,255,0.1)',
-                  borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)',
-                }}>
-                  <p style={{ fontSize: '13px', color: '#999', lineHeight: 1.6 }}>{current.description}</p>
-                </div>
-              )}
-            </div>
-          )}
-          
-         {/* Actions - 2x3 Grid */}
-<EventActions
-  event={{
-    id: current.id,
-    title: current.title,
-    start_time: current.start_time,
-    event_url: current.event_url,
-    sold_out: current.sold_out,
-    price_min: current.price_min,
-    price_max: current.price_max,
-    venue: current.venue,
-  }}
-  isSaved={isEventSaved(current.id)}
-  isLoggedIn={!!user}
-  onSave={toggleSaveEvent}
-  onShowLoginModal={() => setShowLoginModal(true)}
-  onClaim={() => { setClaimType('event'); setShowClaimModal(true) }}
-  formatPrice={formatPrice}
-  getDateLabel={getDateLabel}
-/>
-          
-          {/* Navigation - P1 FIX: 44px buttons */}
-          <div style={{ 
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)'
-          }}>
-            <button 
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('prev')}}
-              disabled={currentIndex === 0}
-              style={{
-                minHeight: '44px',
-                minWidth: '44px',
-                background: currentIndex === 0 ? 'transparent' : 'rgba(171,103,247,0.2)',
-                border: currentIndex === 0 ? 'none' : '1px solid rgba(171,103,247,0.3)',
-                borderRadius: '10px', padding: '10px 14px',
-                color: currentIndex === 0 ? '#444' : '#ab67f7',
-                fontSize: '13px', fontWeight: 600, cursor: currentIndex === 0 ? 'default' : 'pointer',
-              }}
-            >
-              ← Prev
-            </button>
-            <span style={{ fontSize: '12px', color: '#555' }}>{currentIndex + 1} / {filtered.length}</span>
-            <button 
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next')}}
-              disabled={currentIndex === filtered.length - 1}
-              style={{
-                minHeight: '44px',
-                minWidth: '44px',
-                background: currentIndex === filtered.length - 1 ? 'transparent' : 'rgba(171,103,247,0.2)',
-                border: currentIndex === filtered.length - 1 ? 'none' : '1px solid rgba(171,103,247,0.3)',
-                borderRadius: '10px', padding: '10px 14px',
-                color: currentIndex === filtered.length - 1 ? '#444' : '#ab67f7',
-                fontSize: '13px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
-              }}
-            >
-              Next →
-            </button>
-          </div>
+        )}
+        
+        {/* Actions - 2x3 Grid */}
+        <EventActions
+          event={{
+            id: current.id,
+            title: current.title,
+            start_time: current.start_time,
+            event_url: current.event_url,
+            sold_out: current.sold_out,
+            price_min: current.price_min,
+            price_max: current.price_max,
+            venue: current.venue,
+          }}
+          isSaved={isEventSaved(current.id)}
+          isLoggedIn={!!user}
+          onSave={toggleSaveEvent}
+          onShowLoginModal={() => setShowLoginModal(true)}
+          onClaim={() => { setClaimType('event'); setShowClaimModal(true); }}
+          formatPrice={formatPrice}
+          getDateLabel={getDateLabel}
+        />
+        
+        {/* Navigation - P1 FIX: 44px buttons */}
+        <div style={{ 
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)'
+        }}>
+          <button 
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('prev'); }}
+            disabled={currentIndex === 0}
+            style={{
+              minHeight: '44px',
+              minWidth: '44px',
+              background: currentIndex === 0 ? 'transparent' : 'rgba(171,103,247,0.2)',
+              border: currentIndex === 0 ? 'none' : '1px solid rgba(171,103,247,0.3)',
+              borderRadius: '10px', padding: '10px 14px',
+              color: currentIndex === 0 ? '#444' : '#ab67f7',
+              fontSize: '13px', fontWeight: 600, cursor: currentIndex === 0 ? 'default' : 'pointer',
+            }}
+          >
+            ← Prev
+          </button>
+          <span style={{ fontSize: '12px', color: '#555' }}>{currentIndex + 1} / {filtered.length}</span>
+          <button 
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next'); }}
+            disabled={currentIndex === filtered.length - 1}
+            style={{
+              minHeight: '44px',
+              minWidth: '44px',
+              background: currentIndex === filtered.length - 1 ? 'transparent' : 'rgba(171,103,247,0.2)',
+              border: currentIndex === filtered.length - 1 ? 'none' : '1px solid rgba(171,103,247,0.3)',
+              borderRadius: '10px', padding: '10px 14px',
+              color: currentIndex === filtered.length - 1 ? '#444' : '#ab67f7',
+              fontSize: '13px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
+            }}
+          >
+            Next →
+          </button>
         </div>
       </div>
-    )
-  }
+    </div>
+  );
+};
 
   // ============================================================================
   // GLOBAL STYLES - P1 FIX: Added focus styles
