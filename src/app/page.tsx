@@ -776,7 +776,13 @@ const formatTime = (s: string | null | undefined) => {
       map.current = m
 
   return () => {
-    m.remove()
+    try {
+      if (m && m.remove) {
+        m.remove()
+      }
+    } catch (error) {
+      // Ignore cleanup errors
+    }
   }
 }, [deviceType, showIntro])
   // ✅ FIX: Ensure map interactions are enabled once the map is ready
@@ -1198,7 +1204,7 @@ useEffect(() => {
         inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
       }
 
-      const handleMarkerClick = (e: MouseEvent) => {
+      const handleMarkerClick = (e: any) => {
   e.preventDefault()
   e.stopPropagation()
         
