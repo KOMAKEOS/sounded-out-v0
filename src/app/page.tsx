@@ -2647,7 +2647,23 @@ function MobileDetailSheet({
             <span key={i} style={{ padding: '8px 14px', background: 'rgba(171,103,247,0.12)', borderRadius: '10px', fontSize: '14px', color: '#ab67f7' }}>{formatGenre(g)}</span>
           ))}
           {current.genres && current.genres.split(',').length > 4 && !showAllGenres && (
-            <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAllGenres(true)} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.08)', borderRadius: '10px', fontSize: '14px', color: '#999', border: 'none', cursor: 'pointer' }}>+{current.genres.split(',').length - 4} more</button>
+            <button
+  onClick={(e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowAllGenres(true)
+  }}
+  style={{
+    padding: '8px 14px',
+    background: 'rgba(255,255,255,0.08)',
+    borderRadius: '10px',
+    fontSize: '14px',
+    color: '#999',
+    border: 'none',
+    cursor: 'pointer',
+  }}
+>
+  +{current.genres.split(',').length - 4} more
+</button>
           )}
           {current.vibe && <span style={{ padding: '8px 14px', background: 'rgba(56, 189, 248, 0.15)', borderRadius: '10px', fontSize: '14px', color: '#38bdf8', fontStyle: 'italic' }}>{current.vibe}</span>}
         </div>
@@ -2659,7 +2675,26 @@ function MobileDetailSheet({
 
       {current.description && (
         <div style={{ marginBottom: '16px' }}>
-          <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowDescription(!showDescription)} style={{ width: '100%', padding: '14px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#999', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button
+  onClick={(e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowDescription(!showDescription)
+  }}
+  style={{
+    width: '100%',
+    padding: '14px 16px',
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '12px',
+    color: '#999',
+    fontSize: '14px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  }}
+>
             <span>More Info</span>
             <span style={{ transform: showDescription ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 200ms ease' }}>▼</span>
           </button>
