@@ -797,7 +797,7 @@ const formatTime = (s: string | null | undefined) => {
       map.current = null
     }
   }
-}, [])  ← CHANGE TO EMPTY ARRAY
+}, []) 
 
 // Intro animation - simplified
 useEffect(() => {
