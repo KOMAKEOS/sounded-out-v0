@@ -1957,7 +1957,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
                   </div>
                 </div>
               ))}
-             </div>
+            </div>
           </div>
         ))}
 
@@ -1973,7 +1973,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
         )}
       </div>
       
-      {/* Footer with Privacy/Terms */}
+      {/* Footer */}
       <div style={{
         padding: '16px 20px',
         borderTop: '1px solid rgba(255,255,255,0.06)',
@@ -1993,10 +1993,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
     </aside>
   )
 }
-
-// ============================================================================
-// DESKTOP/TABLET DETAIL PANEL - P1 FIXES APPLIED
-// ============================================================================
 const DesktopDetailPanel = () => {
     if (!current) return null
     return (
