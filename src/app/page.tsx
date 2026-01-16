@@ -770,101 +770,50 @@ const formatTime = (s: string | null | undefined) => {
     })
     
     m.on('load', () => {
-      setMapReady(true)
-    })
-    
-      map.current = m
-
-  return () => {
-    try {
-      if (m && m.remove) {
-        m.remove()
-      }
-    } catch (error) {
-      // Ignore cleanup errors
-    }
-  }
-}, [deviceType, showIntro])
-  // ✅ FIX: Ensure map interactions are enabled once the map is ready
-useEffect(() => {
-  if (!map.current || !mapReady) return
-
-  const m = map.current
-
-  // Critical on iOS/Safari: allow Mapbox to own touch gestures
+  console.log('🗺️ Map loaded')
+  setMapReady(true)
+  
+  // Enable interactions
   const canvas = m.getCanvas()
-  canvas.style.touchAction = 'pan-x pan-y' // Changed from 'none'
-
-  // If intro is showing, keep disabled
-  if (showIntro) {
-    m.dragPan.disable()
-    m.scrollZoom.disable()
-    m.doubleClickZoom.disable()
-    m.touchZoomRotate.disable()
-    return
+  if (canvas) {
+    canvas.style.touchAction = 'pan-x pan-y'
   }
-
-  // Otherwise ALWAYS enable
+  
   m.dragPan.enable()
   m.scrollZoom.enable()
   m.doubleClickZoom.enable()
   m.touchZoomRotate.enable()
-
-  // Optional but helps on desktop
-  m.boxZoom.enable()
-  m.keyboard.enable()
-}, [mapReady, showIntro])
-
-
-// Intro animation sequence
-  useEffect(() => {
-    if (!showIntro || !mapReady || !map.current) return
+})
     
-    const hasSeenIntro = localStorage.getItem('so_intro_seen')
-    if (hasSeenIntro) {
-      setShowIntro(false)
-      map.current?.jumpTo({ center: [-1.6131, 54.9695], zoom: 14 })
-      map.current?.dragPan.enable()
-      map.current?.scrollZoom.enable()
-      map.current?.doubleClickZoom.enable()
-      map.current?.touchZoomRotate.enable()
-      return
+      map.current = m
+
+  return () => {
+    if (map.current) {
+      try {
+        map.current.remove()
+      } catch (error) {
+        // Ignore
+      }
+      map.current = null
     }
-    
-    const zoomTimer = setTimeout(() => {
-      setIntroPhase('zoom')
-      map.current?.flyTo({
-        center: [-1.6131, 54.9695],
-        zoom: 14,
-        duration: 600,
-        easing: (t) => 1 - Math.pow(1 - t, 3),
-        essential: true,
-      })
-      setTimeout(() => {
-        if (map.current) {
-          map.current.dragPan.enable()
-          map.current.scrollZoom.enable()
-          map.current.doubleClickZoom.enable()
-          map.current.touchZoomRotate.enable()
-        }
-      }, 600)
-    }, 300)
-    
-    const fadeTimer = setTimeout(() => {
-      setIntroPhase('done')
-      localStorage.setItem('so_intro_seen', 'true')
-    }, 800)
-    
-    const removeTimer = setTimeout(() => {
-      setShowIntro(false)
-    }, 1000)
-    
-    return () => {
-      clearTimeout(zoomTimer)
-      clearTimeout(fadeTimer)
-      clearTimeout(removeTimer)
-    }
-  }, [showIntro, mapReady])
+  }
+}, [])  ← CHANGE TO EMPTY ARRAY
+
+// Intro animation - simplified
+useEffect(() => {
+  const hasSeenIntro = localStorage.getItem('so_intro_seen')
+  if (hasSeenIntro) {
+    setShowIntro(false)
+    return
+  }
+  
+  const timer = setTimeout(() => {
+    setShowIntro(false)
+    localStorage.setItem('so_intro_seen', 'true')
+  }, 1000)
+  
+  return () => clearTimeout(timer)
+}, [])
 
   // ============================================================================
   // USER LOCATION
