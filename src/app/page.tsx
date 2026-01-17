@@ -1153,7 +1153,7 @@ useEffect(() => {
         inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
       }
 
-const handleMarkerClick = (e: Event) => {
+const handleMarkerClick = (e: any) => {
   e.preventDefault()
   e.stopPropagation()
   
