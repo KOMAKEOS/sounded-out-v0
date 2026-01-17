@@ -2463,6 +2463,7 @@ const DesktopDetailPanel: React.FC = () => {
     Next →
   </button>
 </div>
+        
       </div>  {/* ← ADD: Close content div */}
     </div>    {/* ← ADD: Close main panel div */}
   )           {/* ← ADD: Close return statement */}
