@@ -2463,11 +2463,10 @@ const DesktopDetailPanel: React.FC = () => {
     Next →
   </button>
 </div>
-        
-      </div>  {/* ← ADD: Close content div */}
-    </div>    {/* ← ADD: Close main panel div */}
-  )           {/* ← ADD: Close return statement */}
-}             {/* ← ADD: Close function */}
+         </div>  
+    </div>    
+  )           
+}             
         
   // ============================================================================
   // GLOBAL STYLES - P1 FIX: Added focus styles
