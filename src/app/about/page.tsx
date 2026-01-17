@@ -7,56 +7,68 @@ import Link from 'next/link'
 // ============================================================================
 export default function AboutPage() {
   return (
-    <div style={{
-      minHeight: '100vh',
-      height: '100vh',
-      background: '#0a0a0b',
-      color: 'white',
-      position: 'relative',
-      overflowY: 'auto',
-      overflowX: 'hidden',
-      WebkitOverflowScrolling: 'touch',
-    }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        height: '100vh',
+        background: '#0a0a0b',
+        color: 'white',
+        position: 'relative',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        WebkitOverflowScrolling: 'touch',
+      }}
+    >
       {/* Animated Background Orbs */}
-      <div style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 0,
-        overflow: 'hidden',
-        pointerEvents: 'none',
-      }}>
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 0,
+          overflow: 'hidden',
+          pointerEvents: 'none',
+        }}
+      >
         {/* Purple Orb 1 - Top Left */}
         <div className="orb orb1" />
-        
+
         {/* Purple Orb 2 - Top Right */}
         <div className="orb orb2" />
-        
+
         {/* Purple Orb 3 - Center */}
         <div className="orb orb3" />
-        
+
         {/* Purple Orb 4 - Bottom */}
         <div className="orb orb4" />
       </div>
-      
+
       {/* Content */}
-      <div style={{
-        position: 'relative',
-        zIndex: 1,
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-      }}>
-        {/* Header */}
-        <header style={{
-          padding: '20px 24px',
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          minHeight: '100vh',
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
+          flexDirection: 'column',
+        }}
+      >
+        {/* Header */}
+        <header
+          style={{
+            padding: '20px 24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <Link href="/">
-            <img src="/logo.svg" alt="Sounded Out" style={{ height: '28px', cursor: 'pointer' }} />
+            <img
+              src="/logo.svg"
+              alt="Sounded Out"
+              style={{ height: '28px', cursor: 'pointer' }}
+            />
           </Link>
-          <Link 
+          <Link
             href="/"
             style={{
               padding: '10px 20px',
@@ -73,114 +85,164 @@ export default function AboutPage() {
             Open Map
           </Link>
         </header>
-        
+
         {/* Main Content */}
-        <main style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '40px 24px 100px',
-        }}>
-          <div style={{
-            maxWidth: '640px',
-            width: '100%',
-          }}>
+        <main
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '40px 24px 100px',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: '640px',
+              width: '100%',
+            }}
+          >
             {/* Glass Card */}
-            <div style={{
-              background: 'rgba(20,20,22,0.85)',
-              backdropFilter: 'blur(40px)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '24px',
-              padding: '48px 40px',
-            }}>
-              <h1 style={{
-                fontSize: '32px',
-                fontWeight: 800,
-                marginBottom: '32px',
-                background: 'linear-gradient(135deg, #ffffff 0%, #ab67f7 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}>
+            <div
+              style={{
+                background: 'rgba(20,20,22,0.85)',
+                backdropFilter: 'blur(40px)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '24px',
+                padding: '48px 40px',
+              }}
+            >
+              <h1
+                style={{
+                  fontSize: '32px',
+                  fontWeight: 800,
+                  marginBottom: '10px',
+                  background: 'linear-gradient(135deg, #ffffff 0%, #ab67f7 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
                 About Sounded Out
               </h1>
-              
-              <div style={{ fontSize: '16px', lineHeight: 1.8, color: '#ccc' }}>
-                <p style={{ 
-                  fontSize: '20px', 
-                  fontWeight: 600, 
-                  color: 'white',
-                  marginBottom: '24px',
-                }}>
-                  Sounded Out helps people choose better nights out.
-                </p>
-                
-                <p style={{ marginBottom: '20px' }}>
-                  Choosing where to go shouldn't feel like guesswork.
-                </p>
-                
-                <p style={{ marginBottom: '20px', color: '#999' }}>
-                  Yet most nightlife discovery lives across Instagram stories, group chats, outdated listings, and half-truths. By the time you decide, it's often too late, sold out, or dead.
-                </p>
-                
-                <p style={{ marginBottom: '28px', color: '#999' }}>
-                  Nights fail because there's too much noise and not enough clarity.
-                </p>
-                
-                <p style={{ marginBottom: '20px' }}>
-                  Sounded Out is a live nightlife map that shows what's actually happening tonight, tomorrow, and this weekend. We surface real events with clear details — what's free, what runs late, what's happening now, and what's genuinely worth going to.
-                </p>
-                
-                <p style={{ marginBottom: '20px' }}>
-                  Some nights are better than others.
-                </p>
-                
-                <p style={{ 
+
+              {/* NEW: Movement lockup */}
+              <p
+                style={{
                   marginBottom: '28px',
-                  padding: '16px 20px',
-                  background: 'rgba(171,103,247,0.1)',
-                  borderRadius: '12px',
-                  borderLeft: '3px solid #ab67f7',
-                }}>
-                  <strong style={{ color: '#ab67f7' }}>SO Picks</strong> highlight events we believe stand out for the right reasons — music, atmosphere, and community, not who paid the most for attention.
+                  color: '#bdbdbd',
+                  fontSize: '14px',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Make the city yours. <span style={{ color: '#ab67f7' }}>Fill rooms. Fuel cities.</span>
+              </p>
+
+              <div style={{ fontSize: '16px', lineHeight: 1.8, color: '#ccc' }}>
+                {/* NEW: Strong opener */}
+                <p
+                  style={{
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    color: 'white',
+                    marginBottom: '24px',
+                  }}
+                >
+                  Sounded Out is building the discovery layer for nightlife — so anyone can find what’s happening
+                  after dark, and the places that keep cities alive can thrive.
                 </p>
-                
+
                 <p style={{ marginBottom: '20px' }}>
-                  Sounded Out is for people who care about their nights out. People who want clarity over hype, less scrolling, and more confidence in their choices.
+                  A city isn’t a list of places. It’s what happens inside them.
                 </p>
-                
+
+                <p style={{ marginBottom: '20px', color: '#999' }}>
+                  But right now, too much of a city is hidden. Discovery is fragmented across Instagram stories, group
+                  chats, ticketing sites, and outdated listings — which means people default to the same few spots
+                  while great venues and independent events sit invisible.
+                </p>
+
+                <p style={{ marginBottom: '20px', color: '#999' }}>
+                  When discovery breaks, rooms stay empty and nights get missed.
+                </p>
+
+                <p style={{ marginBottom: '20px' }}>
+                  Sounded Out fixes that with clarity and trust. Open the map and instantly explore tonight, tomorrow,
+                  or the weekend. Filter by vibe, genre, and price. Get the details that matter. Decide fast. Show up.
+                </p>
+
+                <p style={{ marginBottom: '20px' }}>
+                  This isn’t just about better nights out — it’s about stronger local scenes, small businesses with
+                  more traffic, and tourism that actually connects people to the real city.
+                </p>
+
+                {/* SO Picks stays, but tightened + aligned */}
+                <p
+                  style={{
+                    marginBottom: '28px',
+                    padding: '16px 20px',
+                    background: 'rgba(171,103,247,0.1)',
+                    borderRadius: '12px',
+                    borderLeft: '3px solid #ab67f7',
+                  }}
+                >
+                  <strong style={{ color: '#ab67f7' }}>SO Picks</strong> highlight nights we believe stand out for the
+                  right reasons — music, atmosphere, and community — never just who paid the most for attention.
+                </p>
+
+                <p style={{ marginBottom: '20px' }}>
+                  We believe discovery shouldn’t require connections. You shouldn’t have to be “in the loop” to find
+                  what’s on. Great nights deserve to be found — and the venues behind them deserve full rooms.
+                </p>
+
                 <p style={{ marginBottom: '28px', color: '#999' }}>
-                  We're starting in Newcastle, building this city by city, getting it right locally before expanding anywhere else.
+                  We’re starting in Newcastle and expanding city by city — earning density and trust locally before we
+                  scale globally.
                 </p>
-                
-                <p style={{ 
-                  fontSize: '18px',
-                  fontWeight: 600,
-                  color: 'white',
-                }}>
-                  Nights out matter. We're building Sounded Out to make them better.
+
+                {/* NEW: Close with the lockup */}
+                <p
+                  style={{
+                    fontSize: '18px',
+                    fontWeight: 700,
+                    color: 'white',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Make the city yours.
+                </p>
+                <p
+                  style={{
+                    fontSize: '18px',
+                    fontWeight: 700,
+                    color: 'white',
+                  }}
+                >
+                  Fill rooms. Fuel cities.
                 </p>
               </div>
             </div>
-            
+
             {/* Footer Links */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              gap: '24px',
-              marginTop: '32px',
-              flexWrap: 'wrap',
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '24px',
+                marginTop: '32px',
+                flexWrap: 'wrap',
+              }}
+            >
               <Link href="/terms" style={{ color: '#666', fontSize: '13px', textDecoration: 'none' }}>
                 Terms & Conditions
               </Link>
               <Link href="/privacy" style={{ color: '#666', fontSize: '13px', textDecoration: 'none' }}>
                 Privacy Policy
               </Link>
-              <a 
-                href="https://instagram.com/soundedout" 
-                target="_blank" 
+              <a
+                href="https://instagram.com/soundedout"
+                target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: '#666', fontSize: '13px', textDecoration: 'none' }}
               >
@@ -190,7 +252,7 @@ export default function AboutPage() {
           </div>
         </main>
       </div>
-      
+
       {/* CSS Animations */}
       <style>{`
         .orb {
