@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import './globals.css'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
-
 export const metadata: Metadata = {
   metadataBase: new URL('https://soundedout.com'),
   title: 'Sounded Out | Newcastle Nightlife',
@@ -51,26 +50,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <meta name="theme-color" content="#0a0a0b" />
-      </head>
       <body style={{ margin: 0, padding: 0, background: '#0a0a0b' }}>
         {children}
       </body>
     </html>
   )
-}
-
-export const metadata: Metadata = {
-  metadataBase: new URL('https://soundedout.com'),
-  title: 'Sounded Out | Newcastle Nightlife',
-  description: 'Discover the best nights out in Newcastle.',
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
-  },
-  manifest: '/site.webmanifest',
-  themeColor: '#0a0a0b',
 }
