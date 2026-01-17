@@ -256,7 +256,7 @@ export default function Home() {
   }, [])
   
   const mapContainer = useRef<HTMLDivElement>(null)
-  const map = useRef<mapboxgl.Map | null>(null)
+  const map = useRef<gl.Map | null>(null)
   const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; el: HTMLDivElement; inner: HTMLDivElement }>>(new Map())
   
   // Core state
@@ -2463,6 +2463,11 @@ const DesktopDetailPanel: React.FC = () => {
     Next →
   </button>
 </div>
+
+        </div>  {/* ← ADD: Close content div */}
+    </div>    {/* ← ADD: Close main panel div */}
+  )           {/* ← ADD: Close return statement */}
+}             {/* ← ADD: Close function */}
         
   // ============================================================================
   // GLOBAL STYLES - P1 FIX: Added focus styles
