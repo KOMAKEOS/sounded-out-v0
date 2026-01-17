@@ -62,3 +62,15 @@ export default function RootLayout({
     </html>
   )
 }
+
+export const metadata: Metadata = {
+  metadataBase: new URL('https://soundedout.com'),
+  title: 'Sounded Out | Newcastle Nightlife',
+  description: 'Discover the best nights out in Newcastle.',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
+  manifest: '/site.webmanifest',
+  themeColor: '#0a0a0b',
+}
