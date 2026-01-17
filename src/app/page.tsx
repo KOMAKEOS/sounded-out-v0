@@ -2097,7 +2097,6 @@ const DesktopSidebar = () => {
       </div>
     </aside>
   )
-}
   
 const DesktopDetailPanel: React.FC = () => {
   if (!current) return null;
