@@ -3731,14 +3731,112 @@ const DesktopDetailPanel: React.FC = () => {
     
 
 // ============================================================================
-// MOBILE DETAIL SHEET COMPONENT - FIXED VERSION
+// MOBILE DETAIL SHEET - COMPLETE (Copy-paste replacement)
 // ============================================================================
 function MobileDetailSheet({
   current, currentIndex, filtered, showAllGenres, setShowAllGenres, showDescription, setShowDescription,
   setClaimType, setShowClaimModal, setShowLoginModal, navigate, formatTime, formatPrice, getDateLabel, getGenres, getTicketUrl,
   isFree, mapsUrl, noSelectStyle, onTouchStart, onTouchMove, onTouchEnd, dragDirection, getCardTransform,
-  getDismissTransform, dismissProgress, getGenreStyle, isEventSaved, toggleSaveEvent, user,
+  getDismissTransform, dismissProgress, getGenreStyle, isEventSaved, toggleSaveEvent, user, formatGenre,
 }: any) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  if (!isExpanded) {
+    // PREVIEW MODE - Compact card
+    return (
+      <div
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: 'rgba(20,20,22,0.98)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: '24px 24px 0 0',
+          padding: '16px 20px',
+          paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))',
+          zIndex: 50,
+          boxShadow: '0 -8px 32px rgba(0,0,0,0.6)',
+          ...noSelectStyle,
+          ...(dragDirection === 'horizontal' ? getCardTransform() : getDismissTransform()),
+        }}
+      >
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
+          <div style={{ width: '48px', height: '5px', background: dismissProgress > 0.8 ? '#ab67f7' : '#666', borderRadius: '3px' }} />
+          <span style={{ fontSize: '10px', color: dismissProgress > 0.8 ? '#ab67f7' : '#666' }}>
+            {dismissProgress > 0.8 ? 'Release to close' : 'Swipe to browse'}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '14px', marginBottom: '16px' }}>
+          {current.image_url ? (
+            <div style={{ width: '80px', height: '80px', minWidth: '80px', borderRadius: '12px', overflow: 'hidden', background: '#000' }}>
+              <img src={current.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+          ) : (
+            <div style={{ width: '80px', height: '80px', minWidth: '80px', borderRadius: '12px', background: getGenreStyle(current.genres).gradient, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '32px', opacity: 0.6 }}>{getGenreStyle(current.genres).emoji}</span>
+            </div>
+          )}
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
+              {getDateLabel(current.start_time)} · {formatTime(current.start_time)}
+            </p>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, lineHeight: 1.2, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {current.title}
+            </h3>
+            <p style={{ fontSize: '13px', color: '#999', marginBottom: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {current.venue?.name}
+            </p>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {current.genres && current.genres.split(',').slice(0, 2).map((g: string, i: number) => (
+                <span key={i} style={{ padding: '4px 10px', background: 'rgba(34,211,238,0.15)', border: '1px solid rgba(34,211,238,0.25)', borderRadius: '6px', fontSize: '11px', color: '#22d3ee', fontWeight: 600 }}>
+                  {formatGenre(g)}
+                </span>
+              ))}
+              {!isFree(current.price_min, current.price_max) && formatPrice(current.price_min, current.price_max) && (
+                <span style={{ padding: '4px 10px', background: 'rgba(171,103,247,0.15)', border: '1px solid rgba(171,103,247,0.25)', borderRadius: '6px', fontSize: '11px', color: '#ab67f7', fontWeight: 600 }}>
+                  {formatPrice(current.price_min, current.price_max)}
+                </span>
+              )}
+              {isFree(current.price_min, current.price_max) && (
+                <span style={{ padding: '4px 10px', background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '6px', fontSize: '11px', color: '#22c55e', fontWeight: 700 }}>FREE</span>
+              )}
+            </div>
+          </div>
+
+          <button
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSaveEvent(current.id) }}
+            style={{ width: '44px', height: '44px', minWidth: '44px', borderRadius: '50%', border: 'none', background: isEventSaved(current.id) ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={isEventSaved(current.id) ? '#f87171' : 'none'} stroke={isEventSaved(current.id) ? '#f87171' : '#999'} strokeWidth="2">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </button>
+        </div>
+
+        <button
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); setIsExpanded(true) }}
+          style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)', border: 'none', borderRadius: '14px', color: 'white', fontSize: '16px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(171,103,247,0.3)', marginBottom: '12px' }}
+        >
+          VIEW DETAILS
+        </button>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('prev') }} disabled={currentIndex === 0} style={{ padding: '10px 18px', background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.2)', border: 'none', borderRadius: '10px', color: currentIndex === 0 ? '#444' : '#ab67f7', fontSize: '14px', fontWeight: 600, cursor: currentIndex === 0 ? 'default' : 'pointer', ...noSelectStyle }}>← Prev</button>
+          <span style={{ fontSize: '13px', color: '#666', fontWeight: 600, padding: '6px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>{currentIndex + 1} / {filtered.length}</span>
+          <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next') }} disabled={currentIndex === filtered.length - 1} style={{ padding: '10px 18px', background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.2)', border: 'none', borderRadius: '10px', color: currentIndex === filtered.length - 1 ? '#444' : '#ab67f7', fontSize: '14px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', ...noSelectStyle }}>Next →</button>
+        </div>
+      </div>
+    )
+  }
+
+  // DETAIL MODE - Full expanded view
   return (
     <div
       onClick={(e: React.MouseEvent) => e.stopPropagation()}
@@ -3764,313 +3862,77 @@ function MobileDetailSheet({
         ...(dragDirection === 'horizontal' ? getCardTransform() : getDismissTransform()),
       }}
     >
+      <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setIsExpanded(false) }} style={{ position: 'absolute', top: '20px', left: '20px', width: '44px', height: '44px', borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </button>
+
       <div style={{ width: '100%', padding: '8px 0 14px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
         <div style={{ width: '48px', height: '5px', background: dismissProgress > 0.8 ? '#ab67f7' : '#777', borderRadius: '3px' }} />
         <span style={{ fontSize: '10px', color: dismissProgress > 0.8 ? '#ab67f7' : '#666' }}>{dismissProgress > 0.8 ? 'Release to close' : 'Pull down to close'}</span>
       </div>
 
       {current.image_url ? (
-        <div style={{ 
-          width: '100%', 
-          maxHeight: '400px',
-          borderRadius: '16px', 
-          overflow: 'hidden', 
-          marginBottom: '18px',
-          background: '#000',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <img 
-            src={current.image_url} 
-            alt="" 
-            style={{ 
-              width: '100%', 
-              height: 'auto',
-              maxHeight: '400px',
-              objectFit: 'contain',
-              pointerEvents: 'none' 
-            }} 
-            draggable={false} 
-          />
+        <div style={{ width: '100%', maxHeight: '400px', borderRadius: '16px', overflow: 'hidden', marginBottom: '18px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <img src={current.image_url} alt="" style={{ width: '100%', height: 'auto', maxHeight: '400px', objectFit: 'contain', pointerEvents: 'none' }} draggable={false} />
         </div>
       ) : (
-        <div style={{ 
-          width: '100%', 
-          aspectRatio: '16/9', 
-          background: getGenreStyle(current.genres).gradient, 
-          borderRadius: '16px', 
-          marginBottom: '18px', 
-          display: 'flex', 
-          flexDirection: 'column',
-          alignItems: 'center', 
-          justifyContent: 'center',
-          gap: '8px',
-        }}>
+        <div style={{ width: '100%', aspectRatio: '16/9', background: getGenreStyle(current.genres).gradient, borderRadius: '16px', marginBottom: '18px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
           <span style={{ fontSize: '48px', opacity: 0.6 }}>{getGenreStyle(current.genres).emoji}</span>
-          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-            {current.genres?.split(',')[0]?.trim() || 'Live Event'}
-          </span>
+          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px' }}>{current.genres?.split(',')[0]?.trim() || 'Live Event'}</span>
         </div>
       )}
 
       <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>
-        {getDateLabel(current.start_time)} · {formatTime(current.start_time)}
-        {current.end_time && ` – ${formatTime(current.end_time)}`}
+        {getDateLabel(current.start_time)} · {formatTime(current.start_time)}{current.end_time && ` – ${formatTime(current.end_time)}`}
       </p>
 
       <h2 style={{ fontSize: '26px', fontWeight: 800, lineHeight: 1.2, marginBottom: '6px', ...noSelectStyle }}>{current.title}</h2>
 
       {current.brand && (
-        <Link
-          href={`/brand/${current.brand.slug}`}
-          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            marginBottom: '12px',
-            padding: '10px 16px',
-            background: 'rgba(171,103,247,0.1)',
-            border: '1px solid rgba(171,103,247,0.2)',
-            borderRadius: '12px',
-            textDecoration: 'none',
-          }}
-        >
-          {current.brand.logo_url ? (
-            <img 
-              src={current.brand.logo_url} 
-              alt="" 
-              style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover' }} 
-            />
-          ) : (
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: '#ab67f7',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '16px',
-            }}>🎵</div>
-          )}
-          <div>
-            <p style={{ fontSize: '10px', color: '#888', marginBottom: '1px' }}>Presented by</p>
-            <p style={{ fontSize: '15px', color: '#ab67f7', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {current.brand.name}
-              {current.brand.is_verified && (
-                <span style={{
-                  width: '16px',
-                  height: '16px',
-                  background: '#ab67f7',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '9px',
-                  color: 'white',
-                }}>✓</span>
-              )}
-            </p>
-          </div>
+        <Link href={`/brand/${current.brand.slug}`} onClick={(e: React.MouseEvent) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', padding: '10px 16px', background: 'rgba(171,103,247,0.1)', border: '1px solid rgba(171,103,247,0.2)', borderRadius: '12px', textDecoration: 'none' }}>
+          {current.brand.logo_url ? <img src={current.brand.logo_url} alt="" style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover' }} /> : <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#ab67f7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🎵</div>}
+          <div><p style={{ fontSize: '10px', color: '#888', marginBottom: '1px' }}>Presented by</p><p style={{ fontSize: '15px', color: '#ab67f7', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>{current.brand.name}{current.brand.is_verified && <span style={{ width: '16px', height: '16px', background: '#ab67f7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: 'white' }}>✓</span>}</p></div>
           <span style={{ color: '#666', marginLeft: 'auto' }}>→</span>
         </Link>
       )}
 
-      {current.so_pick && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <img src="/so-icon.png" alt="Curated" style={{ height: '16px', width: 'auto', opacity: 0.9 }} />
-          <span style={{ fontSize: '12px', color: '#999' }}>Curated by Sounded Out</span>
-        </div>
-      )}
-
-      {current.is_verified && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
-          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', background: '#ab67f7', borderRadius: '50%', fontSize: '10px', color: 'white' }}>✓</span>
-          <span style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 600 }}>Verified</span>
-        </div>
-      )}
+      {current.so_pick && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}><img src="/so-icon.png" alt="Curated" style={{ height: '16px', width: 'auto', opacity: 0.9 }} /><span style={{ fontSize: '12px', color: '#999' }}>Curated by Sounded Out</span></div>}
+      {current.is_verified && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', background: '#ab67f7', borderRadius: '50%', fontSize: '10px', color: 'white' }}>✓</span><span style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 600 }}>Verified</span></div>}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
         <span style={{ fontSize: '15px', color: '#999' }}>{current.venue?.name}</span>
         {current.venue?.instagram_url && <a href={current.venue.instagram_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '16px' }}>📸</a>}
       </div>
 
-      {(current.no_phones || current.venue?.no_phones) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', background: 'rgba(255,200,50,0.08)', borderRadius: '12px', marginBottom: '16px', border: '1px solid rgba(255,200,50,0.15)' }}>
-          <span style={{ fontSize: '18px' }}>📵</span>
-          <span style={{ fontSize: '13px', color: '#ffc832' }}>No phones policy — enjoy the moment</span>
-        </div>
-      )}
+      {(current.no_phones || current.venue?.no_phones) && <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', background: 'rgba(255,200,50,0.08)', borderRadius: '12px', marginBottom: '16px', border: '1px solid rgba(255,200,50,0.15)' }}><span style={{ fontSize: '18px' }}>📵</span><span style={{ fontSize: '13px', color: '#ffc832' }}>No phones policy — enjoy the moment</span></div>}
 
       <div style={{ marginBottom: '18px' }}>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {current.sold_out && <span style={{ padding: '8px 14px', background: 'rgba(248,113,113,0.15)', borderRadius: '10px', fontSize: '14px', fontWeight: 700, color: '#f87171' }}>SOLD OUT</span>}
           {isFree(current.price_min, current.price_max) && <span style={{ padding: '8px 14px', background: 'rgba(34,197,94,0.15)', borderRadius: '10px', fontSize: '14px', fontWeight: 700, color: '#22c55e' }}>FREE</span>}
-          {current.genres?.split(',').slice(0, showAllGenres ? undefined : 4).map((g: string, i: number) => (
-            <span key={i} style={{ padding: '8px 14px', background: 'rgba(171,103,247,0.12)', borderRadius: '10px', fontSize: '14px', color: '#ab67f7' }}>{formatGenre(g)}</span>
-          ))}
-          {current.genres && current.genres.split(',').length > 4 && !showAllGenres && (
-            <button
-              onClick={(e: React.MouseEvent) => {
-                e.stopPropagation()
-                setShowAllGenres(true)
-              }}
-              style={{
-                padding: '8px 14px',
-                background: 'rgba(255,255,255,0.08)',
-                borderRadius: '10px',
-                fontSize: '14px',
-                color: '#999',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              +{current.genres.split(',').length - 4} more
-            </button>
-          )}
+          {current.genres?.split(',').slice(0, showAllGenres ? undefined : 4).map((g: string, i: number) => <span key={i} style={{ padding: '8px 14px', background: 'rgba(171,103,247,0.12)', borderRadius: '10px', fontSize: '14px', color: '#ab67f7' }}>{formatGenre(g)}</span>)}
+          {current.genres && current.genres.split(',').length > 4 && !showAllGenres && <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowAllGenres(true) }} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.08)', borderRadius: '10px', fontSize: '14px', color: '#999', border: 'none', cursor: 'pointer' }}>+{current.genres.split(',').length - 4} more</button>}
           {current.vibe && <span style={{ padding: '8px 14px', background: 'rgba(56, 189, 248, 0.15)', borderRadius: '10px', fontSize: '14px', color: '#38bdf8', fontStyle: 'italic' }}>{current.vibe}</span>}
         </div>
       </div>
 
-      {!isFree(current.price_min, current.price_max) && formatPrice(current.price_min, current.price_max) && (
-        <p style={{ fontSize: '22px', fontWeight: 700, marginBottom: '16px' }}>{formatPrice(current.price_min, current.price_max)}</p>
-      )}
+      {!isFree(current.price_min, current.price_max) && formatPrice(current.price_min, current.price_max) && <p style={{ fontSize: '22px', fontWeight: 700, marginBottom: '16px' }}>{formatPrice(current.price_min, current.price_max)}</p>}
 
       {current.description && (
         <div style={{ marginBottom: '16px' }}>
-          <button
-            onClick={(e: React.MouseEvent) => {
-              e.stopPropagation()
-              setShowDescription(!showDescription)
-            }}
-            style={{
-              width: '100%',
-              padding: '14px 16px',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px',
-              color: '#999',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <span>More Info</span>
-            <span style={{ transform: showDescription ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 200ms ease' }}>▼</span>
+          <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowDescription(!showDescription) }} style={{ width: '100%', padding: '14px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#999', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>More Info</span><span style={{ transform: showDescription ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 200ms ease' }}>▼</span>
           </button>
-          {showDescription && (
-            <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '0 0 12px 12px', marginTop: '-1px', borderLeft: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-              <p style={{ fontSize: '14px', color: '#999', lineHeight: 1.6 }}>{current.description}</p>
-            </div>
-          )}
+          {showDescription && <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '0 0 12px 12px', marginTop: '-1px', borderLeft: '1px solid rgba(255,255,255,0.1)', borderRight: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}><p style={{ fontSize: '14px', color: '#999', lineHeight: 1.6 }}>{current.description}</p></div>}
         </div>
       )}
 
-      <EventActions
-        event={{
-          id: current.id,
-          title: current.title,
-          start_time: current.start_time,
-          event_url: current.event_url,
-          sold_out: current.sold_out,
-          price_min: current.price_min,
-          price_max: current.price_max,
-          venue: current.venue,
-        }}
-        isSaved={isEventSaved(current.id)}
-        isLoggedIn={!!user}
-        onSave={toggleSaveEvent}
-        onShowLoginModal={() => setShowLoginModal(true)}
-        onClaim={() => { setClaimType('event'); setShowClaimModal(true) }}
-        formatPrice={formatPrice}
-        getDateLabel={getDateLabel}
-      />
+      <EventActions event={{ id: current.id, title: current.title, start_time: current.start_time, event_url: current.event_url, sold_out: current.sold_out, price_min: current.price_min, price_max: current.price_max, venue: current.venue }} isSaved={isEventSaved(current.id)} isLoggedIn={!!user} onSave={toggleSaveEvent} onShowLoginModal={() => setShowLoginModal(true)} onClaim={() => { setClaimType('event'); setShowClaimModal(true) }} formatPrice={formatPrice} getDateLabel={getDateLabel} />
 
-      {/* Navigation Arrows - Fixed at bottom */}
-      <div style={{ 
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        padding: '16px 20px',
-        paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))',
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        background: 'linear-gradient(0deg, rgba(20,20,22,1) 0%, rgba(20,20,22,0.98) 80%, transparent 100%)',
-        backdropFilter: 'blur(20px)',
-        zIndex: 1000,
-        pointerEvents: 'none',
-      }}>
-        <button 
-          onClick={(e: React.MouseEvent) => { 
-            e.stopPropagation(); 
-            navigate('prev') 
-          }} 
-          disabled={currentIndex === 0} 
-          style={{ 
-            minHeight: '48px',
-            minWidth: '48px', 
-            background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)',
-            border: 'none',
-            borderRadius: '12px',
-            padding: '12px 20px',
-            color: currentIndex === 0 ? '#444' : 'white',
-            fontSize: '15px',
-            fontWeight: 700,
-            cursor: currentIndex === 0 ? 'default' : 'pointer',
-            pointerEvents: 'auto',
-            boxShadow: currentIndex === 0 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',
-            transition: 'all 150ms ease',
-            ...noSelectStyle 
-          }}
-        >
-          ← Prev
-        </button>
-        
-        <span style={{ 
-          fontSize: '14px',
-          color: '#999',
-          fontWeight: 600,
-          padding: '8px 16px',
-          background: 'rgba(0,0,0,0.6)',
-          borderRadius: '20px',
-          backdropFilter: 'blur(10px)',
-          pointerEvents: 'auto',
-        }}>
-          {currentIndex + 1} / {filtered.length}
-        </span>
-        
-        <button 
-          onClick={(e: React.MouseEvent) => { 
-            e.stopPropagation(); 
-            navigate('next') 
-          }} 
-          disabled={currentIndex === filtered.length - 1} 
-          style={{ 
-            minHeight: '48px', 
-            minWidth: '48px', 
-            background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', 
-            border: 'none', 
-            borderRadius: '12px', 
-            padding: '12px 20px', 
-            color: currentIndex === filtered.length - 1 ? '#444' : 'white', 
-            fontSize: '15px', 
-            fontWeight: 700, 
-            cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
-            pointerEvents: 'auto',
-            boxShadow: currentIndex === filtered.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',
-            transition: 'all 150ms ease',
-            ...noSelectStyle 
-          }}
-        >
-          Next →
-        </button>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '16px 20px', paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(0deg, rgba(20,20,22,1) 0%, rgba(20,20,22,0.98) 80%, transparent 100%)', backdropFilter: 'blur(20px)', zIndex: 1000, pointerEvents: 'none' }}>
+        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('prev') }} disabled={currentIndex === 0} style={{ minHeight: '48px', minWidth: '48px', background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', border: 'none', borderRadius: '12px', padding: '12px 20px', color: currentIndex === 0 ? '#444' : 'white', fontSize: '15px', fontWeight: 700, cursor: currentIndex === 0 ? 'default' : 'pointer', pointerEvents: 'auto', boxShadow: currentIndex === 0 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)', transition: 'all 150ms ease', ...noSelectStyle }}>← Prev</button>
+        <span style={{ fontSize: '14px', color: '#999', fontWeight: 600, padding: '8px 16px', background: 'rgba(0,0,0,0.6)', borderRadius: '20px', backdropFilter: 'blur(10px)', pointerEvents: 'auto' }}>{currentIndex + 1} / {filtered.length}</span>
+        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next') }} disabled={currentIndex === filtered.length - 1} style={{ minHeight: '48px', minWidth: '48px', background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', border: 'none', borderRadius: '12px', padding: '12px 20px', color: currentIndex === filtered.length - 1 ? '#444' : 'white', fontSize: '15px', fontWeight: 700, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', pointerEvents: 'auto', boxShadow: currentIndex === filtered.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)', transition: 'all 150ms ease', ...noSelectStyle }}>Next →</button>
       </div>
     </div>
   )
