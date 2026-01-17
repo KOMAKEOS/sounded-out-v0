@@ -149,8 +149,7 @@ export default function AboutPage() {
                     marginBottom: '24px',
                   }}
                 >
-                  Sounded Out is building the discovery layer for nightlife — so anyone can find what’s happening
-                  after dark, and the places that keep cities alive can thrive.
+                  Sounded Out is building the discovery layer for nightlife.
                 </p>
 
                 <p style={{ marginBottom: '20px' }}>
@@ -159,7 +158,7 @@ export default function AboutPage() {
 
                 <p style={{ marginBottom: '20px', color: '#999' }}>
                   But right now, too much of a city is hidden. Discovery is fragmented across Instagram stories, group
-                  chats, ticketing sites, and outdated listings — which means people default to the same few spots
+                  chats, ticketing sites, and outdated listings, which means people default to the same few spots
                   while great venues and independent events sit invisible.
                 </p>
 
@@ -173,7 +172,7 @@ export default function AboutPage() {
                 </p>
 
                 <p style={{ marginBottom: '20px' }}>
-                  This isn’t just about better nights out — it’s about stronger local scenes, small businesses with
+                  This isn’t just about better nights out, it’s about stronger local scenes, small businesses with
                   more traffic, and tourism that actually connects people to the real city.
                 </p>
 
@@ -188,16 +187,16 @@ export default function AboutPage() {
                   }}
                 >
                   <strong style={{ color: '#ab67f7' }}>SO Picks</strong> highlight nights we believe stand out for the
-                  right reasons — music, atmosphere, and community — never just who paid the most for attention.
+                  right reasons, music, atmosphere, and community. Never just who paid the most for attention.
                 </p>
 
                 <p style={{ marginBottom: '20px' }}>
                   We believe discovery shouldn’t require connections. You shouldn’t have to be “in the loop” to find
-                  what’s on. Great nights deserve to be found — and the venues behind them deserve full rooms.
+                  what’s on. Great nights deserve to be found, and the venues behind them deserve full rooms.
                 </p>
 
                 <p style={{ marginBottom: '28px', color: '#999' }}>
-                  We’re starting in Newcastle and expanding city by city — earning density and trust locally before we
+                  We’re starting in Newcastle and expanding city by city, earning density and trust locally before we
                   scale globally.
                 </p>
 
