@@ -1153,52 +1153,6 @@ useEffect(() => {
         inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
       }
 
-      const handleMarkerClick = (e: any) => {
-  e.preventDefault()
-  e.stopPropagation()
-  
-  console.log('🎯 Marker clicked!', { count, venueId: v.id }) // ADD THIS for debugging
-  
-  if (count > 1) {
-    setClusterEvents(evs)
-    setViewMode('cluster')
-    requestAnimationFrame(() => {
-      setSheetVisible(true)
-    })
-  } else {
-    let idx = -1
-    for (let i = 0; i < filtered.length; i++) {
-      if (filtered[i].id === evs[0].id) {
-        idx = i
-        break
-      }
-    }
-    if (idx !== -1) {
-      setCurrentIndex(idx)
-      setViewMode('preview')
-      trackMarkerClick(evs[0].id, evs[0].title, v.name)
-      trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
-      
-      requestAnimationFrame(() => {
-        setSheetVisible(true)
-        highlightMarker(evs[0].id)
-      })
-    }
-  }
-  
-  const currentZoom = map.current?.getZoom() || 14
-  map.current?.easeTo({
-    center: [v.lng, v.lat],
-    zoom: Math.max(currentZoom, 14.5),
-    duration: 300,
-    easing: (t: number) => 1 - Math.pow(1 - t, 2),
-  })
-}
-
-      // Make marker tappable
-el.style.pointerEvents = 'auto'
-el.style.cursor = 'pointer'
-
 const handleMarkerClick = (e: Event) => {
   e.preventDefault()
   e.stopPropagation()
