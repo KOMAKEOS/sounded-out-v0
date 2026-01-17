@@ -578,14 +578,11 @@ const formatTime = (s: string | null | undefined) => {
   return formatUKTime(s)
 }  
   const formatPrice = (min: number | null, max: number | null) => {
-    if (min === 0 || (!min && !max)) return null
-    const fmt = (n: number) => {
-      if (n % 1 === 0) return `£${n}`
-      return `£${n.toFixed(2)}`
-    }
-    if (min && max && min !== max) return `${fmt(min)}–${fmt(max)}`
-    return fmt(min || max || 0)
-  }
+  if (min === 0 || (!min && !max)) return null
+  const fmt = (n: number) => `£${n.toFixed(2)}`  // ← ALWAYS 2 decimals
+  if (min && max && min !== max) return `${fmt(min)}–${fmt(max)}`
+  return fmt(min || max || 0)
+}
   
   const isFree = (min: number | null, max: number | null) => min === 0 || (!min && !max)
   
