@@ -2158,17 +2158,17 @@ const DesktopDetailPanel: React.FC = () => {
           background: '#000',  // ← ADDED
         }}>
           <img 
-            src={current.image_url} 
-            alt="" 
-            style={{ 
-              width: '100%', 
-              height: 'auto',  // ← CHANGED FROM 100%
-              maxHeight: '400px',  // ← ADDED
-              objectFit: 'contain',  // ← CHANGED FROM 'cover'
-              pointerEvents: 'none',
-            }} 
-            draggable={false} 
-          />
+      src={current.image_url} 
+      alt="" 
+      style={{ 
+        width: '100%', 
+        height: 'auto',  // ← CHANGED from '100%'
+        maxHeight: '400px',
+        objectFit: 'contain',  // ← CHANGED from 'cover'
+        pointerEvents: 'none',
+      }} 
+      draggable={false} 
+    />
         </div>
         ) : (
           <div style={{ 
@@ -2385,47 +2385,85 @@ const DesktopDetailPanel: React.FC = () => {
         />
         
         {/* Navigation - P1 FIX: 44px buttons */}
-        <div style={{ 
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)'
-        }}>
-          <button 
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('prev'); }}
-            disabled={currentIndex === 0}
-            style={{
-              minHeight: '44px',
-              minWidth: '44px',
-              background: currentIndex === 0 ? 'transparent' : 'rgba(171,103,247,0.2)',
-              border: currentIndex === 0 ? 'none' : '1px solid rgba(171,103,247,0.3)',
-              borderRadius: '10px', padding: '10px 14px',
-              color: currentIndex === 0 ? '#444' : '#ab67f7',
-              fontSize: '13px', fontWeight: 600, cursor: currentIndex === 0 ? 'default' : 'pointer',
-            }}
-          >
-            ← Prev
-          </button>
-          <span style={{ fontSize: '12px', color: '#555' }}>{currentIndex + 1} / {filtered.length}</span>
-          <button 
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next'); }}
-            disabled={currentIndex === filtered.length - 1}
-            style={{
-              minHeight: '44px',
-              minWidth: '44px',
-              background: currentIndex === filtered.length - 1 ? 'transparent' : 'rgba(171,103,247,0.2)',
-              border: currentIndex === filtered.length - 1 ? 'none' : '1px solid rgba(171,103,247,0.3)',
-              borderRadius: '10px', padding: '10px 14px',
-              color: currentIndex === filtered.length - 1 ? '#444' : '#ab67f7',
-              fontSize: '13px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
-            }}
-          >
-            Next →
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
+       {/* Navigation Arrows - FIXED: Always visible at bottom */}
+<div style={{
+  position: 'fixed',  // ← CHANGED FROM flex container
+  bottom: 0,
+  left: 0,
+  right: 0,
+  padding: '16px 20px',
+  paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  background: 'linear-gradient(0deg, rgba(20,20,22,1) 0%, rgba(20,20,22,0.95) 70%, transparent 100%)',
+  backdropFilter: 'blur(20px)',
+  zIndex: 1000,  // ← VERY HIGH so always visible
+  pointerEvents: 'none',  // ← Allow clicks through container
+}}>
+  <button 
+    onClick={(e: React.MouseEvent) => { 
+      e.stopPropagation(); 
+      navigate('prev') 
+    }} 
+    disabled={currentIndex === 0} 
+    style={{ 
+      minHeight: '44px', 
+      minWidth: '80px',
+      padding: '10px 20px',
+      background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', 
+      border: 'none',
+      borderRadius: '22px', 
+      color: currentIndex === 0 ? '#444' : 'white', 
+      fontSize: '14px', 
+      fontWeight: 600, 
+      cursor: currentIndex === 0 ? 'default' : 'pointer',
+      pointerEvents: 'auto',  // ← Button is clickable
+      boxShadow: currentIndex === 0 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',
+      ...noSelectStyle 
+    }}
+  >
+    ← Prev
+  </button>
+  
+  <span style={{ 
+    fontSize: '13px', 
+    color: '#999',
+    padding: '8px 14px',
+    background: 'rgba(0,0,0,0.6)',
+    borderRadius: '16px',
+    pointerEvents: 'auto',
+    backdropFilter: 'blur(10px)',
+  }}>
+    {currentIndex + 1} / {filtered.length}
+  </span>
+  
+  <button 
+    onClick={(e: React.MouseEvent) => { 
+      e.stopPropagation(); 
+      navigate('next') 
+    }} 
+    disabled={currentIndex === filtered.length - 1} 
+    style={{ 
+      minHeight: '44px', 
+      minWidth: '80px',
+      padding: '10px 20px',
+      background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', 
+      border: 'none',
+      borderRadius: '22px', 
+      color: currentIndex === filtered.length - 1 ? '#444' : 'white', 
+      fontSize: '14px', 
+      fontWeight: 600, 
+      cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
+      pointerEvents: 'auto',
+      boxShadow: currentIndex === filtered.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',
+      ...noSelectStyle 
+    }}
+  >
+    Next →
+  </button>
+</div>
+        
   // ============================================================================
   // GLOBAL STYLES - P1 FIX: Added focus styles
   // ============================================================================
@@ -3714,24 +3752,24 @@ function MobileDetailSheet({
       {/* P1 FIX: Image with genre placeholder */}
       {current.image_url ? (
   <div style={{ 
-    width: '100%',
-    maxHeight: '400px',  // ← ADDED: limit height
+    width: '100%', 
+    maxHeight: '400px',
     borderRadius: '16px', 
     overflow: 'hidden', 
     marginBottom: '18px',
-    background: '#000',  // ← ADDED: black background
-    display: 'flex',  // ← ADDED
-    alignItems: 'center',  // ← ADDED
-    justifyContent: 'center',  // ← ADDED
+    background: '#000',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   }}>
     <img 
       src={current.image_url} 
       alt="" 
       style={{ 
         width: '100%', 
-        height: 'auto',  // ← CHANGED FROM '100%'
-        maxHeight: '400px',  // ← ADDED
-        objectFit: 'contain',  // ← CHANGED FROM 'cover' - SHOWS FULL IMAGE
+        height: 'auto',
+        maxHeight: '400px',
+        objectFit: 'contain',  // ← Shows full image
         pointerEvents: 'none' 
       }} 
       draggable={false} 
