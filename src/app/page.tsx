@@ -256,7 +256,7 @@ export default function Home() {
   }, [])
   
   const mapContainer = useRef<HTMLDivElement>(null)
-  const map = useRef<gl.Map | null>(null)
+  const map = useRef<mapboxgl.Map | null>(null)
   const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; el: HTMLDivElement; inner: HTMLDivElement }>>(new Map())
   
   // Core state
