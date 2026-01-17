@@ -4063,6 +4063,9 @@ function MobileDetailSheet({
     Next →
   </button>
 </div>
+      </div>
+  )
+}
 
 // ============================================================================
 // CLAIM MODAL COMPONENT
