@@ -1157,9 +1157,14 @@ const handleMarkerClick = (e: any) => {
   e.preventDefault()
   e.stopPropagation()
   
+  console.log('🎯 Marker clicked!', { count, venueId: v.id }) // ← ADD THIS for debugging
+  
   if (count > 1) {
     setClusterEvents(evs)
     setViewMode('cluster')
+    requestAnimationFrame(() => {
+      setSheetVisible(true)
+    })
   } else {
     let idx = -1
     for (let i = 0; i < filtered.length; i++) {
@@ -1168,16 +1173,18 @@ const handleMarkerClick = (e: any) => {
         break
       }
     }
-    setCurrentIndex(idx)
-    setViewMode('preview')
-    trackMarkerClick(evs[0].id, evs[0].title, v.name)
-    trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
+    if (idx !== -1) {  // ← ADD THIS CHECK
+      setCurrentIndex(idx)
+      setViewMode('preview')
+      trackMarkerClick(evs[0].id, evs[0].title, v.name)
+      trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
+      
+      requestAnimationFrame(() => {
+        setSheetVisible(true)
+        highlightMarker(evs[0].id)
+      })
+    }
   }
-  
-  requestAnimationFrame(() => {
-    setSheetVisible(true)
-    highlightMarker(evs[0].id)
-  })
   
   const currentZoom = map.current?.getZoom() || 14
   map.current?.easeTo({
@@ -1188,7 +1195,11 @@ const handleMarkerClick = (e: any) => {
   })
 }
 
+// ✅ ADD BOTH event listeners for mobile compatibility
 el.addEventListener('click', handleMarkerClick, { passive: false })
+el.addEventListener('touchend', handleMarkerClick, { passive: false }) // ← ADD THIS LINE
+el.style.pointerEvents = 'auto'  // ← MAKE SURE THIS EXISTS
+el.style.cursor = 'pointer'  // ← MAKE SURE THIS EXISTS
 
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([v.lng, v.lat])
@@ -3103,6 +3114,10 @@ const DesktopDetailPanel: React.FC = () => {
             zIndex: 30,
             display: 'flex',
             flexDirection: 'column',
+            WebkitOverflowScrolling: 'touch',  // ← SMOOTH iOS SCROLLING
+  overscrollBehavior: 'contain',  // ← PREVENTS BOUNCE PAST BROWSER
+  transform: 'translateZ(0)',  // ← GPU ACCELERATION
+  willChange: 'transform',  // ← OPTIMIZE FOR ANIMATION
             ...getSheetStyle(sheetVisible),
           }}
         >
@@ -3698,9 +3713,30 @@ function MobileDetailSheet({
 
       {/* P1 FIX: Image with genre placeholder */}
       {current.image_url ? (
-        <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: '16px', overflow: 'hidden', marginBottom: '18px' }}>
-          <img src={current.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} draggable={false} />
-        </div>
+  <div style={{ 
+    width: '100%',
+    maxHeight: '400px',  // ← ADDED: limit height
+    borderRadius: '16px', 
+    overflow: 'hidden', 
+    marginBottom: '18px',
+    background: '#000',  // ← ADDED: black background
+    display: 'flex',  // ← ADDED
+    alignItems: 'center',  // ← ADDED
+    justifyContent: 'center',  // ← ADDED
+  }}>
+    <img 
+      src={current.image_url} 
+      alt="" 
+      style={{ 
+        width: '100%', 
+        height: 'auto',  // ← CHANGED FROM '100%'
+        maxHeight: '400px',  // ← ADDED
+        objectFit: 'contain',  // ← CHANGED FROM 'cover' - SHOWS FULL IMAGE
+        pointerEvents: 'none' 
+      }} 
+      draggable={false} 
+    />
+  </div>
       ) : (
         <div style={{ 
           width: '100%', 
@@ -3904,14 +3940,87 @@ function MobileDetailSheet({
 />
 
       {/* P1 FIX: 44px navigation buttons */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('prev') }} disabled={currentIndex === 0} style={{ minHeight: '44px', minWidth: '44px', background: currentIndex === 0 ? 'transparent' : 'rgba(171,103,247,0.2)', border: currentIndex === 0 ? 'none' : '1px solid rgba(171,103,247,0.3)', borderRadius: '10px', padding: '10px 14px', color: currentIndex === 0 ? '#444' : '#ab67f7', fontSize: '14px', fontWeight: 600, cursor: currentIndex === 0 ? 'default' : 'pointer', ...noSelectStyle }}>← Prev</button>
-        <span style={{ fontSize: '13px', color: '#555' }}>{currentIndex + 1} / {filtered.length}</span>
-        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next') }} disabled={currentIndex === filtered.length - 1} style={{ minHeight: '44px', minWidth: '44px', background: currentIndex === filtered.length - 1 ? 'transparent' : 'rgba(171,103,247,0.2)', border: currentIndex === filtered.length - 1 ? 'none' : '1px solid rgba(171,103,247,0.3)', borderRadius: '10px', padding: '10px 14px', color: currentIndex === filtered.length - 1 ? '#444' : '#ab67f7', fontSize: '14px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', ...noSelectStyle }}>Next →</button>
-      </div>
-    </div>
-  )
-}
+ {/* Navigation Arrows - ALWAYS VISIBLE */}
+<div style={{ 
+  position: 'fixed',  // ← CHANGED FROM relative
+  bottom: 0,
+  left: 0,
+  right: 0,
+  padding: '16px 20px',
+  paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))',
+  display: 'flex', 
+  justifyContent: 'space-between', 
+  alignItems: 'center',
+  background: 'linear-gradient(0deg, rgba(20,20,22,1) 0%, rgba(20,20,22,0.98) 80%, transparent 100%)',  // ← ADDED
+  backdropFilter: 'blur(20px)',  // ← ADDED
+  zIndex: 1000,  // ← ADDED (very high)
+  pointerEvents: 'none',  // ← ADDED (allow clicks through container)
+}}>
+  <button 
+    onClick={(e: React.MouseEvent) => { 
+      e.stopPropagation(); 
+      navigate('prev') 
+    }} 
+    disabled={currentIndex === 0} 
+    style={{ 
+      minHeight: '48px',  // ← INCREASED from 44px
+      minWidth: '48px', 
+      background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)',  // ← STRONGER COLOR
+      border: 'none',  // ← REMOVED conditional border
+      borderRadius: '12px',  // ← INCREASED from 10px
+      padding: '12px 20px',  // ← INCREASED padding
+      color: currentIndex === 0 ? '#444' : 'white',  // ← WHITE text when active
+      fontSize: '15px',  // ← INCREASED from 14px
+      fontWeight: 700,  // ← INCREASED from 600
+      cursor: currentIndex === 0 ? 'default' : 'pointer',
+      pointerEvents: 'auto',  // ← ADDED (button is clickable)
+      boxShadow: currentIndex === 0 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',  // ← ADDED
+      transition: 'all 150ms ease',  // ← ADDED
+      ...noSelectStyle 
+    }}
+  >
+    ← Prev
+  </button>
+  
+  <span style={{ 
+    fontSize: '14px',  // ← INCREASED from 13px
+    color: '#999',  // ← LIGHTER color
+    fontWeight: 600,  // ← ADDED
+    padding: '8px 16px',  // ← ADDED
+    background: 'rgba(0,0,0,0.6)',  // ← ADDED
+    borderRadius: '20px',  // ← ADDED
+    backdropFilter: 'blur(10px)',  // ← ADDED
+    pointerEvents: 'auto',  // ← ADDED
+  }}>
+    {currentIndex + 1} / {filtered.length}
+  </span>
+  
+  <button 
+    onClick={(e: React.MouseEvent) => { 
+      e.stopPropagation(); 
+      navigate('next') 
+    }} 
+    disabled={currentIndex === filtered.length - 1} 
+    style={{ 
+      minHeight: '48px', 
+      minWidth: '48px', 
+      background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', 
+      border: 'none', 
+      borderRadius: '12px', 
+      padding: '12px 20px', 
+      color: currentIndex === filtered.length - 1 ? '#444' : 'white', 
+      fontSize: '15px', 
+      fontWeight: 700, 
+      cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
+      pointerEvents: 'auto',
+      boxShadow: currentIndex === filtered.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',
+      transition: 'all 150ms ease',
+      ...noSelectStyle 
+    }}
+  >
+    Next →
+  </button>
+</div>
 
 // ============================================================================
 // CLAIM MODAL COMPONENT
