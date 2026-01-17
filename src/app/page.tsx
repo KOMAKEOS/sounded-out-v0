@@ -3726,7 +3726,7 @@ const DesktopDetailPanel: React.FC = () => {
     
 
 // ============================================================================
-// MOBILE DETAIL SHEET COMPONENT - P1 FIXES APPLIED
+// MOBILE DETAIL SHEET COMPONENT - FIXED VERSION
 // ============================================================================
 function MobileDetailSheet({
   current, currentIndex, filtered, showAllGenres, setShowAllGenres, showDescription, setShowDescription,
@@ -3741,10 +3741,21 @@ function MobileDetailSheet({
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       style={{
-        width: '100%', maxHeight: '90vh', background: '#141416', borderRadius: '24px 24px 0 0',
-        padding: '12px 20px 36px', paddingBottom: 'max(36px, env(safe-area-inset-bottom))',
-        overflowY: 'auto', overscrollBehavior: 'contain',
-        WebkitOverflowScrolling: 'touch', ...noSelectStyle,
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        maxHeight: '85vh',
+        background: '#141416',
+        borderRadius: '24px 24px 0 0',
+        padding: '12px 20px 120px',
+        paddingBottom: 'max(120px, calc(env(safe-area-inset-bottom) + 120px))',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+        WebkitOverflowScrolling: 'touch',
+        zIndex: 50,
+        boxShadow: '0 -4px 32px rgba(0,0,0,0.6)',
+        ...noSelectStyle,
         ...(dragDirection === 'horizontal' ? getCardTransform() : getDismissTransform()),
       }}
     >
@@ -3753,32 +3764,31 @@ function MobileDetailSheet({
         <span style={{ fontSize: '10px', color: dismissProgress > 0.8 ? '#ab67f7' : '#666' }}>{dismissProgress > 0.8 ? 'Release to close' : 'Pull down to close'}</span>
       </div>
 
-      {/* P1 FIX: Image with genre placeholder */}
       {current.image_url ? (
-  <div style={{ 
-    width: '100%', 
-    maxHeight: '400px',
-    borderRadius: '16px', 
-    overflow: 'hidden', 
-    marginBottom: '18px',
-    background: '#000',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  }}>
-    <img 
-      src={current.image_url} 
-      alt="" 
-      style={{ 
-        width: '100%', 
-        height: 'auto',
-        maxHeight: '400px',
-        objectFit: 'contain',  // ← Shows full image
-        pointerEvents: 'none' 
-      }} 
-      draggable={false} 
-    />
-  </div>
+        <div style={{ 
+          width: '100%', 
+          maxHeight: '400px',
+          borderRadius: '16px', 
+          overflow: 'hidden', 
+          marginBottom: '18px',
+          background: '#000',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <img 
+            src={current.image_url} 
+            alt="" 
+            style={{ 
+              width: '100%', 
+              height: 'auto',
+              maxHeight: '400px',
+              objectFit: 'contain',
+              pointerEvents: 'none' 
+            }} 
+            draggable={false} 
+          />
+        </div>
       ) : (
         <div style={{ 
           width: '100%', 
@@ -3806,10 +3816,6 @@ function MobileDetailSheet({
 
       <h2 style={{ fontSize: '26px', fontWeight: 800, lineHeight: 1.2, marginBottom: '6px', ...noSelectStyle }}>{current.title}</h2>
 
-      
-      {/* ========================================== */}
-      {/* BRAND ATTRIBUTION - NEW */}
-      {/* ========================================== */}
       {current.brand && (
         <Link
           href={`/brand/${current.brand.slug}`}
@@ -3867,7 +3873,6 @@ function MobileDetailSheet({
         </Link>
       )}
 
-
       {current.so_pick && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
           <img src="/so-icon.png" alt="Curated" style={{ height: '16px', width: 'auto', opacity: 0.9 }} />
@@ -3903,22 +3908,22 @@ function MobileDetailSheet({
           ))}
           {current.genres && current.genres.split(',').length > 4 && !showAllGenres && (
             <button
-  onClick={(e: React.MouseEvent) => {
-    e.stopPropagation()
-    setShowAllGenres(true)
-  }}
-  style={{
-    padding: '8px 14px',
-    background: 'rgba(255,255,255,0.08)',
-    borderRadius: '10px',
-    fontSize: '14px',
-    color: '#999',
-    border: 'none',
-    cursor: 'pointer',
-  }}
->
-  +{current.genres.split(',').length - 4} more
-</button>
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation()
+                setShowAllGenres(true)
+              }}
+              style={{
+                padding: '8px 14px',
+                background: 'rgba(255,255,255,0.08)',
+                borderRadius: '10px',
+                fontSize: '14px',
+                color: '#999',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              +{current.genres.split(',').length - 4} more
+            </button>
           )}
           {current.vibe && <span style={{ padding: '8px 14px', background: 'rgba(56, 189, 248, 0.15)', borderRadius: '10px', fontSize: '14px', color: '#38bdf8', fontStyle: 'italic' }}>{current.vibe}</span>}
         </div>
@@ -3931,25 +3936,25 @@ function MobileDetailSheet({
       {current.description && (
         <div style={{ marginBottom: '16px' }}>
           <button
-  onClick={(e: React.MouseEvent) => {
-    e.stopPropagation()
-    setShowDescription(!showDescription)
-  }}
-  style={{
-    width: '100%',
-    padding: '14px 16px',
-    background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '12px',
-    color: '#999',
-    fontSize: '14px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  }}
->
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation()
+              setShowDescription(!showDescription)
+            }}
+            style={{
+              width: '100%',
+              padding: '14px 16px',
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '12px',
+              color: '#999',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
             <span>More Info</span>
             <span style={{ transform: showDescription ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 200ms ease' }}>▼</span>
           </button>
@@ -3961,109 +3966,108 @@ function MobileDetailSheet({
         </div>
       )}
 
-    <EventActions
-  event={{
-    id: current.id,
-    title: current.title,
-    start_time: current.start_time,
-    event_url: current.event_url,
-    sold_out: current.sold_out,
-    price_min: current.price_min,
-    price_max: current.price_max,
-    venue: current.venue,
-  }}
-  isSaved={isEventSaved(current.id)}
-  isLoggedIn={!!user}
-  onSave={toggleSaveEvent}
-  onShowLoginModal={() => setShowLoginModal(true)}
-  onClaim={() => { setClaimType('event'); setShowClaimModal(true) }}
-  formatPrice={formatPrice}
-  getDateLabel={getDateLabel}
-/>
+      <EventActions
+        event={{
+          id: current.id,
+          title: current.title,
+          start_time: current.start_time,
+          event_url: current.event_url,
+          sold_out: current.sold_out,
+          price_min: current.price_min,
+          price_max: current.price_max,
+          venue: current.venue,
+        }}
+        isSaved={isEventSaved(current.id)}
+        isLoggedIn={!!user}
+        onSave={toggleSaveEvent}
+        onShowLoginModal={() => setShowLoginModal(true)}
+        onClaim={() => { setClaimType('event'); setShowClaimModal(true) }}
+        formatPrice={formatPrice}
+        getDateLabel={getDateLabel}
+      />
 
-      {/* P1 FIX: 44px navigation buttons */}
- {/* Navigation Arrows - ALWAYS VISIBLE */}
-<div style={{ 
-  position: 'fixed',  // ← CHANGED FROM relative
-  bottom: 0,
-  left: 0,
-  right: 0,
-  padding: '16px 20px',
-  paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))',
-  display: 'flex', 
-  justifyContent: 'space-between', 
-  alignItems: 'center',
-  background: 'linear-gradient(0deg, rgba(20,20,22,1) 0%, rgba(20,20,22,0.98) 80%, transparent 100%)',  // ← ADDED
-  backdropFilter: 'blur(20px)',  // ← ADDED
-  zIndex: 1000,  // ← ADDED (very high)
-  pointerEvents: 'none',  // ← ADDED (allow clicks through container)
-}}>
-  <button 
-    onClick={(e: React.MouseEvent) => { 
-      e.stopPropagation(); 
-      navigate('prev') 
-    }} 
-    disabled={currentIndex === 0} 
-    style={{ 
-      minHeight: '48px',  // ← INCREASED from 44px
-      minWidth: '48px', 
-      background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)',  // ← STRONGER COLOR
-      border: 'none',  // ← REMOVED conditional border
-      borderRadius: '12px',  // ← INCREASED from 10px
-      padding: '12px 20px',  // ← INCREASED padding
-      color: currentIndex === 0 ? '#444' : 'white',  // ← WHITE text when active
-      fontSize: '15px',  // ← INCREASED from 14px
-      fontWeight: 700,  // ← INCREASED from 600
-      cursor: currentIndex === 0 ? 'default' : 'pointer',
-      pointerEvents: 'auto',  // ← ADDED (button is clickable)
-      boxShadow: currentIndex === 0 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',  // ← ADDED
-      transition: 'all 150ms ease',  // ← ADDED
-      ...noSelectStyle 
-    }}
-  >
-    ← Prev
-  </button>
-  
-  <span style={{ 
-    fontSize: '14px',  // ← INCREASED from 13px
-    color: '#999',  // ← LIGHTER color
-    fontWeight: 600,  // ← ADDED
-    padding: '8px 16px',  // ← ADDED
-    background: 'rgba(0,0,0,0.6)',  // ← ADDED
-    borderRadius: '20px',  // ← ADDED
-    backdropFilter: 'blur(10px)',  // ← ADDED
-    pointerEvents: 'auto',  // ← ADDED
-  }}>
-    {currentIndex + 1} / {filtered.length}
-  </span>
-  
-  <button 
-    onClick={(e: React.MouseEvent) => { 
-      e.stopPropagation(); 
-      navigate('next') 
-    }} 
-    disabled={currentIndex === filtered.length - 1} 
-    style={{ 
-      minHeight: '48px', 
-      minWidth: '48px', 
-      background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', 
-      border: 'none', 
-      borderRadius: '12px', 
-      padding: '12px 20px', 
-      color: currentIndex === filtered.length - 1 ? '#444' : 'white', 
-      fontSize: '15px', 
-      fontWeight: 700, 
-      cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
-      pointerEvents: 'auto',
-      boxShadow: currentIndex === filtered.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',
-      transition: 'all 150ms ease',
-      ...noSelectStyle 
-    }}
-  >
-    Next →
-  </button>
-</div>
+      {/* Navigation Arrows - Fixed at bottom */}
+      <div style={{ 
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: '16px 20px',
+        paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))',
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        background: 'linear-gradient(0deg, rgba(20,20,22,1) 0%, rgba(20,20,22,0.98) 80%, transparent 100%)',
+        backdropFilter: 'blur(20px)',
+        zIndex: 1000,
+        pointerEvents: 'none',
+      }}>
+        <button 
+          onClick={(e: React.MouseEvent) => { 
+            e.stopPropagation(); 
+            navigate('prev') 
+          }} 
+          disabled={currentIndex === 0} 
+          style={{ 
+            minHeight: '48px',
+            minWidth: '48px', 
+            background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)',
+            border: 'none',
+            borderRadius: '12px',
+            padding: '12px 20px',
+            color: currentIndex === 0 ? '#444' : 'white',
+            fontSize: '15px',
+            fontWeight: 700,
+            cursor: currentIndex === 0 ? 'default' : 'pointer',
+            pointerEvents: 'auto',
+            boxShadow: currentIndex === 0 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',
+            transition: 'all 150ms ease',
+            ...noSelectStyle 
+          }}
+        >
+          ← Prev
+        </button>
+        
+        <span style={{ 
+          fontSize: '14px',
+          color: '#999',
+          fontWeight: 600,
+          padding: '8px 16px',
+          background: 'rgba(0,0,0,0.6)',
+          borderRadius: '20px',
+          backdropFilter: 'blur(10px)',
+          pointerEvents: 'auto',
+        }}>
+          {currentIndex + 1} / {filtered.length}
+        </span>
+        
+        <button 
+          onClick={(e: React.MouseEvent) => { 
+            e.stopPropagation(); 
+            navigate('next') 
+          }} 
+          disabled={currentIndex === filtered.length - 1} 
+          style={{ 
+            minHeight: '48px', 
+            minWidth: '48px', 
+            background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', 
+            border: 'none', 
+            borderRadius: '12px', 
+            padding: '12px 20px', 
+            color: currentIndex === filtered.length - 1 ? '#444' : 'white', 
+            fontSize: '15px', 
+            fontWeight: 700, 
+            cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
+            pointerEvents: 'auto',
+            boxShadow: currentIndex === filtered.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',
+            transition: 'all 150ms ease',
+            ...noSelectStyle 
+          }}
+        >
+          Next →
+        </button>
       </div>
+    </div>
   )
 }
 
