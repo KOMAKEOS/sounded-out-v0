@@ -87,32 +87,7 @@ type Venue = {
   no_phones?: boolean
   is_claimed?: boolean
   is_verified?: boolean
-}
-
-type Event = {
-  id: string
-  venue_id: string
-  brand_id: string | null           // ← ADD THIS
-  title: string
-  start_time: string
-  end_time: string | null
-  genres: string | null
-  vibe: string | null
-  event_url: string | null
-  image_url: string | null
-  price_min: number | null
-  price_max: number | null
-  price_type: string | null         // ← ADD THIS
-  free_before_time: string | null   // ← ADD THIS
-  ticket_source: string | null      // ← ADD THIS
-  venue?: Venue
-  brand?: Brand                     // ← ADD THIS
-  so_pick?: boolean
-  sold_out?: boolean
-  description?: string | null
-  no_phones?: boolean
-  is_claimed?: boolean
-  is_verified?: boolean
+  claimed_by_brand_id?: string | null  // ← NEW: links to brand
 }
 
 type Brand = {
@@ -122,6 +97,35 @@ type Brand = {
   logo_url: string | null
   is_verified: boolean
   tagline: string | null
+  instagram_url?: string | null  // ← NEW
+  website_url?: string | null    // ← NEW
+}
+
+type Event = {
+  id: string
+  venue_id: string
+  brand_id: string | null
+  title: string
+  start_time: string
+  end_time: string | null
+  genres: string | null
+  vibe: string | null
+  event_url: string | null
+  image_url: string | null
+  price_min: number | null
+  price_max: number | null
+  price_type: string | null
+  free_before_time: string | null
+  ticket_source: string | null
+  venue?: Venue
+  brand?: Brand
+  so_pick?: boolean
+  sold_out?: boolean
+  description?: string | null
+  no_phones?: boolean
+  is_claimed?: boolean
+  is_verified?: boolean
+  claimed_by_brand_id?: string | null  // ← NEW: if event is claimed separately
 }
 
 type DateFilter = 'today' | 'tomorrow' | 'weekend' | string
@@ -672,25 +676,26 @@ const formatTime = (s: string | null | undefined) => {
 // ============================================================================
   // DATA LOADING
   // ============================================================================
- useEffect(() => {
+useEffect(() => {
   const loadEvents = async () => {
-    console.log('🔍 Loading events...')
+    console.log('🔍 Loading events with brands...')
     
-    // Try with brands first
-    const { data, error } = await supabase
+    // PRIMARY QUERY: Try loading with brands
+    const { data: eventsData, error: eventsError } = await supabase
       .from('events')
       .select(`
         *,
         venue:venues(*),
-        brand:brands(id, name, slug, logo_url, is_verified, tagline)
+        brand:brands(*)
       `)
       .eq('status', 'published')
       .gte('start_time', new Date().toISOString().split('T')[0])
       .order('start_time')
     
-    if (error) {
-      console.error('❌ Events query failed:', error)
-      // Try without brands as fallback
+    if (eventsError) {
+      console.warn('⚠️ Events query with brands failed:', eventsError.message)
+      
+      // FALLBACK: Try without brands
       const { data: fallbackData, error: fallbackError } = await supabase
         .from('events')
         .select(`
@@ -702,28 +707,23 @@ const formatTime = (s: string | null | undefined) => {
         .order('start_time')
       
       if (fallbackError) {
-        console.error('❌ Fallback query also failed:', fallbackError)
+        console.error('❌ Fallback query failed:', fallbackError)
         setLoading(false)
         return
       }
       
       if (fallbackData) {
-        console.log('✅ Loaded', fallbackData.length, 'events (without brands)')
+        console.log(`✅ Loaded ${fallbackData.length} events (without brands)`)
         setEvents(fallbackData)
-        const venueIds = new Set<string>()
-        for (let i = 0; i < fallbackData.length; i++) {
-          venueIds.add(fallbackData[i].venue_id)
-        }
+        const venueIds = new Set(fallbackData.map(e => e.venue_id))
         trackMapLoaded(fallbackData.length, venueIds.size)
       }
-    } else if (data) {
-      console.log('✅ Loaded', data.length, 'events (with brands)')
-      setEvents(data)
-      const venueIds = new Set<string>()
-      for (let i = 0; i < data.length; i++) {
-        venueIds.add(data[i].venue_id)
-      }
-      trackMapLoaded(data.length, venueIds.size)
+    } else if (eventsData) {
+      console.log(`✅ Loaded ${eventsData.length} events (with brands)`)
+      console.log('📊 Brand coverage:', eventsData.filter(e => e.brand).length, 'events have brands')
+      setEvents(eventsData)
+      const venueIds = new Set(eventsData.map(e => e.venue_id))
+      trackMapLoaded(eventsData.length, venueIds.size)
     }
     
     setLoading(false)
@@ -3874,12 +3874,23 @@ function MobileDetailSheet({
             <p style={{ fontSize: '11px', color: '#ab67f7', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
               {getDateLabel(current.start_time)} · {formatTime(current.start_time)}
             </p>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, lineHeight: 1.2, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {current.title}
-            </h3>
-            <p style={{ fontSize: '13px', color: '#999', marginBottom: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {current.venue?.name}
-            </p>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, lineHeight: 1.2, marginBottom: '2px' }}>
+  {current.title}
+</h3>
+
+{/* Brand name if available */}
+{current.brand?.name && (
+  <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 600, marginBottom: '2px' }}>
+    {current.brand.name}
+    {current.brand.is_verified && (
+      <span style={{ marginLeft: '4px', fontSize: '10px' }}>✓</span>
+    )}
+  </p>
+)}
+
+<p style={{ fontSize: '13px', color: '#999' }}>
+  {current.venue?.name}
+</p>
             
             {/* Genre & price tags */}
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -4314,76 +4325,384 @@ function ClaimModal({
   current, claimType, claimForm, setClaimForm, claimSubmitting, setClaimSubmitting,
   claimSubmitted, setClaimSubmitted, claimError, setClaimError, onClose, formatTime, getDateLabel,
 }: any) {
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setClaimSubmitting(true)
+    setClaimError('')
+    
+    try {
+      // Insert claim request
+      const { error: claimError } = await supabase
+        .from('claim_requests')
+        .insert({
+          claim_type: claimType,
+          event_id: claimType === 'event' ? current.id : null,
+          venue_id: claimType === 'venue' ? current.venue?.id : null,
+          requested_by_name: claimForm.name,
+          requested_by_email: claimForm.email,
+          role: claimForm.role,
+          proof_url: claimForm.proofUrl || null,
+          status: 'pending',
+        })
+      
+      if (claimError) throw claimError
+      
+      setClaimSubmitted(true)
+      trackClaimSubmit(claimType, current.title, current.id)
+      
+    } catch (err: any) {
+      console.error('Claim submission error:', err)
+      setClaimError(err.message || 'Something went wrong. Please try again.')
+    } finally {
+      setClaimSubmitting(false)
+    }
+  }
+  
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div onClick={(e: React.MouseEvent) => e.stopPropagation()} style={{ width: '100%', maxWidth: '400px', background: '#1a1a1f', borderRadius: '20px', padding: '20px 24px 28px', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 700 }}>Claim this {claimType}</h3>
-          <button onClick={onClose} style={{ width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#999', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+    <div 
+      onClick={onClose} 
+      style={{ 
+        position: 'fixed', 
+        inset: 0, 
+        background: 'rgba(0,0,0,0.85)', 
+        backdropFilter: 'blur(4px)',
+        zIndex: 100, 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        padding: '20px' 
+      }}
+    >
+      <div 
+        onClick={(e: React.MouseEvent) => e.stopPropagation()} 
+        style={{ 
+          width: '100%', 
+          maxWidth: '420px', 
+          background: '#1a1a1f', 
+          borderRadius: '20px', 
+          padding: '24px', 
+          maxHeight: '90vh', 
+          overflowY: 'auto',
+          border: '1px solid rgba(255,255,255,0.1)',
+        }}
+      >
+        {/* Header */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '20px' 
+        }}>
+          <h3 style={{ fontSize: '20px', fontWeight: 700 }}>
+            Claim this {claimType}
+          </h3>
+          <button
+            onClick={onClose}
+            style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              border: 'none',
+              background: 'rgba(255,255,255,0.08)',
+              color: '#999',
+              fontSize: '18px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            ✕
+          </button>
         </div>
 
         {claimSubmitted ? (
+          /* SUCCESS STATE */
           <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <div style={{ width: '60px', height: '60px', background: 'rgba(34,197,94,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '28px' }}>✓</div>
-            <h4 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px', color: '#22c55e' }}>Claim Submitted!</h4>
-            <p style={{ fontSize: '14px', color: '#999', lineHeight: 1.6, marginBottom: '20px' }}>We&apos;ll review your claim within 24-48 hours. Once approved, sign in at <span style={{ color: '#ab67f7' }}>soundedout.com/portal</span> with your email to manage your listing.</p>
-            <button onClick={onClose} style={{ padding: '14px 28px', minHeight: '48px', background: '#ab67f7', border: 'none', borderRadius: '12px', color: 'white', fontSize: '15px', fontWeight: 700, cursor: 'pointer' }}>Done</button>
+            <div style={{ 
+              width: '72px', 
+              height: '72px', 
+              background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
+              borderRadius: '50%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              margin: '0 auto 20px',
+              boxShadow: '0 8px 24px rgba(34,197,94,0.3)',
+            }}>
+              <span style={{ fontSize: '32px', color: 'white' }}>✓</span>
+            </div>
+            
+            <h4 style={{ 
+              fontSize: '22px', 
+              fontWeight: 800, 
+              marginBottom: '12px', 
+              color: '#22c55e' 
+            }}>
+              Claim Submitted!
+            </h4>
+            
+            <p style={{ 
+              fontSize: '14px', 
+              color: '#aaa', 
+              lineHeight: 1.6, 
+              marginBottom: '24px',
+              maxWidth: '340px',
+              margin: '0 auto 24px',
+            }}>
+              We'll review your claim within <strong style={{ color: 'white' }}>24-48 hours</strong>. 
+              Once approved, sign in at{' '}
+              <strong style={{ color: '#ab67f7' }}>soundedout.com/portal</strong>{' '}
+              with <strong style={{ color: 'white' }}>{claimForm.email}</strong> to manage your listing.
+            </p>
+            
+            <div style={{
+              padding: '16px',
+              background: 'rgba(171,103,247,0.1)',
+              border: '1px solid rgba(171,103,247,0.2)',
+              borderRadius: '12px',
+              marginBottom: '24px',
+            }}>
+              <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 600, marginBottom: '6px' }}>
+                What happens next?
+              </p>
+              <ul style={{ 
+                fontSize: '12px', 
+                color: '#999', 
+                lineHeight: 1.6,
+                textAlign: 'left',
+                paddingLeft: '20px',
+                margin: 0,
+              }}>
+                <li>Our team verifies your claim</li>
+                <li>You'll receive an email with portal access</li>
+                <li>Edit your listing, add images, and get verified</li>
+              </ul>
+            </div>
+            
+            <button
+              onClick={onClose}
+              style={{
+                padding: '16px 32px',
+                background: '#ab67f7',
+                border: 'none',
+                borderRadius: '14px',
+                color: 'white',
+                fontSize: '16px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 4px 16px rgba(171,103,247,0.3)',
+              }}
+            >
+              Done
+            </button>
           </div>
         ) : (
+          /* CLAIM FORM */
           <>
-            <div style={{ padding: '14px', background: 'rgba(171,103,247,0.1)', borderRadius: '12px', marginBottom: '20px' }}>
-              <p style={{ fontSize: '13px', color: '#ab67f7', marginBottom: '4px', fontWeight: 600 }}>{claimType === 'event' ? current.title : current.venue?.name}</p>
-              <p style={{ fontSize: '12px', color: '#999', lineHeight: 1.5 }}>Fill out the form below to claim this listing. Once approved, you&apos;ll be able to edit details and get a Verified badge.</p>
+            {/* Info Box */}
+            <div style={{ 
+              padding: '16px', 
+              background: 'rgba(171,103,247,0.08)', 
+              borderRadius: '12px', 
+              marginBottom: '20px',
+              border: '1px solid rgba(171,103,247,0.15)',
+            }}>
+              <p style={{ 
+                fontSize: '14px', 
+                color: '#ab67f7', 
+                marginBottom: '8px', 
+                fontWeight: 700,
+              }}>
+                {claimType === 'event' ? current.title : current.venue?.name}
+              </p>
+              <p style={{ fontSize: '12px', color: '#999', lineHeight: 1.5 }}>
+                Fill out this form to claim ownership. Once approved, you'll get a{' '}
+                <strong style={{ color: '#ab67f7' }}>Verified</strong> badge and full editing access.
+              </p>
             </div>
 
-            {claimError && <div style={{ padding: '12px', background: 'rgba(248,113,113,0.15)', borderRadius: '10px', marginBottom: '16px', fontSize: '13px', color: '#f87171' }}>{claimError}</div>}
+            {/* Error Message */}
+            {claimError && (
+              <div style={{ 
+                padding: '12px 16px', 
+                background: 'rgba(248,113,113,0.15)', 
+                border: '1px solid rgba(248,113,113,0.3)',
+                borderRadius: '10px', 
+                marginBottom: '16px',
+              }}>
+                <p style={{ fontSize: '13px', color: '#f87171', margin: 0 }}>
+                  {claimError}
+                </p>
+              </div>
+            )}
 
-            <form onSubmit={async (e: React.FormEvent) => {
-              e.preventDefault()
-              setClaimSubmitting(true)
-              setClaimError('')
-              try {
-                const { error } = await supabase.from('claim_requests').insert({
-                  claim_type: claimType,
-                  event_id: claimType === 'event' ? current.id : null,
-                  venue_id: claimType === 'venue' ? current.venue?.id : null,
-                  requested_by_name: claimForm.name,
-                  requested_by_email: claimForm.email,
-                  role: claimForm.role,
-                  proof_url: claimForm.proofUrl || null,
-                  status: 'pending',
-                })
-                if (error) throw error
-                setClaimSubmitted(true)
-                trackClaimSubmit(claimType, current.title, current.id)
-              } catch (err: any) { setClaimError(err.message || 'Something went wrong. Please try again.') }
-              setClaimSubmitting(false)
-            }}>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#999', marginBottom: '6px' }}>Your Name *</label>
-                <input type="text" required value={claimForm.name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setClaimForm({ ...claimForm, name: e.target.value })} placeholder="John Smith" style={{ width: '100%', padding: '12px 14px', minHeight: '48px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px', outline: 'none' }} />
+            {/* Form */}
+            <form onSubmit={handleSubmit}>
+              {/* Name */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '13px', 
+                  color: '#aaa', 
+                  marginBottom: '8px',
+                  fontWeight: 600,
+                }}>
+                  Your Name <span style={{ color: '#f87171' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={claimForm.name}
+                  onChange={(e) => setClaimForm({ ...claimForm, name: e.target.value })}
+                  placeholder="John Smith"
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: '#0a0a0b',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '15px',
+                    outline: 'none',
+                  }}
+                />
               </div>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#999', marginBottom: '6px' }}>Your Email *</label>
-                <input type="email" required value={claimForm.email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setClaimForm({ ...claimForm, email: e.target.value })} placeholder="you@email.com" style={{ width: '100%', padding: '12px 14px', minHeight: '48px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px', outline: 'none' }} />
-                <p style={{ fontSize: '11px', color: '#777', marginTop: '4px' }}>You&apos;ll use this email to sign in and manage your listing</p>
+
+              {/* Email */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '13px', 
+                  color: '#aaa', 
+                  marginBottom: '8px',
+                  fontWeight: 600,
+                }}>
+                  Email Address <span style={{ color: '#f87171' }}>*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={claimForm.email}
+                  onChange={(e) => setClaimForm({ ...claimForm, email: e.target.value })}
+                  placeholder="you@email.com"
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: '#0a0a0b',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '15px',
+                    outline: 'none',
+                  }}
+                />
+                <p style={{ fontSize: '11px', color: '#666', marginTop: '6px' }}>
+                  You'll use this to sign in to the partner portal
+                </p>
               </div>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#999', marginBottom: '6px' }}>Your Role *</label>
-                <select required value={claimForm.role} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setClaimForm({ ...claimForm, role: e.target.value })} style={{ width: '100%', padding: '12px 14px', minHeight: '48px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px', outline: 'none' }}>
+
+              {/* Role */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '13px', 
+                  color: '#aaa', 
+                  marginBottom: '8px',
+                  fontWeight: 600,
+                }}>
+                  Your Role <span style={{ color: '#f87171' }}>*</span>
+                </label>
+                <select
+                  required
+                  value={claimForm.role}
+                  onChange={(e) => setClaimForm({ ...claimForm, role: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: '#0a0a0b',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '15px',
+                    outline: 'none',
+                  }}
+                >
                   <option value="owner">Owner</option>
                   <option value="manager">Manager</option>
                   <option value="promoter">Promoter</option>
                   <option value="other">Other</option>
                 </select>
               </div>
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#999', marginBottom: '6px' }}>Proof Link (Instagram, website, etc.)</label>
-                <input type="url" value={claimForm.proofUrl} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setClaimForm({ ...claimForm, proofUrl: e.target.value })} placeholder="https://instagram.com/yourvenue" style={{ width: '100%', padding: '12px 14px', minHeight: '48px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px', outline: 'none' }} />
+
+              {/* Proof URL */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '13px', 
+                  color: '#aaa', 
+                  marginBottom: '8px',
+                  fontWeight: 600,
+                }}>
+                  Proof Link (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={claimForm.proofUrl}
+                  onChange={(e) => setClaimForm({ ...claimForm, proofUrl: e.target.value })}
+                  placeholder="https://instagram.com/yourvenue"
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    background: '#0a0a0b',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontSize: '15px',
+                    outline: 'none',
+                  }}
+                />
+                <p style={{ fontSize: '11px', color: '#666', marginTop: '6px' }}>
+                  Instagram, website, or other link proving ownership
+                </p>
               </div>
-              <button type="submit" disabled={claimSubmitting} style={{ width: '100%', padding: '14px', minHeight: '52px', background: claimSubmitting ? '#666' : 'linear-gradient(135deg, #ab67f7, #d7b3ff)', border: 'none', borderRadius: '12px', color: 'white', fontSize: '15px', fontWeight: 700, cursor: claimSubmitting ? 'not-allowed' : 'pointer' }}>{claimSubmitting ? 'Submitting...' : 'Submit Claim'}</button>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={claimSubmitting}
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  background: claimSubmitting 
+                    ? '#555' 
+                    : 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+                  border: 'none',
+                  borderRadius: '14px',
+                  color: 'white',
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  cursor: claimSubmitting ? 'not-allowed' : 'pointer',
+                  boxShadow: claimSubmitting 
+                    ? 'none' 
+                    : '0 4px 16px rgba(171,103,247,0.4)',
+                  opacity: claimSubmitting ? 0.6 : 1,
+                }}
+              >
+                {claimSubmitting ? 'Submitting...' : 'Submit Claim'}
+              </button>
             </form>
-            <p style={{ fontSize: '11px', color: '#666', textAlign: 'center', marginTop: '16px', lineHeight: 1.5 }}>We&apos;ll review your claim within 24-48 hours.</p>
+
+            <p style={{ 
+              fontSize: '11px', 
+              color: '#666', 
+              textAlign: 'center', 
+              marginTop: '16px', 
+              lineHeight: 1.5 
+            }}>
+              By submitting, you confirm you're authorized to manage this listing
+            </p>
           </>
         )}
       </div>
