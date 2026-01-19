@@ -15,7 +15,7 @@ type Venue = {
   instagram_url: string | null
 }
 
-export default function VenuesPage() {  // ← THIS LINE MUST BE HERE
+export default function VenuesPage() {
   const [venues, setVenues] = useState<Venue[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('All')
@@ -47,48 +47,28 @@ export default function VenuesPage() {  // ← THIS LINE MUST BE HERE
         background: 'rgba(10,10,11,0.95)',
         backdropFilter: 'blur(20px)',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
+        paddingTop: 'max(12px, env(safe-area-inset-top))',
       }}>
-        <div style={{ padding: '16px 20px' }}>
-          {/* TEXT LOGO - Instead of pin */}
-          {/* Header - SAME AS SAVED PAGE */}
-<div style={{
-  position: 'sticky',
-  top: 0,
-  zIndex: 20,
-  background: 'rgba(10,10,11,0.95)',
-  backdropFilter: 'blur(20px)',
-  borderBottom: '1px solid rgba(255,255,255,0.06)',
-  paddingTop: 'max(12px, env(safe-area-inset-top))',
-}}>
-  <div style={{ padding: '12px 20px 16px' }}>
-    {/* TEXT LOGO */}
-    <img 
-      src="/logo.svg" 
-      alt="Sounded Out" 
-      style={{ height: '22px', width: 'auto', marginBottom: '16px' }} 
-    />
-    
-    {/* Tab Navigation - CONSISTENT */}
-    <div style={{ 
-      display: 'flex', 
-      gap: '8px',
-      marginBottom: '16px',
-      overflowX: 'auto',
-      scrollbarWidth: 'none',
-    }}>
-      <Link href="/" style={{ padding: '10px 18px', minHeight: '40px', background: 'rgba(255,255,255,0.06)', borderRadius: '20px', color: '#999', textDecoration: 'none', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-        Events
-      </Link>
-      <Link href="/venues" style={{ padding: '10px 18px', minHeight: '40px', background: 'linear-gradient(135deg, #ab67f7, #c490ff)', borderRadius: '20px', color: 'white', textDecoration: 'none', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(171,103,247,0.3)' }}>
-        Venues
-      </Link>
-      <Link href="/saved" style={{ padding: '10px 18px', minHeight: '40px', background: 'rgba(255,255,255,0.06)', borderRadius: '20px', color: '#999', textDecoration: 'none', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-        Saved
-      </Link>
-    </div>
-  </div>
+        <div style={{ padding: '12px 20px 16px' }}>
+          <img 
+            src="/logo.svg" 
+            alt="Sounded Out" 
+            style={{ height: '22px', width: 'auto', marginBottom: '16px' }} 
+          />
+          
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+            <Link href="/" style={{ padding: '10px 18px', minHeight: '40px', background: 'rgba(255,255,255,0.06)', borderRadius: '20px', color: '#999', textDecoration: 'none', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              Events
+            </Link>
+            <Link href="/venues" style={{ padding: '10px 18px', minHeight: '40px', background: 'linear-gradient(135deg, #ab67f7, #c490ff)', borderRadius: '20px', color: 'white', textDecoration: 'none', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(171,103,247,0.3)' }}>
+              Venues
+            </Link>
+            <Link href="/saved" style={{ padding: '10px 18px', minHeight: '40px', background: 'rgba(255,255,255,0.06)', borderRadius: '20px', color: '#999', textDecoration: 'none', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              Saved
+            </Link>
+          </div>
+        </div>
 
-        {/* Venue Type Filters */}
         <div style={{ padding: '0 20px 16px', overflowX: 'auto', display: 'flex', gap: '8px' }}>
           {types.map(type => (
             <button
@@ -112,9 +92,8 @@ export default function VenuesPage() {  // ← THIS LINE MUST BE HERE
         </div>
       </div>
 
-      {/* Content */}
       <div style={{ padding: '20px' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '8px' }}>Venues</h1>
+        <h1 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '8px', color: 'white' }}>Venues</h1>
         <p style={{ fontSize: '15px', color: '#999', marginBottom: '24px' }}>
           Explore nightlife venues in Newcastle
         </p>
@@ -123,7 +102,6 @@ export default function VenuesPage() {  // ← THIS LINE MUST BE HERE
           {filtered.length} venues
         </p>
 
-        {/* Venue Cards */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {filtered.map(venue => (
             <Link
@@ -140,7 +118,6 @@ export default function VenuesPage() {  // ← THIS LINE MUST BE HERE
                 color: 'white',
               }}
             >
-              {/* Venue Icon/Image */}
               <div style={{
                 width: '64px',
                 height: '64px',
@@ -159,7 +136,6 @@ export default function VenuesPage() {  // ← THIS LINE MUST BE HERE
                 {!venue.image_url && '🎵'}
               </div>
 
-              {/* Venue Info */}
               <div style={{ flex: 1 }}>
                 <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>
                   {venue.name}
@@ -179,7 +155,6 @@ export default function VenuesPage() {  // ← THIS LINE MUST BE HERE
                 </span>
               </div>
 
-              {/* Arrow */}
               <div style={{ display: 'flex', alignItems: 'center', color: '#666' }}>
                 →
               </div>
