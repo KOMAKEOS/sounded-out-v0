@@ -1,208 +1,129 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { supabase } from '../../lib/supabase'
-import NavBar from '../../components/NavBar'
+import Link from 'next/link'
 
-interface User {
+type SavedEvent = {
   id: string
-  email?: string
+  event_id: string
+  event: {
+    id: string
+    title: string
+    start_time: string
+    venue: { name: string }
+    image_url: string | null
+    genres: string | null
+  }
 }
 
-// ============================================================================
-// SETTINGS PAGE - With honest "Coming Soon" labels
-// ============================================================================
-
-export default function SettingsPage() {
-  const [user, setUser] = useState<User | null>(null)
+export default function SavedPage() {
+  const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
     const loadUser = async () => {
       const { data } = await supabase.auth.getUser()
-      if (data.user) setUser({ id: data.user.id, email: data.user.email })
+      setUser(data.user)
+      
+      if (data.user) {
+        // Load saved events from database
+        const { data: saved } = await supabase
+          .from('saved_events')
+          .select('id, event_id, event:events(id, title, start_time, venue:venues(name), image_url, genres)')
+          .eq('user_id', data.user.id)
+          .order('created_at', { ascending: false })
+        
+        if (saved) setSavedEvents(saved as any)
+      }
       setLoading(false)
     }
-
     loadUser()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) setUser({ id: session.user.id, email: session.user.email })
-      else setUser(null)
-    })
-
-    return () => subscription.unsubscribe()
   }, [])
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-  }
-
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0b', color: 'white' }}>
-      <NavBar />
-
-      <main style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 20px' }}>
-        <div style={{ marginBottom: '28px' }}>
-          <h1 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '8px' }}>Settings</h1>
-          <p style={{ fontSize: '15px', color: '#888' }}>
-            {user ? `Signed in as ${user.email || 'account'}` : 'Sign in to access account settings.'}
-          </p>
+    <div style={{ minHeight: '100vh', background: '#0a0a0b', paddingBottom: '80px' }}>
+      {/* Header */}
+      <div style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 20,
+        background: 'rgba(10,10,11,0.95)',
+        backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        paddingTop: 'max(12px, env(safe-area-inset-top))',
+      }}>
+        <div style={{ padding: '12px 20px 16px' }}>
+          <img src="/logo.svg" alt="Sounded Out" style={{ height: '22px', width: 'auto', marginBottom: '16px' }} />
+          
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+            <Link href="/" style={{ padding: '10px 18px', minHeight: '40px', background: 'rgba(255,255,255,0.06)', borderRadius: '20px', color: '#999', textDecoration: 'none', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              Events
+            </Link>
+            <Link href="/venues" style={{ padding: '10px 18px', minHeight: '40px', background: 'rgba(255,255,255,0.06)', borderRadius: '20px', color: '#999', textDecoration: 'none', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              Venues
+            </Link>
+            <Link href="/saved" style={{ padding: '10px 18px', minHeight: '40px', background: 'linear-gradient(135deg, #ab67f7, #c490ff)', borderRadius: '20px', color: 'white', textDecoration: 'none', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(171,103,247,0.3)' }}>
+              Saved
+            </Link>
+          </div>
         </div>
+      </div>
 
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-            <div
-              style={{
-                width: '48px',
-                height: '48px',
-                border: '3px solid rgba(171,103,247,0.2)',
-                borderTopColor: '#ab67f7',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-                margin: '0 auto 16px',
-              }}
-            />
-            <p style={{ color: '#888' }}>Loading settings...</p>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      {/* Content */}
+      <div style={{ padding: '20px' }}>
+        <h1 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '8px' }}>💜 Saved Events</h1>
+        
+        {!user ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <p style={{ fontSize: '16px', color: '#666', marginBottom: '24px' }}>
+              Sign in to save events
+            </p>
+            <Link href="/login" style={{ padding: '14px 28px', background: '#ab67f7', borderRadius: '12px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 700, display: 'inline-block' }}>
+              Sign In
+            </Link>
+          </div>
+        ) : savedEvents.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <div style={{ fontSize: '64px', marginBottom: '20px', opacity: 0.3 }}>💜</div>
+            <p style={{ fontSize: '16px', color: '#666', marginBottom: '24px' }}>
+              No saved events yet
+            </p>
+            <Link href="/" style={{ padding: '14px 28px', background: '#ab67f7', borderRadius: '12px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 700, display: 'inline-block' }}>
+              Browse Events
+            </Link>
           </div>
         ) : (
-          <>
-            {/* Account */}
-            <div
-              style={{
-                background: '#141416',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '16px',
-                padding: '18px',
-                marginBottom: '16px',
-              }}
-            >
-              <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>Account</h3>
-
-              {user ? (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center' }}>
-                    <div>
-                      <p style={{ fontSize: '13px', color: '#888', margin: 0 }}>Email</p>
-                      <p style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>{user.email || '—'}</p>
-                    </div>
-
-                    <button
-                      onClick={handleSignOut}
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: '12px',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        background: 'rgba(248,113,113,0.12)',
-                        color: '#f87171',
-                        cursor: 'pointer',
-                        fontWeight: 700,
-                        fontSize: '14px',
-                      }}
-                    >
-                      Sign out
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <Link
-                  href="/login"
-                  style={{
-                    display: 'inline-block',
-                    marginTop: '10px',
-                    padding: '12px 16px',
-                    background: '#ab67f7',
-                    borderRadius: '12px',
-                    color: 'white',
-                    textDecoration: 'none',
-                    fontSize: '14px',
-                    fontWeight: 700,
-                  }}
-                >
-                  Sign in
-                </Link>
-              )}
-            </div>
-
-            {/* Preferences */}
-            <div
-              style={{
-                background: '#141416',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '16px',
-                padding: '18px',
-                marginBottom: '16px',
-              }}
-            >
-              <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>Preferences</h3>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <SettingRow title="Notifications" value="Coming soon" />
-                <SettingRow title="Location" value="Coming soon" />
-                <SettingRow title="Music tastes" value="Coming soon" />
-              </div>
-            </div>
-
-            {/* Support */}
-            <div
-              style={{
-                background: '#141416',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '16px',
-                padding: '18px',
-              }}
-            >
-              <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '8px' }}>Support</h3>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <Link
-                  href="/"
-                  style={{
-                    textDecoration: 'none',
-                    color: 'white',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '10px 12px',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    background: 'rgba(255,255,255,0.03)',
-                  }}
-                >
-                  <span style={{ fontWeight: 700 }}>Back to map</span>
-                  <span style={{ color: '#888' }}>→</span>
-                </Link>
-
-                <SettingRow title="Privacy policy" value="Coming soon" />
-                <SettingRow title="Terms" value="Coming soon" />
-              </div>
-            </div>
-          </>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {savedEvents.map(saved => (
+              <Link
+                key={saved.id}
+                href={`/event/${saved.event.id}`}
+                style={{
+                  display: 'flex',
+                  gap: '14px',
+                  padding: '14px',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: '16px',
+                  textDecoration: 'none',
+                  color: 'white',
+                }}
+              >
+                <div style={{ width: '64px', height: '64px', minWidth: '64px', borderRadius: '12px', background: saved.event.image_url ? `url(${saved.event.image_url})` : 'linear-gradient(135deg, rgba(171,103,247,0.3), rgba(171,103,247,0.1))', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>{saved.event.title}</h3>
+                  <p style={{ fontSize: '12px', color: '#aaa', marginBottom: '6px' }}>{saved.event.venue.name}</p>
+                  <p style={{ fontSize: '12px', color: '#ab67f7' }}>
+                    {new Date(saved.event.start_time).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
         )}
-      </main>
-    </div>
-  )
-}
-
-function SettingRow({ title, value }: { title: string; value: string }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '10px 12px',
-        borderRadius: '12px',
-        border: '1px solid rgba(255,255,255,0.06)',
-        background: 'rgba(255,255,255,0.03)',
-      }}
-    >
-      <span style={{ fontWeight: 700 }}>{title}</span>
-      <span style={{ color: '#888', fontSize: '13px', fontWeight: 600 }}>{value}</span>
+      </div>
     </div>
   )
 }
