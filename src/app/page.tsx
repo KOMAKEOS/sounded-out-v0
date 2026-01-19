@@ -1485,7 +1485,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
     marginBottom: '8px' 
   }}
 >
-  💜 Saved Events  {/* ← CHANGED EMOJI */}
+  Saved Events  {/* ← CHANGED EMOJI */}
 </Link>
 
     <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
