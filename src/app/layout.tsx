@@ -11,9 +11,13 @@ export const metadata: Metadata = {
   creator: 'Sounded Out',
   publisher: 'Sounded Out',
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
     apple: '/apple-touch-icon.png',
   },
+}
   themeColor: '#0a0a0b',
   openGraph: {
     type: 'website',
