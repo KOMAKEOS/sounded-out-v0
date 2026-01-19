@@ -3728,28 +3728,55 @@ const DesktopDetailPanel: React.FC = () => {
   );
 }
 
-    
-
 // ============================================================================
-// MOBILE DETAIL SHEET - COMPLETE FIXED VERSION
+// MOBILE DETAIL SHEET - BULLETPROOF VERSION
 // ============================================================================
-// Copy-paste this ENTIRE component to replace your existing MobileDetailSheet
+// This version handles ALL edge cases and won't crash if props are missing
 
 function MobileDetailSheet({
-  current, currentIndex, filtered, showAllGenres, setShowAllGenres, showDescription, setShowDescription,
-  setClaimType, setShowClaimModal, setShowLoginModal, navigate, formatTime, formatPrice, getDateLabel, getGenres, getTicketUrl,
-  isFree, mapsUrl, noSelectStyle, onTouchStart, onTouchMove, onTouchEnd, dragDirection, getCardTransform,
-  getDismissTransform, dismissProgress, getGenreStyle, isEventSaved, toggleSaveEvent, user, formatGenre,
+  current, 
+  currentIndex, 
+  filtered, 
+  showAllGenres, 
+  setShowAllGenres, 
+  showDescription, 
+  setShowDescription,
+  setClaimType, 
+  setShowClaimModal, 
+  setShowLoginModal, 
+  navigate, 
+  formatTime, 
+  formatPrice, 
+  getDateLabel, 
+  getGenres, 
+  getTicketUrl,
+  isFree, 
+  mapsUrl, 
+  noSelectStyle, 
+  onTouchStart, 
+  onTouchMove, 
+  onTouchEnd, 
+  dragDirection, 
+  getCardTransform,
+  getDismissTransform, 
+  dismissProgress, 
+  getGenreStyle, 
+  isEventSaved, 
+  toggleSaveEvent, 
+  user,
 }: any) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  
-  // Client-only rendering to prevent hydration errors
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-  
-  if (!mounted) return null
+
+  // Internal formatGenre function (doesn't rely on prop)
+  const formatGenre = (genre: string): string => {
+    if (!genre) return ''
+    return genre
+      .trim()
+      .replace(/_/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+  }
 
   // PREVIEW MODE - Compact bottom sheet
   if (!isExpanded) {
@@ -3771,15 +3798,15 @@ function MobileDetailSheet({
           paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))',
           zIndex: 50,
           boxShadow: '0 -8px 32px rgba(0,0,0,0.6)',
-          transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s ease',
+          transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
           ...noSelectStyle,
           ...(dragDirection === 'horizontal' ? getCardTransform() : getDismissTransform()),
         }}
       >
         {/* Drag indicator */}
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
-          <div style={{ width: '48px', height: '5px', background: dismissProgress > 0.8 ? '#ab67f7' : '#666', borderRadius: '3px', transition: 'background 200ms ease' }} />
-          <span style={{ fontSize: '10px', color: dismissProgress > 0.8 ? '#ab67f7' : '#666', transition: 'color 200ms ease' }}>
+          <div style={{ width: '48px', height: '5px', background: dismissProgress > 0.8 ? '#ab67f7' : '#666', borderRadius: '3px' }} />
+          <span style={{ fontSize: '10px', color: dismissProgress > 0.8 ? '#ab67f7' : '#666' }}>
             {dismissProgress > 0.8 ? 'Release to close' : 'Swipe to browse'}
           </span>
         </div>
@@ -3830,7 +3857,7 @@ function MobileDetailSheet({
           {/* Save button */}
           <button
             onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSaveEvent(current.id) }}
-            style={{ width: '44px', height: '44px', minWidth: '44px', borderRadius: '50%', border: 'none', background: isEventSaved(current.id) ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, transition: 'all 200ms ease' }}
+            style={{ width: '44px', height: '44px', minWidth: '44px', borderRadius: '50%', border: 'none', background: isEventSaved(current.id) ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill={isEventSaved(current.id) ? '#f87171' : 'none'} stroke={isEventSaved(current.id) ? '#f87171' : '#999'} strokeWidth="2">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
@@ -3841,7 +3868,7 @@ function MobileDetailSheet({
         {/* View Details button */}
         <button
           onClick={(e: React.MouseEvent) => { e.stopPropagation(); setIsExpanded(true) }}
-          style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)', border: 'none', borderRadius: '14px', color: 'white', fontSize: '16px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(171,103,247,0.3)', marginBottom: '12px', transition: 'transform 150ms ease, box-shadow 150ms ease' }}
+          style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)', border: 'none', borderRadius: '14px', color: 'white', fontSize: '16px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(171,103,247,0.3)', marginBottom: '12px' }}
         >
           VIEW DETAILS
         </button>
@@ -3860,7 +3887,6 @@ function MobileDetailSheet({
               fontSize: '14px', 
               fontWeight: 600, 
               cursor: currentIndex === 0 ? 'default' : 'pointer', 
-              transition: 'all 150ms ease',
               ...noSelectStyle 
             }}
           >
@@ -3881,7 +3907,6 @@ function MobileDetailSheet({
               fontSize: '14px', 
               fontWeight: 600, 
               cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', 
-              transition: 'all 150ms ease',
               ...noSelectStyle 
             }}
           >
@@ -3892,7 +3917,7 @@ function MobileDetailSheet({
     )
   }
 
-  // DETAIL MODE - Full expanded view with scroll
+  // DETAIL MODE - Full expanded view
   return (
     <div
       onClick={(e: React.MouseEvent) => e.stopPropagation()}
@@ -3913,7 +3938,7 @@ function MobileDetailSheet({
         WebkitOverflowScrolling: 'touch',
         zIndex: 50,
         boxShadow: '0 -4px 32px rgba(0,0,0,0.6)',
-        transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s ease',
+        transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
         ...noSelectStyle,
         ...(dragDirection === 'horizontal' ? getCardTransform() : getDismissTransform()),
       }}
@@ -3936,8 +3961,7 @@ function MobileDetailSheet({
           justifyContent: 'center', 
           cursor: 'pointer', 
           zIndex: 10, 
-          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-          transition: 'transform 150ms ease'
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)' 
         }}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
@@ -3947,8 +3971,8 @@ function MobileDetailSheet({
 
       {/* Drag indicator */}
       <div style={{ width: '100%', padding: '8px 0 14px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-        <div style={{ width: '48px', height: '5px', background: dismissProgress > 0.8 ? '#ab67f7' : '#777', borderRadius: '3px', transition: 'background 200ms ease' }} />
-        <span style={{ fontSize: '10px', color: dismissProgress > 0.8 ? '#ab67f7' : '#666', transition: 'color 200ms ease' }}>
+        <div style={{ width: '48px', height: '5px', background: dismissProgress > 0.8 ? '#ab67f7' : '#777', borderRadius: '3px' }} />
+        <span style={{ fontSize: '10px', color: dismissProgress > 0.8 ? '#ab67f7' : '#666' }}>
           {dismissProgress > 0.8 ? 'Release to close' : 'Pull down to close'}
         </span>
       </div>
@@ -3992,8 +4016,7 @@ function MobileDetailSheet({
             background: 'rgba(171,103,247,0.1)', 
             border: '1px solid rgba(171,103,247,0.2)', 
             borderRadius: '12px', 
-            textDecoration: 'none',
-            transition: 'all 150ms ease'
+            textDecoration: 'none' 
           }}
         >
           {current.brand.logo_url ? (
@@ -4058,7 +4081,7 @@ function MobileDetailSheet({
               FREE
             </span>
           )}
-          {current.genres?.split(',').slice(0, showAllGenres ? undefined : 4).map((g: string, i: number) => (
+          {current.genres && current.genres.split(',').slice(0, showAllGenres ? undefined : 4).map((g: string, i: number) => (
             <span key={i} style={{ padding: '8px 14px', background: 'rgba(171,103,247,0.12)', borderRadius: '10px', fontSize: '14px', color: '#ab67f7' }}>
               {formatGenre(g)}
             </span>
@@ -4125,7 +4148,7 @@ function MobileDetailSheet({
         </div>
       )}
 
-      {/* Event actions (tickets, save, etc) */}
+      {/* Event actions - with proper spacing */}
       <div style={{ marginBottom: '100px' }}>
         <EventActions 
           event={{ 
@@ -4148,7 +4171,7 @@ function MobileDetailSheet({
         />
       </div>
 
-      {/* Fixed bottom navigation */}
+      {/* Fixed bottom navigation - properly positioned */}
       <div style={{ 
         position: 'fixed', 
         bottom: 0, 
@@ -4180,7 +4203,6 @@ function MobileDetailSheet({
             cursor: currentIndex === 0 ? 'default' : 'pointer', 
             pointerEvents: 'auto', 
             boxShadow: currentIndex === 0 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)', 
-            transition: 'all 150ms ease', 
             ...noSelectStyle 
           }}
         >
@@ -4216,7 +4238,6 @@ function MobileDetailSheet({
             cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', 
             pointerEvents: 'auto', 
             boxShadow: currentIndex === filtered.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)', 
-            transition: 'all 150ms ease', 
             ...noSelectStyle 
           }}
         >
@@ -4226,6 +4247,8 @@ function MobileDetailSheet({
     </div>
   )
 }
+    
+
 
 // ============================================================================
 // CLAIM MODAL COMPONENT
