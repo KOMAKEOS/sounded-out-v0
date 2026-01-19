@@ -2742,11 +2742,21 @@ const DesktopDetailPanel: React.FC = () => {
   <svg 
     onClick={handleLogoTap}
     viewBox="0 0 24 36" 
-    width="24"  // ← REDUCE from 28
-    height="28"  // ← REDUCE from 32
+    width="24" 
+    height="28" 
     style={{ cursor: 'pointer', flexShrink: 0 }}
   >
-    {/* ... pin SVG stays same ... */}
+    <path 
+      d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" 
+      fill="url(#mobilePinGrad)"
+    />
+    <circle cx="12" cy="12" r="5" fill="white"/>
+    <defs>
+      <linearGradient id="mobilePinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#ab67f7"/>
+        <stop offset="100%" stopColor="#d7b3ff"/>
+      </linearGradient>
+    </defs>
   </svg>
   
   <div style={{ 
