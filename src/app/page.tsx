@@ -3729,9 +3729,9 @@ const DesktopDetailPanel: React.FC = () => {
 }
 
 // ============================================================================
-// MOBILE DETAIL SHEET - BULLETPROOF VERSION
+// MOBILE DETAIL SHEET - WITH SMART SCROLL DETECTION
 // ============================================================================
-// This version handles ALL edge cases and won't crash if props are missing
+// Swipe down to close ONLY works when scrolled to the top
 
 function MobileDetailSheet({
   current, 
@@ -3766,8 +3766,10 @@ function MobileDetailSheet({
   user,
 }: any) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [canDismiss, setCanDismiss] = useState(true)
 
-  // Internal formatGenre function (doesn't rely on prop)
+  // Format genre function
   const formatGenre = (genre: string): string => {
     if (!genre) return ''
     return genre
@@ -3776,6 +3778,49 @@ function MobileDetailSheet({
       .split(' ')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ')
+  }
+
+  // Handle scroll to detect if user is at top
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = e.currentTarget.scrollTop
+    setCanDismiss(scrollTop === 0)
+  }
+
+  // Smart touch handlers for detail view
+  const handleDetailTouchStart = (e: React.TouchEvent) => {
+    if (!isExpanded) {
+      onTouchStart(e)
+      return
+    }
+
+    // Only allow dismiss if scrolled to top
+    if (canDismiss) {
+      onTouchStart(e)
+    }
+  }
+
+  const handleDetailTouchMove = (e: React.TouchEvent) => {
+    if (!isExpanded) {
+      onTouchMove(e)
+      return
+    }
+
+    // Only trigger dismiss gesture if at top
+    if (canDismiss) {
+      onTouchMove(e)
+    }
+    // Otherwise, let normal scroll happen (do nothing)
+  }
+
+  const handleDetailTouchEnd = () => {
+    if (!isExpanded) {
+      onTouchEnd()
+      return
+    }
+
+    if (canDismiss) {
+      onTouchEnd()
+    }
   }
 
   // PREVIEW MODE - Compact bottom sheet
@@ -3917,13 +3962,15 @@ function MobileDetailSheet({
     )
   }
 
-  // DETAIL MODE - Full expanded view
+  // DETAIL MODE - Full expanded view with smart scroll
   return (
     <div
+      ref={scrollContainerRef}
       onClick={(e: React.MouseEvent) => e.stopPropagation()}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
+      onTouchStart={handleDetailTouchStart}
+      onTouchMove={handleDetailTouchMove}
+      onTouchEnd={handleDetailTouchEnd}
+      onScroll={handleScroll}
       style={{
         position: 'fixed',
         bottom: 0,
@@ -3969,11 +4016,21 @@ function MobileDetailSheet({
         </svg>
       </button>
 
-      {/* Drag indicator */}
+      {/* Drag indicator - only shows when at top */}
       <div style={{ width: '100%', padding: '8px 0 14px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-        <div style={{ width: '48px', height: '5px', background: dismissProgress > 0.8 ? '#ab67f7' : '#777', borderRadius: '3px' }} />
-        <span style={{ fontSize: '10px', color: dismissProgress > 0.8 ? '#ab67f7' : '#666' }}>
-          {dismissProgress > 0.8 ? 'Release to close' : 'Pull down to close'}
+        <div style={{ 
+          width: '48px', 
+          height: '5px', 
+          background: canDismiss && dismissProgress > 0.8 ? '#ab67f7' : canDismiss ? '#777' : '#333', 
+          borderRadius: '3px',
+          transition: 'background 200ms ease'
+        }} />
+        <span style={{ 
+          fontSize: '10px', 
+          color: canDismiss && dismissProgress > 0.8 ? '#ab67f7' : canDismiss ? '#666' : '#444',
+          transition: 'color 200ms ease'
+        }}>
+          {canDismiss ? (dismissProgress > 0.8 ? 'Release to close' : 'Pull down to close') : 'Scroll to top to dismiss'}
         </span>
       </div>
 
@@ -4148,7 +4205,7 @@ function MobileDetailSheet({
         </div>
       )}
 
-      {/* Event actions - with proper spacing */}
+      {/* Event actions */}
       <div style={{ marginBottom: '100px' }}>
         <EventActions 
           event={{ 
@@ -4171,7 +4228,7 @@ function MobileDetailSheet({
         />
       </div>
 
-      {/* Fixed bottom navigation - properly positioned */}
+      {/* Fixed bottom navigation */}
       <div style={{ 
         position: 'fixed', 
         bottom: 0, 
@@ -4247,7 +4304,7 @@ function MobileDetailSheet({
     </div>
   )
 }
-    
+  
 
 
 // ============================================================================
