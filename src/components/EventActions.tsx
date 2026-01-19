@@ -95,7 +95,7 @@ export default function EventActions({
       {/* Primary CTA - Full width */}
       {ticketUrl && (
         <a
-          href={ticketUrl}
+          href={`/event/${event.id}`}
           target="_blank"
           rel="noopener noreferrer"
           style={{
