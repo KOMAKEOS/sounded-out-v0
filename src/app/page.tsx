@@ -1926,14 +1926,17 @@ const DesktopSidebar = () => {
       </div>
       
       <div
-        ref={listScrollRef}
-        onScroll={handleListScroll}
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '12px',
-        }}
-      >
+  ref={listScrollRef}
+  onScroll={handleListScroll}
+  style={{
+    flex: 1,
+    overflowY: 'auto',
+    overflowX: 'hidden',  // ← ADD
+    padding: '12px',
+    WebkitOverflowScrolling: 'touch',  // ← ADD
+    overscrollBehavior: 'contain',  // ← ADD - prevents pull-to-refresh
+  }}
+>
         {Object.entries(grouped).map(([label, evs], gi) => (
           <div
             key={label}
