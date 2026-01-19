@@ -12,11 +12,12 @@ export const metadata: Metadata = {
   publisher: 'Sounded Out',
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: '32x32' },
+      { url: '/icon.png', sizes: '192x192', type: 'image/png' },
     ],
     apple: '/apple-touch-icon.png',
-  },  // ← COMMA HERE (not closing brace)
+  },
+} // ← COMMA HERE (not closing brace)
   themeColor: '#0a0a0b',
   openGraph: {
     type: 'website',
