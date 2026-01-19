@@ -15,7 +15,7 @@ type Venue = {
   instagram_url: string | null
 }
 
-export default function VenuesPage() {
+export default function VenuesPage() {  // ← THIS LINE MUST BE HERE
   const [venues, setVenues] = useState<Venue[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('All')
@@ -40,7 +40,6 @@ export default function VenuesPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0b', paddingBottom: '80px' }}>
-      {/* Header with TEXT LOGO */}
       <div style={{
         position: 'sticky',
         top: 0,
