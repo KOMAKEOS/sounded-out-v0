@@ -53,22 +53,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, padding: 0, background: '#0a0a0b' }}>
-        {children}
-      </body>
-    </html>
-  )
-}
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/icon.png" type="image/png" sizes="192x192" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
-      <body>{children}</body>
+      <body style={{ margin: 0, padding: 0, background: '#0a0a0b' }}>
+        {children}
+      </body>
     </html>
   )
 }
