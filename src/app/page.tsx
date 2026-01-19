@@ -40,37 +40,37 @@ import {
 // APPLE-GRADE MOTION CONSTANTS
 // ============================================================================
 const SPRING = {
-  sheet: 'cubic-bezier(0.175, 0.885, 0.32, 1.35)',
-  sheetDuration: 300,
+  sheet: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',  // ← iOS native feel
+  sheetDuration: 280,  // ← REDUCED from 300
   ios: 'cubic-bezier(0.25, 0.1, 0.25, 1.0)',
   iosDuration: 280,
   feedback: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
   feedbackDuration: 60,
-  settle: 'cubic-bezier(0.4, 0.0, 0.2, 1.0)',
-  settleDuration: 420,
+  settle: 'cubic-bezier(0.32, 0.94, 0.60, 1)',  // ← IMPROVED
+  settleDuration: 320,  // ← REDUCED from 420
   springBack: 'cubic-bezier(0.34, 1.3, 0.64, 1)',
-  springBackDuration: 220,
+  springBackDuration: 200,  // ← REDUCED from 220
   snap: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
   snapDuration: 240,
   emergence: 'cubic-bezier(0.42, 0.0, 0.58, 1.0)',
   emergenceDuration: 320,
   scrollSettle: 'cubic-bezier(0.25, 0.1, 0.25, 1.0)',
-  scrollSettleDuration: 180,
+  scrollSettleDuration: 160,  // ← REDUCED from 180
 }
 
 const GESTURE = {
-  swipeThreshold: 96,
-  velocityThreshold: 320,
-  dismissThreshold: 110,
-  dismissVelocity: 300,
-  rubberBand: 0.22,
+  swipeThreshold: 80,  // ← REDUCED from 96
+  velocityThreshold: 280,  // ← REDUCED from 320
+  dismissThreshold: 100,  // ← REDUCED from 110
+  dismissVelocity: 250,  // ← REDUCED from 300
+  rubberBand: 0.35,  // ← INCREASED from 0.22 (more resistance)
   edgeResistance: 0.18,
-  scrollRubberBand: 0.15,
+  scrollRubberBand: 0.25,  // ← INCREASED from 0.15
   peekAmount: 0.12,
   mapFriction: 0.965,
-  minPanDuration: 280,
-  maxPanDuration: 620,
-  dismissScale: 0.97,
+  minPanDuration: 180,  // ← REDUCED from 280 (faster response)
+  maxPanDuration: 420,  // ← REDUCED from 620 (snappier)
+  dismissScale: 0.98,  // ← CHANGED from 0.97 (less shrink)
 }
 
 // ============================================================================
@@ -1470,9 +1470,23 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
       Venues
     </Link>
 
-    <Link href="/saved" onClick={onClose} style={{ display: 'block', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 500, marginBottom: '8px' }}>
-      Saved
-    </Link>
+   <Link 
+  href="/saved"  // ← CHANGED FROM /settings
+  onClick={onClose} 
+  style={{ 
+    display: 'block', 
+    padding: '14px 16px', 
+    background: 'rgba(255,255,255,0.04)', 
+    borderRadius: '10px', 
+    color: 'white', 
+    textDecoration: 'none', 
+    fontSize: '15px', 
+    fontWeight: 500, 
+    marginBottom: '8px' 
+  }}
+>
+  💜 Saved Events  {/* ← CHANGED EMOJI */}
+</Link>
 
     <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0' }} />
 
@@ -2697,40 +2711,41 @@ const DesktopDetailPanel: React.FC = () => {
       />
 
       {/* Top Bar with Logo and Menu */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        padding: '10px 12px',
-        paddingTop: 'max(10px, env(safe-area-inset-top))',
-        background: 'linear-gradient(180deg, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0.85) 70%, transparent 100%)',
-        backdropFilter: 'blur(12px)',
-        zIndex: 20,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: '8px',
-      }}>
-        <svg 
-  onClick={handleLogoTap}
-  viewBox="0 0 24 36" 
-  width="28" 
-  height="32" 
-  style={{ cursor: 'pointer', flexShrink: 0 }}
->
-  <path 
-    d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" 
-    fill="url(#mobilePinGrad)"
-  />
-  <circle cx="12" cy="12" r="5" fill="white"/>
-  <defs>
-    <linearGradient id="mobilePinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stopColor="#ab67f7"/>
-      <stop offset="100%" stopColor="#d7b3ff"/>
-    </linearGradient>
-  </defs>
-</svg>
+<div style={{
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  padding: '10px 12px',
+  paddingTop: 'max(10px, env(safe-area-inset-top))',
+  background: 'linear-gradient(180deg, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0.85) 70%, transparent 100%)',
+  backdropFilter: 'blur(12px)',
+  zIndex: 20,
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: '8px',
+}}>
+  {/* MAP ICON LOGO - Only on map view */}
+  <svg 
+    onClick={handleLogoTap}
+    viewBox="0 0 24 36" 
+    width="28" 
+    height="32" 
+    style={{ cursor: 'pointer', flexShrink: 0 }}
+  >
+    <path 
+      d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" 
+      fill="url(#mobilePinGrad)"
+    />
+    <circle cx="12" cy="12" r="5" fill="white"/>
+    <defs>
+      <linearGradient id="mobilePinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#ab67f7"/>
+        <stop offset="100%" stopColor="#d7b3ff"/>
+      </linearGradient>
+    </defs>
+  </svg>
         
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
           {user ? (
@@ -4239,82 +4254,90 @@ function MobileDetailSheet({
         />
       </div>
 
-      {/* Fixed bottom navigation */}
-      <div style={{ 
-        position: 'fixed', 
-        bottom: 0, 
-        left: 0, 
-        right: 0, 
-        padding: '16px 20px', 
-        paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))', 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        background: 'linear-gradient(0deg, rgba(20,20,22,1) 0%, rgba(20,20,22,0.98) 80%, transparent 100%)', 
-        backdropFilter: 'blur(20px)', 
-        zIndex: 1000, 
-        pointerEvents: 'none' 
-      }}>
-        <button 
-          onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('prev') }} 
-          disabled={currentIndex === 0} 
-          style={{ 
-            minHeight: '48px', 
-            minWidth: '48px', 
-            background: currentIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', 
-            border: 'none', 
-            borderRadius: '12px', 
-            padding: '12px 20px', 
-            color: currentIndex === 0 ? '#444' : 'white', 
-            fontSize: '15px', 
-            fontWeight: 700, 
-            cursor: currentIndex === 0 ? 'default' : 'pointer', 
-            pointerEvents: 'auto', 
-            boxShadow: currentIndex === 0 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)', 
-            ...noSelectStyle 
-          }}
-        >
-          ← Prev
-        </button>
-        
-        <span style={{ 
-          fontSize: '14px', 
-          color: '#999', 
-          fontWeight: 600, 
-          padding: '8px 16px', 
-          background: 'rgba(0,0,0,0.6)', 
-          borderRadius: '20px', 
-          backdropFilter: 'blur(10px)', 
-          pointerEvents: 'auto' 
-        }}>
-          {currentIndex + 1} / {filtered.length}
-        </span>
-        
-        <button 
-          onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next') }} 
-          disabled={currentIndex === filtered.length - 1} 
-          style={{ 
-            minHeight: '48px', 
-            minWidth: '48px', 
-            background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', 
-            border: 'none', 
-            borderRadius: '12px', 
-            padding: '12px 20px', 
-            color: currentIndex === filtered.length - 1 ? '#444' : 'white', 
-            fontSize: '15px', 
-            fontWeight: 700, 
-            cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', 
-            pointerEvents: 'auto', 
-            boxShadow: currentIndex === filtered.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)', 
-            ...noSelectStyle 
-          }}
-        >
-          Next →
-        </button>
-      </div>
-    </div>
-  )
-}
+      {/* Fixed bottom navigation - PROPER POSITIONING */}
+<div style={{ 
+  position: 'sticky',  // ← CHANGED FROM 'fixed'
+  bottom: 0,
+  left: 0,
+  right: 0,
+  marginLeft: '-20px',  // ← COMPENSATE FOR PARENT PADDING
+  marginRight: '-20px',
+  marginBottom: '-20px',
+  padding: '16px 20px', 
+  paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom) + 16px))', 
+  display: 'flex', 
+  justifyContent: 'space-between', 
+  alignItems: 'center', 
+  background: 'linear-gradient(0deg, rgba(20,20,22,1) 0%, rgba(20,20,22,0.98) 50%, rgba(20,20,22,0.9) 80%, transparent 100%)', 
+  backdropFilter: 'blur(20px)', 
+  zIndex: 100,  // ← LOWER than modal overlay
+  borderTop: '1px solid rgba(255,255,255,0.06)',
+}}>
+  <button 
+    onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('prev') }} 
+    disabled={currentIndex === 0} 
+    style={{ 
+      minHeight: '48px', 
+      minWidth: '90px',
+      background: currentIndex === 0 
+        ? 'rgba(255,255,255,0.05)' 
+        : 'linear-gradient(135deg, #ab67f7, #c490ff)', 
+      border: 'none', 
+      borderRadius: '24px',  // ← ROUNDER
+      padding: '12px 20px', 
+      color: currentIndex === 0 ? '#444' : 'white', 
+      fontSize: '15px', 
+      fontWeight: 700, 
+      cursor: currentIndex === 0 ? 'default' : 'pointer', 
+      boxShadow: currentIndex === 0 
+        ? 'none' 
+        : '0 4px 16px rgba(171,103,247,0.5)', 
+      transition: 'all 200ms ease',
+      ...noSelectStyle 
+    }}
+  >
+    ← Prev
+  </button>
+  
+  <span style={{ 
+    fontSize: '14px', 
+    color: '#999', 
+    fontWeight: 600, 
+    padding: '10px 18px', 
+    background: 'rgba(0,0,0,0.6)', 
+    borderRadius: '20px', 
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255,255,255,0.1)',
+  }}>
+    {currentIndex + 1} / {filtered.length}
+  </span>
+  
+  <button 
+    onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next') }} 
+    disabled={currentIndex === filtered.length - 1} 
+    style={{ 
+      minHeight: '48px', 
+      minWidth: '90px',
+      background: currentIndex === filtered.length - 1 
+        ? 'rgba(255,255,255,0.05)' 
+        : 'linear-gradient(135deg, #ab67f7, #c490ff)', 
+      border: 'none', 
+      borderRadius: '24px',
+      padding: '12px 20px', 
+      color: currentIndex === filtered.length - 1 ? '#444' : 'white', 
+      fontSize: '15px', 
+      fontWeight: 700, 
+      cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', 
+      boxShadow: currentIndex === filtered.length - 1 
+        ? 'none' 
+        : '0 4px 16px rgba(171,103,247,0.5)', 
+      transition: 'all 200ms ease',
+      ...noSelectStyle 
+    }}
+  >
+    Next →
+  </button>
+</div>
   
 
 
