@@ -2716,8 +2716,8 @@ const DesktopDetailPanel: React.FC = () => {
   top: 0,
   left: 0,
   right: 0,
-  padding: '10px 12px',
-  paddingTop: 'max(10px, env(safe-area-inset-top))',
+  padding: '10px 12px',  // ← CHANGE TO '8px 12px'
+  paddingTop: 'max(10px, env(safe-area-inset-top))',  // ← CHANGE TO max(8px, ...)
   background: 'linear-gradient(180deg, rgba(10,10,11,0.95) 0%, rgba(10,10,11,0.85) 70%, transparent 100%)',
   backdropFilter: 'blur(12px)',
   zIndex: 20,
@@ -2726,128 +2726,117 @@ const DesktopDetailPanel: React.FC = () => {
   alignItems: 'center',
   gap: '8px',
 }}>
-  {/* MAP ICON LOGO - Only on map view */}
+  {/* LOGO - Keep as is (map pin icon) */}
   <svg 
     onClick={handleLogoTap}
     viewBox="0 0 24 36" 
-    width="28" 
-    height="32" 
+    width="24"  // ← REDUCE from 28
+    height="28"  // ← REDUCE from 32
     style={{ cursor: 'pointer', flexShrink: 0 }}
   >
-    <path 
-      d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" 
-      fill="url(#mobilePinGrad)"
-    />
-    <circle cx="12" cy="12" r="5" fill="white"/>
-    <defs>
-      <linearGradient id="mobilePinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#ab67f7"/>
-        <stop offset="100%" stopColor="#d7b3ff"/>
-      </linearGradient>
-    </defs>
+    {/* ... pin SVG stays same ... */}
   </svg>
-        
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
-          {user ? (
-            <button
-              onClick={(e: React.MouseEvent) => {
-                e.stopPropagation()
-                setShowMenu(!showMenu)
-                trackMenuOpen()
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 10px',  // ← CHANGED FROM 8px 12px
-                minHeight: '36px',  // ← CHANGED FROM 44px
-                background: 'rgba(171,103,247,0.15)',
-                border: '1px solid rgba(171,103,247,0.3)',
-                borderRadius: '18px',  // ← CHANGED FROM 22px
-                color: '#ab67f7',
-                fontSize: '12px',  // ← CHANGED FROM 13px
-                fontWeight: 600,
-                cursor: 'pointer',
-                flexShrink: 0,  // ← ADDED
-              }}
-            >
-              <span style={{
-                width: '20px',  // ← CHANGED FROM 24px
-                height: '20px',  // ← CHANGED FROM 24px
-                borderRadius: '50%',
-                background: '#ab67f7',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '10px',  // ← CHANGED FROM 11px
-                color: 'white',
-                fontWeight: 700,
-                flexShrink: 0,  // ← ADDED
-              }}>
-                {user.email?.[0]?.toUpperCase() || 'U'}
-              </span>
-              <span style={{ 
-                maxWidth: '50px',  // ← CHANGED FROM 60px
-                overflow: 'hidden', 
-                textOverflow: 'ellipsis', 
-                whiteSpace: 'nowrap' 
-              }}>
-                {user.email?.split('@')[0] || 'Menu'}
-              </span>
-            </button>
-          ) : (
-            <Link
-              href="/signup"  // ← CHANGED FROM /login
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '8px 14px',  // ← CHANGED FROM 10px 18px
-                minHeight: '36px',  // ← CHANGED FROM 44px
-                background: '#ab67f7',
-                borderRadius: '18px',  // ← CHANGED FROM 22px
-                color: 'white',
-                textDecoration: 'none',
-                fontSize: '13px',  // ← CHANGED FROM 14px
-                fontWeight: 600,
-                boxShadow: '0 4px 12px rgba(171,103,247,0.3)',
-                flexShrink: 0,  // ← ADDED
-              }}
-            >
-              Sign Up  {/* ← CHANGED FROM Sign In */}
-            </Link>
-          )}
-          
-          <button
-            onClick={(e: React.MouseEvent) => {
-              e.stopPropagation()
-              setShowMenu(!showMenu)
-              trackMenuOpen()
-            }}
-            style={{
-              width: '36px',  // ← CHANGED FROM 44px
-              height: '36px',  // ← CHANGED FROM 44px
-              minWidth: '36px',  // ← CHANGED FROM 44px
-              minHeight: '36px',  // ← CHANGED FROM 44px
-              borderRadius: '50%',
-              border: '1px solid rgba(255,255,255,0.15)',
-              background: 'rgba(0,0,0,0.4)',
-              backdropFilter: 'blur(10px)',
-              color: '#999',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,  // ← ADDED
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <line x1="3" y1="12" x2="21" y2="12"/>
-              <line x1="3" y1="18" x2="21" y2="18"/>
-            </svg>
-          </button>
-        </div>
-      </div>
+  
+  <div style={{ 
+    display: 'flex', 
+    gap: '6px',  // ← Keep at 6px
+    alignItems: 'center', 
+    flexShrink: 0 
+  }}>
+    {user ? (
+      <button
+        onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); trackMenuOpen() }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '6px 10px',  // ← Keep smaller
+          minHeight: '36px',
+          background: 'rgba(171,103,247,0.15)',
+          border: '1px solid rgba(171,103,247,0.3)',
+          borderRadius: '18px',
+          color: '#ab67f7',
+          fontSize: '12px',
+          fontWeight: 600,
+          cursor: 'pointer',
+          flexShrink: 0,
+        }}
+      >
+        <span style={{
+          width: '20px',
+          height: '20px',
+          borderRadius: '50%',
+          background: '#ab67f7',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '10px',
+          color: 'white',
+          fontWeight: 700,
+          flexShrink: 0,
+        }}>
+          {user.email?.[0]?.toUpperCase() || 'U'}
+        </span>
+        <span style={{ 
+          maxWidth: '50px',
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis', 
+          whiteSpace: 'nowrap' 
+        }}>
+          {user.email?.split('@')[0] || 'Menu'}
+        </span>
+      </button>
+    ) : (
+      <Link
+        href="/signup"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '8px 14px',
+          minHeight: '36px',
+          background: '#ab67f7',
+          borderRadius: '18px',
+          color: 'white',
+          textDecoration: 'none',
+          fontSize: '13px',
+          fontWeight: 600,
+          boxShadow: '0 4px 12px rgba(171,103,247,0.3)',
+          flexShrink: 0,
+          whiteSpace: 'nowrap',  // ← ADD THIS
+        }}
+      >
+        Sign Up
+      </Link>
+    )}
+    
+    <button
+      onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); trackMenuOpen() }}
+      style={{
+        width: '36px',
+        height: '36px',
+        minWidth: '36px',
+        minHeight: '36px',
+        borderRadius: '50%',
+        border: '1px solid rgba(255,255,255,0.15)',
+        background: 'rgba(0,0,0,0.4)',
+        backdropFilter: 'blur(10px)',
+        color: '#999',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
 
       {/* Date Filter Pills */}
       <div style={{
@@ -4006,6 +3995,51 @@ function MobileDetailSheet({
           </span>
         </div>
       )}
+
+      {/* Description - MORE INFO BUTTON */}
+{current.description && (
+  <div style={{ marginBottom: '16px' }}>
+    <button 
+      onClick={(e: React.MouseEvent) => { 
+        e.stopPropagation(); 
+        setShowDescription(!showDescription) 
+      }} 
+      style={{ 
+        width: '100%', 
+        padding: '14px 16px', 
+        background: 'rgba(255,255,255,0.05)', 
+        border: '1px solid rgba(255,255,255,0.1)', 
+        borderRadius: '12px', 
+        color: '#999', 
+        fontSize: '14px', 
+        fontWeight: 600, 
+        cursor: 'pointer', 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center' 
+      }}
+    >
+      <span>More Info</span>
+      <span style={{ 
+        transform: showDescription ? 'rotate(180deg)' : 'rotate(0deg)', 
+        transition: 'transform 200ms ease' 
+      }}>▼</span>
+    </button>
+    {showDescription && (
+      <div style={{ 
+        padding: '14px 16px', 
+        background: 'rgba(255,255,255,0.03)', 
+        borderRadius: '0 0 12px 12px', 
+        marginTop: '-1px', 
+        border: '1px solid rgba(255,255,255,0.1)' 
+      }}>
+        <p style={{ fontSize: '14px', color: '#999', lineHeight: 1.6 }}>
+          {current.description}
+        </p>
+      </div>
+    )}
+  </div>
+)}
 
       {/* Date & time */}
       <p style={{ fontSize: '12px', color: '#ab67f7', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>
