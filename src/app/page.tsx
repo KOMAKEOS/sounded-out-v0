@@ -1324,12 +1324,19 @@ const OnboardingModal = ({ onComplete }: OnboardingModalProps): JSX.Element => (
 // ============================================================================
 // P1 FIX: SAVE BUTTON COMPONENT
 // ============================================================================
-const SaveButton = ({ eventId, saved, onToggle, size = 'medium' }: SaveButtonProps): JSX.Element => {
+const SaveButton = ({ eventId, saved, onToggle, size = 'medium', requireAuth = false, onAuthRequired }: SaveButtonProps & { requireAuth?: boolean; onAuthRequired?: () => void }): JSX.Element => {
   const [animating, setAnimating] = useState<boolean>(false)
   
   const handleClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
     e.preventDefault()
+    
+    // Check if auth required
+    if (requireAuth && !user && onAuthRequired) {
+      onAuthRequired()
+      return
+    }
+    
     if (!saved) {
       setAnimating(true)
       setTimeout(() => setAnimating(false), 600)
