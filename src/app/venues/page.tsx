@@ -51,25 +51,43 @@ export default function VenuesPage() {
       }}>
         <div style={{ padding: '16px 20px' }}>
           {/* TEXT LOGO - Instead of pin */}
-          <img 
-            src="/logo.svg" 
-            alt="Sounded Out" 
-            style={{ height: '24px', width: 'auto', marginBottom: '16px' }} 
-          />
-          
-          {/* Tab Navigation */}
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-            <Link href="/" style={{ padding: '10px 20px', background: 'rgba(255,255,255,0.06)', borderRadius: '12px', color: '#999', textDecoration: 'none', fontSize: '15px', fontWeight: 600 }}>
-              Events
-            </Link>
-            <Link href="/venues" style={{ padding: '10px 20px', background: '#ab67f7', borderRadius: '12px', color: 'white', textDecoration: 'none', fontSize: '15px', fontWeight: 600 }}>
-              Venues
-            </Link>
-            <Link href="/saved" style={{ padding: '10px 20px', background: 'rgba(255,255,255,0.06)', borderRadius: '12px', color: '#999', textDecoration: 'none', fontSize: '15px', fontWeight: 600 }}>
-              Saved
-            </Link>
-          </div>
-        </div>
+          {/* Header - SAME AS SAVED PAGE */}
+<div style={{
+  position: 'sticky',
+  top: 0,
+  zIndex: 20,
+  background: 'rgba(10,10,11,0.95)',
+  backdropFilter: 'blur(20px)',
+  borderBottom: '1px solid rgba(255,255,255,0.06)',
+  paddingTop: 'max(12px, env(safe-area-inset-top))',
+}}>
+  <div style={{ padding: '12px 20px 16px' }}>
+    {/* TEXT LOGO */}
+    <img 
+      src="/logo.svg" 
+      alt="Sounded Out" 
+      style={{ height: '22px', width: 'auto', marginBottom: '16px' }} 
+    />
+    
+    {/* Tab Navigation - CONSISTENT */}
+    <div style={{ 
+      display: 'flex', 
+      gap: '8px',
+      marginBottom: '16px',
+      overflowX: 'auto',
+      scrollbarWidth: 'none',
+    }}>
+      <Link href="/" style={{ padding: '10px 18px', minHeight: '40px', background: 'rgba(255,255,255,0.06)', borderRadius: '20px', color: '#999', textDecoration: 'none', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        Events
+      </Link>
+      <Link href="/venues" style={{ padding: '10px 18px', minHeight: '40px', background: 'linear-gradient(135deg, #ab67f7, #c490ff)', borderRadius: '20px', color: 'white', textDecoration: 'none', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(171,103,247,0.3)' }}>
+        Venues
+      </Link>
+      <Link href="/saved" style={{ padding: '10px 18px', minHeight: '40px', background: 'rgba(255,255,255,0.06)', borderRadius: '20px', color: '#999', textDecoration: 'none', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        Saved
+      </Link>
+    </div>
+  </div>
 
         {/* Venue Type Filters */}
         <div style={{ padding: '0 20px 16px', overflowX: 'auto', display: 'flex', gap: '8px' }}>
