@@ -2040,11 +2040,13 @@ const DesktopSidebar = () => {
 
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                     <SaveButton
-                      eventId={evt.id}
-                      saved={isEventSaved(evt.id)}
-                      onToggle={toggleSaveEvent}
-                      size="small"
-                    />
+  eventId={evt.id}
+  saved={isEventSaved(evt.id)}
+  onToggle={toggleSaveEvent}
+  size="small"
+  requireAuth={true}
+  onAuthRequired={() => setShowLoginModal(true)}
+/>
 
                     {evt.sold_out && (
                       <span style={{
@@ -3346,11 +3348,13 @@ const DesktopDetailPanel: React.FC = () => {
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
                       <SaveButton
-                        eventId={evt.id}
-                        saved={isEventSaved(evt.id)}
-                        onToggle={toggleSaveEvent}
-                        size="small"
-                      />
+  eventId={evt.id}
+  saved={isEventSaved(evt.id)}
+  onToggle={toggleSaveEvent}
+  size="small"
+  requireAuth={true}
+  onAuthRequired={() => setShowLoginModal(true)}
+/>
 
                       {evt.sold_out && (
                         <span style={{
@@ -3528,11 +3532,13 @@ const DesktopDetailPanel: React.FC = () => {
                   </div>
 
                   <SaveButton
-                    eventId={evt.id}
-                    saved={isEventSaved(evt.id)}
-                    onToggle={toggleSaveEvent}
-                    size="small"
-                  />
+  eventId={evt.id}
+  saved={isEventSaved(evt.id)}
+  onToggle={toggleSaveEvent}
+  size="small"
+  requireAuth={true}
+  onAuthRequired={() => setShowLoginModal(true)}
+/>
                 </div>
               ))}
             </div>
