@@ -1254,7 +1254,7 @@ const OnboardingModal = ({ onComplete }: OnboardingModalProps): JSX.Element => (
     padding: '24px',
   }}>
     <div style={{ maxWidth: '380px', width: '100%', textAlign: 'center' }}>
-      <img public="/logo.svg" alt="Sounded Out" style={{ height: '36px', marginBottom: '32px' }} />
+      <img src="/logo.svg" alt="Sounded Out" style={{ height: '36px', marginBottom: '32px' }} />
       
       <h1 style={{
         fontSize: '28px',
