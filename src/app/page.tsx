@@ -3733,6 +3733,23 @@ const DesktopDetailPanel: React.FC = () => {
 // ============================================================================
 // MOBILE DETAIL SHEET - COMPLETE (Copy-paste replacement)
 // ============================================================================
+function MobileDetailSheet({ current, ...props }: any) {
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+  
+  // Don't render on server
+  if (!mounted) return null
+  
+  return (
+    <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+      {/* rest of your sheet */}
+    </div>
+  )
+}
+
 function MobileDetailSheet({
   current, currentIndex, filtered, showAllGenres, setShowAllGenres, showDescription, setShowDescription,
   setClaimType, setShowClaimModal, setShowLoginModal, navigate, formatTime, formatPrice, getDateLabel, getGenres, getTicketUrl,
