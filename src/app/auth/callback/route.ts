@@ -6,11 +6,8 @@ import type { NextRequest } from 'next/server'
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const next = requestUrl.searchParams.get('next') ?? '/'
 
-  console.log('🔐 Auth callback triggered')
-  console.log('Code present:', !!code)
-  console.log('Redirect URL:', requestUrl.origin)
+  console.log('🔐 Auth callback received')
 
   if (code) {
     const cookieStore = cookies()
@@ -19,31 +16,39 @@ export async function GET(request: NextRequest) {
     try {
       // Exchange code for session
       const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-      
-      console.log('✅ Session exchange result:', { 
-        hasSession: !!data.session,
-        hasUser: !!data.user,
-        error: error?.message 
-      })
 
       if (error) {
-        console.error('❌ Session exchange error:', error)
-        return NextResponse.redirect(new URL(`/login?error=${error.message}`, requestUrl.origin))
+        console.error('❌ Session exchange error:', error.message)
+        return NextResponse.redirect(new URL('/login?error=auth_failed', requestUrl.origin))
       }
 
-      if (data.session) {
-        console.log('✅ User authenticated:', data.user?.email)
-        
-        // Check if profile exists
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', data.user.id)
-          .single()
+      if (data.session && data.user) {
+        console.log('✅ User authenticated:', data.user.email)
 
-        console.log('Profile exists:', !!profile)
+        // Create/update profile with CORRECT column names
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .upsert({
+            id: data.user.id,
+            email: data.user.email,
+            display_name: data.user.user_metadata?.name || 
+                         data.user.user_metadata?.full_name || 
+                         data.user.email?.split('@')[0],
+            avatar_url: data.user.user_metadata?.avatar_url || 
+                        data.user.user_metadata?.picture,
+            home_city: 'Newcastle',
+            onboarding_complete: false,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'id'
+          })
 
-        // Redirect to home
+        if (profileError) {
+          console.error('❌ Profile error:', profileError.message)
+        } else {
+          console.log('✅ Profile saved to user_profiles')
+        }
+
         return NextResponse.redirect(new URL('/', requestUrl.origin))
       }
     } catch (error: any) {
@@ -52,6 +57,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  console.log('⚠️ No code present, redirecting to login')
   return NextResponse.redirect(new URL('/login', requestUrl.origin))
 }
