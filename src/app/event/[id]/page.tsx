@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../lib/supabase'
+import { trackTicketClick } from '@/lib/analytics'
+
 
 interface Venue {
   id: string
@@ -541,7 +543,6 @@ export default function EventPage() {
 
 
         {/* Primary CTA - Tickets */}
-        {getTicketUrl(event.event_url) && (
          <a 
   href={getTicketUrl(event.event_url)!} 
   target="_blank" 
