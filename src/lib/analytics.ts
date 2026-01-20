@@ -1,7 +1,7 @@
 // lib/analytics-advanced.ts
 // ADVANCED ANALYTICS - Tracks everything for data-driven decisions
 
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase';
 
 interface TrackEventParams {
   eventType: 'event_view' | 'ticket_click' | 'share' | 'page_view';
