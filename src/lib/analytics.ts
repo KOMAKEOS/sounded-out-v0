@@ -1,176 +1,56 @@
-// lib/analytics-advanced.ts
-// ADVANCED ANALYTICS - Tracks everything for data-driven decisions
+// src/lib/analytics.ts
+// Complete analytics file with all tracking functions
 
 import { supabase } from '@/lib/supabase';
 
-interface TrackEventParams {
-  eventType: 'event_view' | 'ticket_click' | 'share' | 'page_view';
-  eventId?: string;
-  eventName?: string;
-  venueName?: string;
-  venueId?: string;
-  genreSlug?: string;
-  genreName?: string;
-  promoterId?: string;
-  promoterName?: string;
-  ticketPrice?: number;
-  ticketUrl?: string;
-  eventStartTime?: string;
-  clickSource?: string;
-  metadata?: Record<string, any>;
-}
-
-class AdvancedAnalytics {
-  private sessionId: string | null = null;
-  private supabase = createClient();
+class Analytics {
+  private sessionId: string;
 
   constructor() {
-    if (typeof window === 'undefined') return;
     this.sessionId = this.getOrCreateSessionId();
   }
 
   private getOrCreateSessionId(): string {
-    const key = 'sounded_out_session';
-    const timeout = 30 * 60 * 1000;
+    if (typeof window === 'undefined') return `${Date.now()}-${Math.random().toString(36).substring(2)}`;
     
-    const stored = localStorage.getItem(key);
+    const stored = localStorage.getItem('sounded_out_session');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        if (Date.now() - parsed.ts < timeout) {
-          parsed.ts = Date.now();
-          localStorage.setItem(key, JSON.stringify(parsed));
+        if (Date.now() - parsed.ts < 30 * 60 * 1000) {
           return parsed.id;
         }
       } catch (e) {}
     }
     
-    const newId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-    localStorage.setItem(key, JSON.stringify({ id: newId, ts: Date.now() }));
+    const newId = `${Date.now()}-${Math.random().toString(36).substring(2)}`;
+    localStorage.setItem('sounded_out_session', JSON.stringify({ id: newId, ts: Date.now() }));
     return newId;
   }
 
-  private getDeviceType(): 'desktop' | 'mobile' | 'tablet' {
+  private getDeviceType(): string {
     if (typeof window === 'undefined') return 'desktop';
-    const ua = navigator.userAgent;
-    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return 'tablet';
-    if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) return 'mobile';
-    return 'desktop';
+    return /mobile/i.test(navigator.userAgent) ? 'mobile' : 'desktop';
   }
 
-  private getBrowser(): string {
-    if (typeof window === 'undefined') return 'Unknown';
-    const ua = navigator.userAgent;
-    if (ua.indexOf('Firefox') > -1) return 'Firefox';
-    if (ua.indexOf('SamsungBrowser') > -1) return 'Samsung';
-    if (ua.indexOf('Opera') > -1 || ua.indexOf('OPR') > -1) return 'Opera';
-    if (ua.indexOf('Trident') > -1) return 'IE';
-    if (ua.indexOf('Edge') > -1) return 'Edge';
-    if (ua.indexOf('Chrome') > -1) return 'Chrome';
-    if (ua.indexOf('Safari') > -1) return 'Safari';
-    return 'Unknown';
-  }
-
-  private getOS(): string {
-    if (typeof window === 'undefined') return 'Unknown';
-    const ua = navigator.userAgent;
-    if (ua.indexOf('Win') > -1) return 'Windows';
-    if (ua.indexOf('Mac') > -1) return 'MacOS';
-    if (ua.indexOf('Linux') > -1) return 'Linux';
-    if (ua.indexOf('Android') > -1) return 'Android';
-    if (ua.indexOf('iOS') > -1 || ua.indexOf('iPhone') > -1 || ua.indexOf('iPad') > -1) return 'iOS';
-    return 'Unknown';
-  }
-
-  private getUTM(): { source: string | null; medium: string | null; campaign: string | null } {
-    if (typeof window === 'undefined') return { source: null, medium: null, campaign: null };
-    const params = new URLSearchParams(window.location.search);
-    return {
-      source: params.get('utm_source'),
-      medium: params.get('utm_medium'),
-      campaign: params.get('utm_campaign'),
-    };
-  }
-
-  private getTimeData(eventStartTime?: string): { hour: number; dayOfWeek: number } {
-    const eventTime = eventStartTime ? new Date(eventStartTime) : new Date();
-    return {
-      hour: eventTime.getHours(),
-      dayOfWeek: eventTime.getDay(),
-    };
-  }
-
-  async track(params: TrackEventParams): Promise<void> {
-    if (!this.sessionId) return;
-
-    const utm = this.getUTM();
-    const timeData = this.getTimeData(params.eventStartTime);
-
-    const data: any = {
-      session_id: this.sessionId,
-      event_type: params.eventType,
-      event_id: params.eventId || null,
-      event_name: params.eventName || null,
-      venue_name: params.venueName || null,
-      venue_id: params.venueId || null,
-      genre_slug: params.genreSlug || null,
-      genre_name: params.genreName || null,
-      promoter_id: params.promoterId || null,
-      promoter_name: params.promoterName || null,
-      ticket_price: params.ticketPrice || null,
-      ticket_url: params.ticketUrl || null,
-      event_start_time: params.eventStartTime || null,
-      event_hour: timeData.hour,
-      event_day_of_week: timeData.dayOfWeek,
-      device_type: this.getDeviceType(),
-      browser: this.getBrowser(),
-      os: this.getOS(),
-      referrer: typeof window !== 'undefined' ? document.referrer || null : null,
-      utm_source: utm.source,
-      utm_medium: utm.medium,
-      utm_campaign: utm.campaign,
-      click_source: params.clickSource || null,
-      metadata: params.metadata || null,
-      created_at: new Date().toISOString(),
-    };
-
+  // Track generic event
+  async trackEvent(eventType: string, eventId: string, eventName: string, venueName: string): Promise<void> {
     try {
-      const result = await this.supabase.from('analytics_events').insert(data);
-      if (result.error) {
-        console.error('Analytics error:', result.error);
-      }
-    } catch (error) {
-      console.error('Analytics error:', error);
+      await supabase.from('analytics_events').insert({
+        session_id: this.sessionId,
+        event_type: eventType,
+        event_id: eventId,
+        event_name: eventName,
+        venue_name: venueName,
+        device_type: this.getDeviceType(),
+        created_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error('Analytics event error:', e);
     }
   }
 
-  async trackEventView(
-    eventId: string,
-    eventName: string,
-    venueName: string,
-    venueId: string,
-    genreSlug: string,
-    genreName: string,
-    promoterId: string,
-    promoterName: string,
-    eventStartTime: string,
-    ticketPrice?: number
-  ): Promise<void> {
-    await this.track({
-      eventType: 'event_view',
-      eventId,
-      eventName,
-      venueName,
-      venueId,
-      genreSlug,
-      genreName,
-      promoterId,
-      promoterName,
-      eventStartTime,
-      ticketPrice,
-    });
-  }
-
+  // Track ticket click - FULL VERSION
   async trackTicketClick(
     eventId: string,
     eventName: string,
@@ -185,60 +65,79 @@ class AdvancedAnalytics {
     ticketUrl: string,
     clickSource: string
   ): Promise<void> {
-    await this.track({
-      eventType: 'ticket_click',
-      eventId,
-      eventName,
-      venueName,
-      venueId,
-      genreSlug,
-      genreName,
-      promoterId,
-      promoterName,
-      eventStartTime,
-      ticketPrice,
-      ticketUrl,
-      clickSource,
-    });
+    try {
+      await supabase.from('analytics_ticket_clicks').insert({
+        session_id: this.sessionId,
+        event_id: eventId,
+        event_name: eventName,
+        venue_name: venueName,
+        ticket_url: ticketUrl,
+        click_source: clickSource,
+        device_type: this.getDeviceType(),
+        created_at: new Date().toISOString(),
+      });
+
+      await this.trackEvent('ticket_click', eventId, eventName, venueName);
+    } catch (e) {
+      console.error('Ticket click tracking error:', e);
+    }
   }
 
-  async refreshStats(): Promise<void> {
-    try {
-      await this.supabase.rpc('update_analytics_stats');
-    } catch (error) {
-      console.error('Stats refresh error:', error);
-    }
+  // Track event view
+  async trackEventView(eventId: string, eventName: string, venueName: string): Promise<void> {
+    await this.trackEvent('event_view', eventId, eventName, venueName);
+  }
+
+  // Map interactions
+  async trackMapLoaded(): Promise<void> {
+    await this.trackEvent('map_loaded', '', '', '');
+  }
+
+  async trackMarkerClick(eventId: string, eventName: string): Promise<void> {
+    await this.trackEvent('marker_click', eventId, eventName, '');
+  }
+
+  async trackLocationEnabled(): Promise<void> {
+    await this.trackEvent('location_enabled', '', '', '');
+  }
+
+  async trackLocationDenied(): Promise<void> {
+    await this.trackEvent('location_denied', '', '', '');
+  }
+
+  // Menu interactions
+  async trackMenuOpen(): Promise<void> {
+    await this.trackEvent('menu_open', '', '', '');
+  }
+
+  async trackListOpen(): Promise<void> {
+    await this.trackEvent('list_open', '', '', '');
+  }
+
+  // Filter interactions
+  async trackDateFilter(filter: string): Promise<void> {
+    await this.trackEvent('date_filter', '', filter, '');
+  }
+
+  async trackGenreFilter(genre: string): Promise<void> {
+    await this.trackEvent('genre_filter', '', genre, '');
+  }
+
+  // Claim submission
+  async trackClaimSubmit(type: string, id: string): Promise<void> {
+    await this.trackEvent('claim_submit', id, type, '');
   }
 }
 
-export const analytics = typeof window !== 'undefined' ? new AdvancedAnalytics() : null;
+// Singleton instance
+export const analytics = typeof window !== 'undefined' ? new Analytics() : null;
 
-export const trackEventView = (
-  eventId: string,
-  eventName: string,
-  venueName: string,
-  venueId: string,
-  genreSlug: string,
-  genreName: string,
-  promoterId: string,
-  promoterName: string,
-  eventStartTime: string,
-  ticketPrice?: number
-): void => {
-  analytics?.trackEventView(
-    eventId,
-    eventName,
-    venueName,
-    venueId,
-    genreSlug,
-    genreName,
-    promoterId,
-    promoterName,
-    eventStartTime,
-    ticketPrice
-  );
+// Initialize analytics (for backwards compatibility)
+export const initAnalytics = (): void => {
+  // Analytics auto-initializes on import
 };
 
+// Export all tracking functions
 export const trackTicketClick = (
   eventId: string,
   eventName: string,
@@ -269,6 +168,46 @@ export const trackTicketClick = (
   );
 };
 
-export const refreshStats = (): void => {
-  analytics?.refreshStats();
+export const trackEventView = (
+  eventId: string,
+  eventName: string,
+  venueName: string
+): void => {
+  analytics?.trackEventView(eventId, eventName, venueName);
+};
+
+export const trackMapLoaded = (): void => {
+  analytics?.trackMapLoaded();
+};
+
+export const trackMarkerClick = (eventId: string, eventName: string): void => {
+  analytics?.trackMarkerClick(eventId, eventName);
+};
+
+export const trackLocationEnabled = (): void => {
+  analytics?.trackLocationEnabled();
+};
+
+export const trackLocationDenied = (): void => {
+  analytics?.trackLocationDenied();
+};
+
+export const trackMenuOpen = (): void => {
+  analytics?.trackMenuOpen();
+};
+
+export const trackListOpen = (): void => {
+  analytics?.trackListOpen();
+};
+
+export const trackDateFilter = (filter: string): void => {
+  analytics?.trackDateFilter(filter);
+};
+
+export const trackGenreFilter = (genre: string): void => {
+  analytics?.trackGenreFilter(genre);
+};
+
+export const trackClaimSubmit = (type: string, id: string): void => {
+  analytics?.trackClaimSubmit(type, id);
 };
