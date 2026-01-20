@@ -543,53 +543,42 @@ export default function EventPage() {
 
 
         {/* Primary CTA - Tickets */}
-    {getTicketUrl(event.event_url) && (
+  {getTicketUrl(event.event_url) && (
   <a 
     href={getTicketUrl(event.event_url)!} 
     target="_blank" 
     rel="noopener noreferrer"
-    onClick={() => trackTicketClick(
-      event.id,
-      event.title,
-      event.venue?.name || 'Unknown',
-      event.venue?.id || 'unknown',
-      event.genres?.split(',')[0] || 'unknown',
-      event.genres?.split(',')[0] || 'Unknown',
-      'default',
-      'Sounded Out',
-      event.start_time,
-      event.price_min || 0,
-      event.event_url || '',
-      'event_page'
-    )}
-  style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              padding: '18px',
-              background: event.sold_out ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
-              borderRadius: '14px',
-              fontWeight: 700,
-              fontSize: '16px',
-              color: event.sold_out ? '#888' : 'white',
-              textDecoration: 'none',
-              marginBottom: '12px',
-              boxShadow: event.sold_out ? 'none' : '0 8px 32px rgba(171,103,247,0.3)',
-            }}
-          >
-            {event.sold_out ? 'View Page (Sold Out)' : isFree(event.price_min, event.price_max) ? 'Get Free Entry' : 'Get Tickets'}
-            <span style={{
-              padding: '6px 12px',
-              background: 'rgba(255,255,255,0.2)',
-              borderRadius: '8px',
-              fontSize: '12px',
-              fontWeight: 700,
-            }}>
-              via {ticketSource.shortName}
-            </span>
-          </a>
-        )}
+    onClick={() => {
+      trackTicketClick(event.id, event.title, event.venue?.name || 'Unknown', event.venue?.id || 'unknown', event.genres?.split(',')[0] || 'unknown', event.genres?.split(',')[0] || 'Unknown', 'default', 'Sounded Out', event.start_time, event.price_min || 0, event.event_url || '', 'event_page');
+    }}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '12px',
+      padding: '18px',
+      background: event.sold_out ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
+      borderRadius: '14px',
+      fontWeight: 700,
+      fontSize: '16px',
+      color: event.sold_out ? '#888' : 'white',
+      textDecoration: 'none',
+      marginBottom: '12px',
+      boxShadow: event.sold_out ? 'none' : '0 8px 32px rgba(171,103,247,0.3)',
+    }}
+  >
+    {event.sold_out ? 'View Page (Sold Out)' : isFree(event.price_min, event.price_max) ? 'Get Free Entry' : 'Get Tickets'}
+    <span style={{
+      padding: '6px 12px',
+      background: 'rgba(255,255,255,0.2)',
+      borderRadius: '8px',
+      fontSize: '12px',
+      fontWeight: 700,
+    }}>
+      via {ticketSource.shortName}
+    </span>
+  </a>
+)}
 
         {/* Secondary Actions */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
