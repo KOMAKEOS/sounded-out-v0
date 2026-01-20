@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     description: 'Discover the best nights out in Newcastle. Find gigs, clubs & events happening tonight and beyond.',
     images: [
       {
-        url: '/og-image.png',
+        url: 'https://img.sanishtech.com/u/127ede17a1c32f4640393e99026b6dfb.png',
         width: 1200,
         height: 630,
         alt: 'Sounded Out - Newcastle Nightlife',
