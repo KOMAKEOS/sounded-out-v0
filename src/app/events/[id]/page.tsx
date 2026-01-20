@@ -437,6 +437,12 @@ export default function EventPage() {
             href={event.ticket_url}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackTicketClick(
+    event.id,
+    event.title,
+    event.venue?.name || 'Unknown',
+    event.ticket_url || ''
+  )}
             style={{
               display: 'flex',
               alignItems: 'center',
