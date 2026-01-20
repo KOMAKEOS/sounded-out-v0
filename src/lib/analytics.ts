@@ -127,6 +127,19 @@ class Analytics {
   async trackClaimSubmit(type: string, id: string): Promise<void> {
     await this.trackEvent('claim_submit', id, type, '');
   }
+
+  async trackClaimStart(type: string): Promise<void> {
+    await this.trackEvent('claim_start', '', type, '');
+  }
+
+  // Directions and share
+  async trackDirectionsClick(eventId: string, venueName: string): Promise<void> {
+    await this.trackEvent('directions_click', eventId, venueName, '');
+  }
+
+  async trackShareClick(eventId: string, eventName: string): Promise<void> {
+    await this.trackEvent('share_click', eventId, eventName, '');
+  }
 }
 
 // Singleton instance
@@ -210,4 +223,16 @@ export const trackGenreFilter = (genre: string): void => {
 
 export const trackClaimSubmit = (type: string, id: string): void => {
   analytics?.trackClaimSubmit(type, id);
+};
+
+export const trackClaimStart = (type: string): void => {
+  analytics?.trackClaimStart(type);
+};
+
+export const trackDirectionsClick = (eventId: string, venueName: string): void => {
+  analytics?.trackDirectionsClick(eventId, venueName);
+};
+
+export const trackShareClick = (eventId: string, eventName: string): void => {
+  analytics?.trackShareClick(eventId, eventName);
 };
