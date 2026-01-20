@@ -543,24 +543,25 @@ export default function EventPage() {
 
 
         {/* Primary CTA - Tickets */}
-         <a 
-  href={getTicketUrl(event.event_url)!} 
-  target="_blank" 
-  rel="noopener noreferrer"
-  onClick={() => trackTicketClick(
-  event.id,                           // eventId
-  event.title,                        // eventName
-  event.venue?.name || 'Unknown',     // venueName
-  event.venue?.id || 'unknown',       // venueId
-  event.genres?.split(',')[0] || 'unknown', // genreSlug
-  event.genres?.split(',')[0] || 'Unknown', // genreName
-  'default',                          // promoterId
-  'Sounded Out',                      // promoterName
-  event.start_time,                   // eventStartTime
-  event.price_min || 0,               // ticketPrice
-  event.event_url || '',              // ticketUrl
-  'event_page'                        // clickSource
-)}
+    {getTicketUrl(event.event_url) && (
+  <a 
+    href={getTicketUrl(event.event_url)!} 
+    target="_blank" 
+    rel="noopener noreferrer"
+    onClick={() => trackTicketClick(
+      event.id,
+      event.title,
+      event.venue?.name || 'Unknown',
+      event.venue?.id || 'unknown',
+      event.genres?.split(',')[0] || 'unknown',
+      event.genres?.split(',')[0] || 'Unknown',
+      'default',
+      'Sounded Out',
+      event.start_time,
+      event.price_min || 0,
+      event.event_url || '',
+      'event_page'
+    )}
   style={{
               display: 'flex',
               alignItems: 'center',
