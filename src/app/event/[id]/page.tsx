@@ -538,13 +538,21 @@ export default function EventPage() {
           </div>
         )}
 
+
+
         {/* Primary CTA - Tickets */}
         {getTicketUrl(event.event_url) && (
-          <a 
-            href={getTicketUrl(event.event_url)!} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            style={{
+         <a 
+  href={getTicketUrl(event.event_url)!} 
+  target="_blank" 
+  rel="noopener noreferrer"
+  onClick={() => trackTicketClick(
+    event.id,
+    event.title,
+    event.venue?.name || 'Unknown',
+    event.event_url || ''
+  )}
+  style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
