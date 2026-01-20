@@ -438,11 +438,19 @@ export default function EventPage() {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackTicketClick(
-    event.id,
-    event.title,
-    event.venue?.name || 'Unknown',
-    event.ticket_url || ''
-  )}
+  event.id,                           // eventId
+  event.title,                        // eventName
+  event.venue?.name || 'Unknown',     // venueName
+  event.venue?.id || 'unknown',       // venueId
+  event.genres?.split(',')[0] || 'unknown', // genreSlug
+  event.genres?.split(',')[0] || 'Unknown', // genreName
+  'default',                          // promoterId
+  'Sounded Out',                      // promoterName
+  event.start_time,                   // eventStartTime
+  event.price_min || 0,               // ticketPrice
+  event.event_url || '',              // ticketUrl
+  'event_page'                        // clickSource
+)}
             style={{
               display: 'flex',
               alignItems: 'center',
