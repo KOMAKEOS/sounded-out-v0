@@ -3740,16 +3740,18 @@ const DesktopDetailPanel: React.FC = () => {
           transition: 'opacity 200ms ease-out',
           pointerEvents: introPhase === 'done' ? 'none' : 'auto',
         }}>
-          <img
-            src="/logo.svg"
-            alt="Sounded Out"
-            style={{
-              height: '48px',
-              width: 'auto',
-              opacity: introPhase === 'logo' ? 1 : 0,
-              transition: 'opacity 200ms ease-out',
-            }}
-          />
+          {/* LOGO - Sounded Out logo */}
+<img 
+  src="/logo.svg"
+  alt="Sounded Out"
+  onClick={handleLogoTap}
+  style={{ 
+    height: '28px',
+    width: 'auto',
+    cursor: 'pointer', 
+    flexShrink: 0 
+  }}
+/>
         </div>
       )}
 
