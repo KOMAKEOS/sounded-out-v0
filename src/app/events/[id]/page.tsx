@@ -448,7 +448,7 @@ export default function EventPage() {
   event.genres?.split(',')[0] || 'Unknown', // genreName
   'default',                          // promoterId
   'Sounded Out',                      // promoterName
-  event.start_time,                   // eventStartTime
+  event.start_time || event.date,                  // eventStartTime
   event.price_min || 0,               // ticketPrice
   event.event_url || '',              // ticketUrl
   'event_page'                        // clickSource
