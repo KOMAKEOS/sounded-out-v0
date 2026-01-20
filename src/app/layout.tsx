@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   publisher: 'Sounded Out',
   icons: {
     icon: [
-      { url: 'https://img.sanishtech.com/u/7ade4ee7d4c8c25fb33fa9db8a489be2.png', sizes: 'any' }
+      { url: 'https://img.sanishtech.com/u/b45d8eaa594073f186bdc890c0b9a23a.png', sizes: 'any' }
     ],
     apple: '/apple-touch-icon.png',
   },
