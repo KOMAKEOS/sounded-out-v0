@@ -450,7 +450,7 @@ export default function EventPage() {
   'Sounded Out',                      // promoterName
   event.start_time || event.date,                  // eventStartTime
   event.price_min || 0,               // ticketPrice
-  event.event_url || '',              // ticketUrl
+  event.ticket_url || '',               // ticketUrl
   'event_page'                        // clickSource
 )}
             style={{
