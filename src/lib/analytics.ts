@@ -140,6 +140,11 @@ class Analytics {
   async trackShareClick(eventId: string, eventName: string): Promise<void> {
     await this.trackEvent('share_click', eventId, eventName, '');
   }
+
+  // CTA clicks (Call to Action buttons)
+  async trackCTAClick(ctaType: string, eventId: string): Promise<void> {
+    await this.trackEvent('cta_click', eventId, ctaType, '');
+  }
 }
 
 // Singleton instance
@@ -235,4 +240,8 @@ export const trackDirectionsClick = (eventId: string, venueName: string): void =
 
 export const trackShareClick = (eventId: string, eventName: string): void => {
   analytics?.trackShareClick(eventId, eventName);
+};
+
+export const trackCTAClick = (ctaType: string, eventId: string): void => {
+  analytics?.trackCTAClick(ctaType, eventId);
 };
