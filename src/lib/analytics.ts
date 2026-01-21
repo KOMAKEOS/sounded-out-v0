@@ -89,8 +89,25 @@ class Analytics {
   }
 
   // Map interactions
-  async trackMapLoaded(): Promise<void> {
-    await this.trackEvent('map_loaded', '', '', '');
+  async trackMapLoaded(eventCount?: number, venueCount?: number): Promise<void> {
+    const metadata: any = {};
+    if (eventCount !== undefined) metadata.event_count = eventCount;
+    if (venueCount !== undefined) metadata.venue_count = venueCount;
+    
+    try {
+      await supabase.from('analytics_events').insert({
+        session_id: this.sessionId,
+        event_type: 'map_loaded',
+        event_id: '',
+        event_name: '',
+        venue_name: '',
+        device_type: this.getDeviceType(),
+        metadata: Object.keys(metadata).length > 0 ? metadata : null,
+        created_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error('Map loaded tracking error:', e);
+    }
   }
 
   async trackMarkerClick(eventId: string, eventName: string): Promise<void> {
@@ -194,8 +211,8 @@ export const trackEventView = (
   analytics?.trackEventView(eventId, eventName, venueName);
 };
 
-export const trackMapLoaded = (): void => {
-  analytics?.trackMapLoaded();
+export const trackMapLoaded = (eventCount?: number, venueCount?: number): void => {
+  analytics?.trackMapLoaded(eventCount, venueCount);
 };
 
 export const trackMarkerClick = (eventId: string, eventName: string): void => {
