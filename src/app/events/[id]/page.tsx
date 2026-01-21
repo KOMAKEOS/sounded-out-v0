@@ -433,56 +433,62 @@ export default function EventPage() {
           </p>
         )}
 
-        {/* Get Tickets CTA */}
-        {event.ticket_url && (
-          <a
-            href={event.ticket_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => trackTicketClick(
-  event.id,                           // eventId
-  event.title,                        // eventName
-  event.venue?.name || 'Unknown',     // venueName
-  event.venue?.id || 'unknown',       // venueId
-  event.genres?.split(',')[0] || 'unknown', // genreSlug
-  event.genres?.split(',')[0] || 'Unknown', // genreName
-  'default',                          // promoterId
-  'Sounded Out',                      // promoterName
-  event.start_time || event.date,                  // eventStartTime
-  event.price_min || 0,               // ticketPrice
-  event.ticket_url || '',               // ticketUrl
-  'event_page'                        // clickSource
+      {/* Get Tickets CTA */}
+{event.ticket_url && (
+  <a
+    href={
+      event.ticket_url.startsWith('http://') || event.ticket_url.startsWith('https://')
+        ? event.ticket_url
+        : `https://${event.ticket_url}`
+    }
+    target="_blank"
+    rel="noopener noreferrer"
+    onClick={() => {
+      const url =
+        event.ticket_url.startsWith('http://') || event.ticket_url.startsWith('https://')
+          ? event.ticket_url
+          : `https://${event.ticket_url}`
+
+      trackTicketClick(
+        event.id,
+        event.title,
+        url,
+        event.ticket_source || 'Tickets'
+      )
+    }}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px',
+      width: '100%',
+      padding: '16px',
+      background: '#AB67F7',
+      borderRadius: '12px',
+      color: '#fff',
+      fontSize: '16px',
+      fontWeight: 600,
+      textDecoration: 'none',
+      marginBottom: '16px',
+    }}
+  >
+    Get Tickets
+    {event.ticket_source === 'ra' && (
+      <span
+        style={{
+          fontSize: '11px',
+          background: 'rgba(255,204,0,0.2)',
+          color: '#ffcc00',
+          padding: '2px 6px',
+          borderRadius: '4px',
+        }}
+      >
+        via RA
+      </span>
+    )}
+  </a>
 )}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              width: '100%',
-              padding: '16px',
-              background: '#AB67F7',
-              borderRadius: '12px',
-              color: '#fff',
-              fontSize: '16px',
-              fontWeight: 600,
-              textDecoration: 'none',
-              marginBottom: '16px',
-            }}
-          >
-            Get Tickets
-            {event.ticket_source === 'ra' && (
-              <span style={{ 
-                fontSize: '11px', 
-                background: 'rgba(255,204,0,0.2)', 
-                color: '#ffcc00',
-                padding: '2px 6px',
-                borderRadius: '4px',
-              }}>
-                via RA
-              </span>
-            )}
-          </a>
-        )}
+
 
         {/* Action buttons row */}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
