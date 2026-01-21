@@ -549,8 +549,15 @@ export default function EventPage() {
     target="_blank" 
     rel="noopener noreferrer"
     onClick={() => {
-      trackTicketClick(event.id, event.title, event.venue?.name || 'Unknown', event.venue?.id || 'unknown', event.genres?.split(',')[0] || 'unknown', event.genres?.split(',')[0] || 'Unknown', 'default', 'Sounded Out', event.start_time, event.price_min || 0, event.event_url || '', 'event_page');
-    }}
+  const url = getTicketUrl(event.event_url)
+  if (!url) return
+  trackTicketClick(
+    event.id,
+    event.title,
+    url,
+    ticketSource.shortName // or ticketSource.name if you prefer
+  )
+}}
     style={{
       display: 'flex',
       alignItems: 'center',
