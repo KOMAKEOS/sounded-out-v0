@@ -433,61 +433,54 @@ export default function EventPage() {
           </p>
         )}
 
-      {/* Get Tickets CTA */}
-{event.ticket_url && (
-  <a
-    href={
-      event.ticket_url.startsWith('http://') || event.ticket_url.startsWith('https://')
-        ? event.ticket_url
-        : `https://${event.ticket_url}`
-    }
-    target="_blank"
-    rel="noopener noreferrer"
-    onClick={() => {
-      const url =
-        event.ticket_url.startsWith('http://') || event.ticket_url.startsWith('https://')
-          ? event.ticket_url
-          : `https://${event.ticket_url}`
+{/* Get Tickets CTA */}
+{event.ticket_url ? (() => {
+  const raw = event.ticket_url
+  const url =
+    raw.startsWith('http://') || raw.startsWith('https://')
+      ? raw
+      : `https://${raw}`
 
-      trackTicketClick(
-        event.id,
-        event.title,
-        url,
-        event.ticket_source || 'Tickets'
-      )
-    }}
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '8px',
-      width: '100%',
-      padding: '16px',
-      background: '#AB67F7',
-      borderRadius: '12px',
-      color: '#fff',
-      fontSize: '16px',
-      fontWeight: 600,
-      textDecoration: 'none',
-      marginBottom: '16px',
-    }}
-  >
-    Get Tickets
-    {event.ticket_source === 'ra' && (
-      <span
-        style={{
-          fontSize: '11px',
-          background: 'rgba(255,204,0,0.2)',
-          color: '#ffcc00',
-          padding: '2px 6px',
-          borderRadius: '4px',
-        }}
-      >
-        via RA
-      </span>
-    )}
-  </a>
-)}
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => trackTicketClick(event.id, event.title, url, event.ticket_source || 'Tickets')}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        width: '100%',
+        padding: '16px',
+        background: '#AB67F7',
+        borderRadius: '12px',
+        color: '#fff',
+        fontSize: '16px',
+        fontWeight: 600,
+        textDecoration: 'none',
+        marginBottom: '16px',
+      }}
+    >
+      Get Tickets
+      {event.ticket_source === 'ra' && (
+        <span
+          style={{
+            fontSize: '11px',
+            background: 'rgba(255,204,0,0.2)',
+            color: '#ffcc00',
+            padding: '2px 6px',
+            borderRadius: '4px',
+          }}
+        >
+          via RA
+        </span>
+      )}
+    </a>
+  )
+})() : null}
+
 
 
         {/* Action buttons row */}
