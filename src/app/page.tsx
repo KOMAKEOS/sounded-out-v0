@@ -2422,7 +2422,7 @@ const DesktopDetailPanel: React.FC = () => {
         {/* Navigation - P1 FIX: 44px buttons */}
        {/* Navigation Arrows - FIXED: Always visible at bottom */}
 <div style={{
-  position: 'fixed',  // ← CHANGED FROM flex container
+  position: 'absolute',  // ← CHANGED FROM flex container
   bottom: 0,
   left: 0,
   right: 0,
@@ -2433,7 +2433,7 @@ const DesktopDetailPanel: React.FC = () => {
   alignItems: 'center',
   background: 'linear-gradient(0deg, rgba(20,20,22,1) 0%, rgba(20,20,22,0.95) 70%, transparent 100%)',
   backdropFilter: 'blur(20px)',
-  zIndex: 1000,  // ← VERY HIGH so always visible
+  zIndex: 10,  // ← VERY HIGH so always visible
   pointerEvents: 'none',  // ← Allow clicks through container
 }}>
   <button 
