@@ -3,7 +3,7 @@
  * Tracks all user interactions for DAU/WAU/MAU and viral metrics
  */
 
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from './supabase';
 import { useEffect } from 'react';
 
 // ============================================================================
@@ -11,7 +11,6 @@ import { useEffect } from 'react';
 // ============================================================================
 
 class AnalyticsEngine {
-  private supabase = createClient();
   private sessionId: string;
   private userId: string | null = null;
   private queue: any[] = [];
@@ -48,7 +47,7 @@ class AnalyticsEngine {
   }
 
   private async initializeUser() {
-    const { data: { user } } = await this.supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     this.userId = user?.id || null;
   }
 
@@ -83,7 +82,7 @@ class AnalyticsEngine {
 
     try {
       // Insert into analytics_events table
-      const { error } = await this.supabase
+      const { error } = await supabase
         .from('analytics_events')
         .insert(events);
 
@@ -99,7 +98,7 @@ class AnalyticsEngine {
   async track(eventName: string, properties: Record<string, any> = {}) {
     // Get fresh user ID in case they just logged in
     if (!this.userId) {
-      const { data: { user } } = await this.supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       this.userId = user?.id || null;
     }
 
@@ -157,7 +156,7 @@ class AnalyticsEngine {
     };
 
     try {
-      await this.supabase.from('user_interactions').insert(interaction);
+      await supabase.from('user_interactions').insert(interaction);
     } catch (e) {
       console.error('Interaction tracking error:', e);
     }
