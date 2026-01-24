@@ -17,33 +17,6 @@ import {
   trackClaimStarted,
 } from '@/lib/analytics';
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
-  const { data: event } = await supabase
-    .from('events')
-    .select('*, venue:venues(*)')
-    .eq('id', params.id)
-    .single();
-
-  if (!event) return {};
-
-  return {
-    title: `${event.title} at ${event.venue?.name} | Sounded Out`,
-    description: `${event.genres} • ${formatTime(event.start_time)} • ${formatPrice(event.price_min)}`,
-    openGraph: {
-      title: event.title,
-      description: `${event.genres} at ${event.venue?.name}`,
-      images: [event.image_url || '/default-event.png'],
-      url: `https://soundedout.app/event/${event.id}`,
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: event.title,
-      description: `${event.genres} at ${event.venue?.name}`,
-      images: [event.image_url || '/default-event.png'],
-    },
-  };
-}
-
 // ============================================================================
 // TYPES
 // ============================================================================
