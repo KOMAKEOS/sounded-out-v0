@@ -2076,6 +2076,15 @@ const DesktopSidebar = () => {
                       </span>
                     )}
 
+                    {/* ADD AFTER EVENT LIST */}
+<div style={{ marginTop: '24px', padding: '0 8px' }}>
+  <NightPlanBuilder events={filtered} />
+  
+  <div style={{ marginTop: '16px' }}>
+    <PollCreator events={filtered} />
+  </div>
+</div>
+
                     {(() => {
                       const price = getPriceDisplay(evt)
                       if (!price) return null
