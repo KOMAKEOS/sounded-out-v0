@@ -1662,7 +1662,7 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
     </div>
   </>
   )
-}
+
 
   // ============================================================================
   // DESKTOP/TABLET SIDEBAR COMPONENT - P1 FIXES APPLIED
