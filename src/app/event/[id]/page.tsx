@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import mapboxgl from 'mapbox-gl';
+import { supabase } from '../../../lib/supabase';
+  import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { UniversalShareButton, WhatsAppShareButton, StoryCardGenerator } from '@/components/viral'
 
