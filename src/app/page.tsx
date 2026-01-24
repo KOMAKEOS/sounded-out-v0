@@ -258,6 +258,18 @@ export default function Home() {
       subscription.unsubscribe()
     }
   }, [])
+  // Track page view on mount
+  useEffect(() => {
+    const trackInit = async () => {
+      await trackPageView('map_home', {
+        device_type: deviceType,
+        date_filter: dateFilter,
+        genre_filter: activeGenre || 'none',
+        events_count: events.length,
+      })
+    }
+    trackInit()
+  }, []) // Empty dependency array = run once on mount
   
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
@@ -1772,9 +1784,9 @@ const DesktopSidebar = () => {
                 onClick={(e: React.MouseEvent) => { 
                   e.stopPropagation(); 
                   if (dateFilter !== f) {
-                    setDateFilter(f)
-                    trackDateFilter(f, filtered.length)
-                  }
+          setDateFilter(f)
+          trackDateFilter(f, filtered.length)  // ← ADD THIS
+        }
                 }}
                 aria-pressed={isSelected}
                 style={{
@@ -1828,11 +1840,11 @@ const DesktopSidebar = () => {
                 <button 
                   key={d.str} 
                   onClick={(e: React.MouseEvent) => { 
-                    e.stopPropagation(); 
-                    setDateFilter(d.str)
-                    setShowDatePicker(false)
-                    trackDateFilter(d.str, filtered.length)
-                  }}
+      e.stopPropagation(); 
+      setDateFilter(d.str)
+      trackDateFilter(d.str, filtered.length)  // ← ADD THIS
+      setShowDatePicker(false)
+    }}
                   style={{
                     width: '48px',
                     minWidth: '48px',
@@ -1867,7 +1879,7 @@ const DesktopSidebar = () => {
               return (
                 <button
                   key={genre}
-                  onClick={(e: React.MouseEvent) => { 
+                   
                     e.stopPropagation();
                     setActiveGenre(isSelected ? null : genre)
                     trackGenreFilter(genre, filtered.length)
@@ -2880,10 +2892,10 @@ const DesktopDetailPanel: React.FC = () => {
               key={f}
               onClick={(e: React.MouseEvent) => {
                 e.stopPropagation()
-                if (dateFilter !== f) {
-                  setDateFilter(f)
-                  trackDateFilter(f, filtered.length)
-                }
+               if (dateFilter !== f) {
+          setDateFilter(f)
+          trackDateFilter(f, filtered.length)  // ← ADD THIS
+        }
               }}
               aria-pressed={isSelected}
               style={{
