@@ -7,12 +7,6 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { UniversalShareButton, WhatsAppShareButton, StoryCardGenerator } from '@/components/viral'
 
-// In the EventActions section, add:
-<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
-  <UniversalShareButton event={event} size="medium" />
-  <WhatsAppShareButton event={event} />
-  <StoryCardGenerator event={event} />
-</div>
 import {
   trackEventView,
   trackEventSave,
