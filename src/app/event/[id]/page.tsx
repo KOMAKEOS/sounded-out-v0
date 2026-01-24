@@ -5,6 +5,14 @@ import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { UniversalShareButton, WhatsAppShareButton, StoryCardGenerator } from '@/components/viral'
+
+// In the EventActions section, add:
+<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+  <UniversalShareButton event={event} size="medium" />
+  <WhatsAppShareButton event={event} />
+  <StoryCardGenerator event={event} />
+</div>
 import {
   trackEventView,
   trackEventSave,
@@ -14,6 +22,33 @@ import {
   trackEventShare,
   trackClaimStarted,
 } from '@/lib/analytics';
+
+export async function generateMetadata({ params }: { params: { id: string } }) {
+  const { data: event } = await supabase
+    .from('events')
+    .select('*, venue:venues(*)')
+    .eq('id', params.id)
+    .single();
+
+  if (!event) return {};
+
+  return {
+    title: `${event.title} at ${event.venue?.name} | Sounded Out`,
+    description: `${event.genres} • ${formatTime(event.start_time)} • ${formatPrice(event.price_min)}`,
+    openGraph: {
+      title: event.title,
+      description: `${event.genres} at ${event.venue?.name}`,
+      images: [event.image_url || '/default-event.png'],
+      url: `https://soundedout.app/event/${event.id}`,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: event.title,
+      description: `${event.genres} at ${event.venue?.name}`,
+      images: [event.image_url || '/default-event.png'],
+    },
+  };
+}
 
 // ============================================================================
 // TYPES
