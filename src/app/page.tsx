@@ -228,1029 +228,6 @@ const getPriceDisplay = (event: Event): { text: string; type: 'free' | 'freeBefo
 }
 
 // ============================================================================
-// MAIN COMPONENT
-// ============================================================================
-export default function Home() {
-  // Initialize analytics
-  useEffect(() => {
-    initAnalytics()
-  }, [])
-
-  // Load user on mount and listen for auth changes
-  useEffect(() => {
-    const loadUser = async () => {
-      const { data } = await supabase.auth.getUser()
-      if (data.user) {
-        setUser({ id: data.user.id, email: data.user.email })
-      }
-    }
-    loadUser()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        setUser({ id: session.user.id, email: session.user.email })
-      } else {
-        setUser(null)
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [])
-  // Track page view on mount
-  useEffect(() => {
-    const trackInit = async () => {
-      await trackPageView('map_home', {
-        device_type: deviceType,
-        date_filter: dateFilter,
-        genre_filter: activeGenre || 'none',
-        events_count: events.length,
-      })
-    }
-    trackInit()
-  }, []) // Empty dependency array = run once on mount
-  
-  const mapContainer = useRef<HTMLDivElement>(null)
-  const map = useRef<mapboxgl.Map | null>(null)
-  const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; el: HTMLDivElement; inner: HTMLDivElement }>>(new Map())
-  
-  // Core state
-  const [events, setEvents] = useState<Event[]>([])
-  const [loading, setLoading] = useState(true)
-  const [dateFilter, setDateFilter] = useState<DateFilter>('today')
-  const [showDatePicker, setShowDatePicker] = useState(false)
-  const [viewMode, setViewMode] = useState<ViewMode>('map')
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [clusterEvents, setClusterEvents] = useState<Event[]>([])
-  const [visibleDayLabel, setVisibleDayLabel] = useState<string>('')
-  const [showAdminMenu, setShowAdminMenu] = useState(false)
-
-  // User auth state
-  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
-  
-  // Responsive state
-  const [deviceType, setDeviceType] = useState<DeviceType>(() => {
-    if (typeof window !== 'undefined') {
-      const width = window.innerWidth
-      if (width >= 1024) return 'desktop'
-      if (width >= 768) return 'tablet'
-    }
-    return 'mobile'
-  })
-  const [windowWidth, setWindowWidth] = useState(() => {
-    if (typeof window !== 'undefined') return window.innerWidth
-    return 0
-  })
-  
-  // Animation state
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [sheetVisible, setSheetVisible] = useState(false)
-  const [mapReady, setMapReady] = useState(false)
-  const [showIntro, setShowIntro] = useState(true)
-  const [introPhase, setIntroPhase] = useState<'logo' | 'zoom' | 'done'>('logo')
-  
-  // First-load welcome overlay
-  const [showWelcome, setShowWelcome] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !localStorage.getItem('so_welcome_seen')
-    }
-    return true
-  })
-
-
-  // ============================================================================
-// TICKET SOURCE INFO
-// ============================================================================
-const TICKET_SOURCES: Record<string, { name: string; shortName: string; color: string }> = {
-  ra: { name: 'Resident Advisor', shortName: 'RA', color: '#000' },
-  fatsoma: { name: 'Fatsoma', shortName: 'Fatsoma', color: '#ff4081' },
-  skiddle: { name: 'Skiddle', shortName: 'Skiddle', color: '#00b4d8' },
-  dice: { name: 'DICE', shortName: 'DICE', color: '#000' },
-  eventbrite: { name: 'Eventbrite', shortName: 'Eventbrite', color: '#f05537' },
-  fixr: { name: 'FIXR', shortName: 'FIXR', color: '#6c5ce7' },
-  venue: { name: 'Venue', shortName: 'Venue', color: '#ab67f7' },
-  other: { name: 'Tickets', shortName: 'Tickets', color: '#ab67f7' },
-}
-
-// Auto-detect ticket source from URL
-const detectTicketSource = (url: string | null): string => {
-  if (!url) return 'other'
-  const lower = url.toLowerCase()
-  if (lower.includes('ra.co') || lower.includes('residentadvisor')) return 'ra'
-  if (lower.includes('fatsoma')) return 'fatsoma'
-  if (lower.includes('skiddle')) return 'skiddle'
-  if (lower.includes('dice.fm') || lower.includes('dice.')) return 'dice'
-  if (lower.includes('eventbrite')) return 'eventbrite'
-  if (lower.includes('fixr')) return 'fixr'
-  return 'other'
-}
-  
-  // ============================================================================
-  // P1 FIX: ONBOARDING STATE
-  // ============================================================================
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return !localStorage.getItem('so_onboarding_complete')
-    }
-    return true
-  })
-
-  // ============================================================================
-  // P1 FIX: SAVED EVENTS STATE
-  // ============================================================================
-  const [savedEventIds, setSavedEventIds] = useState<Set<string>>(() => {
-    if (typeof window !== 'undefined') {
-      const saved: string | null = localStorage.getItem('so_saved_events')
-      if (saved) {
-        const parsed: string[] = JSON.parse(saved) as string[]
-        return new Set(parsed)
-      }
-    }
-    return new Set()
-  })
-  
-  // Genre/vibe filter state
-  const [activeGenre, setActiveGenre] = useState<string | null>(null)
-  const [showFreeOnly, setShowFreeOnly] = useState(false)
-  
-  // Detail view state
-  const [showAllGenres, setShowAllGenres] = useState(false)
-  const [showDescription, setShowDescription] = useState(false)
-  
-  // Claim modal state
-  const [showClaimModal, setShowClaimModal] = useState(false)
-  const [claimType, setClaimType] = useState<'venue' | 'event'>('event')
-  const [claimForm, setClaimForm] = useState({ name: '', email: '', role: 'owner', proofUrl: '' })
-  const [claimSubmitting, setClaimSubmitting] = useState(false)
-  const [claimSubmitted, setClaimSubmitted] = useState(false)
-  const [claimError, setClaimError] = useState('')
-
-  // Login prompt modal state
-  const [showLoginModal, setShowLoginModal] = useState(false)
-  
-  // Menu state
-  const [showMenu, setShowMenu] = useState(false)
-  const [logoTapCount, setLogoTapCount] = useState(0)
-  const logoTapTimer = useRef<NodeJS.Timeout | null>(null)
-  
-  // User location state
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [showUserLocation, setShowUserLocation] = useState(false)
-  const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
-  
-  // Refs for scroll tracking
-  const listScrollRef = useRef<HTMLDivElement>(null)
-  const daySectionRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  
-  // Gesture state
-  const [dragX, setDragX] = useState(0)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragDirection, setDragDirection] = useState<'horizontal' | 'vertical' | null>(null)
-  const [startX, setStartX] = useState(0)
-  const [startY, setStartY] = useState(0)
-  const [velocity, setVelocity] = useState({ x: 0, y: 0 })
-  const lastPos = useRef({ x: 0, y: 0, time: 0 })
-
-  // ============================================================================
-  // P1 FIX: SYNC SAVED EVENTS TO LOCALSTORAGE
-  // ============================================================================
-  useEffect(() => {
-    const arr: string[] = Array.from(savedEventIds)
-    localStorage.setItem('so_saved_events', JSON.stringify(arr))
-  }, [savedEventIds])
-
-  // ============================================================================
-  // RESPONSIVE DETECTION
-  // ============================================================================
-  useEffect(() => {
-    const updateDeviceType = () => {
-      const width = window.innerWidth
-      setWindowWidth(width)
-      if (width < BREAKPOINTS.mobile) {
-        setDeviceType('mobile')
-      } else if (width < BREAKPOINTS.tablet) {
-        setDeviceType('tablet')
-      } else {
-        setDeviceType('desktop')
-      }
-    }
-    
-    updateDeviceType()
-    window.addEventListener('resize', updateDeviceType)
-    return () => window.removeEventListener('resize', updateDeviceType)
-  }, [])
-
-  // ============================================================================
-  // DATE HELPERS
-  // ============================================================================
-  const getDateStr = (d: Date) => getUKDateString(d)
-
-const isTonight = (s: string) => {
-  if (!s) return false
-  return isUKToday(s)
-}
-
-const isTomorrow = (s: string) => {
-  if (!s) return false
-  return isUKTomorrow(s)
-}
-
-const isWeekend = (s: string) => {
-  if (!s) return false
-  return isUKWeekend(s)
-}
-
-const getDateLabel = (s: string) => {
-  if (!s) return 'TBC'
-  return getUKDateLabel(s)
-}
-
-const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
-  const d = new Date()
-  d.setDate(d.getDate() + i)
-  return { 
-    str: getDateStr(d), 
-    name: d.toLocaleDateString('en-GB', { weekday: 'short' }), 
-    num: d.getDate() 
-  }
-})
-
-  // ============================================================================
-  // FILTERED DATA - P1 FIX: Using for loops for TypeScript
-  // ============================================================================
-  const dateFiltered = useMemo(() => {
-    const result: Event[] = []
-    for (let i = 0; i < events.length; i++) {
-      const e: Event = events[i]
-      if (dateFilter === 'today' && isTonight(e.start_time)) result.push(e)
-      else if (dateFilter === 'tomorrow' && isTomorrow(e.start_time)) result.push(e)
-      else if (dateFilter === 'weekend' && isWeekend(e.start_time)) result.push(e)
-      else if (dateFilter !== 'today' && dateFilter !== 'tomorrow' && dateFilter !== 'weekend' && getDateStr(new Date(e.start_time)) === dateFilter) result.push(e)
-    }
-    return result
-  }, [events, dateFilter])
-  
-  const PINNED_GENRES = ['techno', 'house', 'dnb', 'disco', 'hip-hop', 'indie', 'live', 'student']
-  
-  const availableGenres = useMemo(() => {
-    const genreCount = new Map<string, number>()
-    for (let i = 0; i < dateFiltered.length; i++) {
-      const e: Event = dateFiltered[i]
-      if (e.genres) {
-        const genreList: string[] = e.genres.split(',')
-        for (let j = 0; j < genreList.length; j++) {
-          const normalized: string = genreList[j].trim().toLowerCase()
-          genreCount.set(normalized, (genreCount.get(normalized) || 0) + 1)
-        }
-      }
-    }
-    
-    const pinnedPresent: string[] = []
-    const unpinned: { genre: string; count: number }[] = []
-    
-    genreCount.forEach((count: number, genre: string) => {
-      if (PINNED_GENRES.includes(genre)) {
-        pinnedPresent.push(genre)
-      } else {
-        unpinned.push({ genre, count })
-      }
-    })
-    
-    pinnedPresent.sort((a: string, b: string) => PINNED_GENRES.indexOf(a) - PINNED_GENRES.indexOf(b))
-    unpinned.sort((a, b) => b.count - a.count)
-    
-    const result: string[] = []
-    for (let i = 0; i < pinnedPresent.length; i++) {
-      result.push(pinnedPresent[i])
-    }
-    for (let i = 0; i < unpinned.length; i++) {
-      result.push(unpinned[i].genre)
-    }
-    return result.slice(0, 8)
-  }, [dateFiltered])
-  
-  const filtered = useMemo(() => {
-    let result: Event[] = dateFiltered
-    if (activeGenre) {
-      const temp: Event[] = []
-      for (let i = 0; i < result.length; i++) {
-        if (result[i].genres?.toLowerCase().includes(activeGenre.toLowerCase())) {
-          temp.push(result[i])
-        }
-      }
-      result = temp
-    }
-    if (showFreeOnly) {
-      const temp: Event[] = []
-      for (let i = 0; i < result.length; i++) {
-        if (result[i].price_min === 0) {
-          temp.push(result[i])
-        }
-      }
-      result = temp
-    }
-    return result
-  }, [dateFiltered, activeGenre, showFreeOnly])
-
-  const current = filtered[currentIndex] || null
-  const nextEvent = filtered[currentIndex + 1] || null
-  const prevEvent = filtered[currentIndex - 1] || null
-  
-  const getDayGroupLabel = (s: string) => {
-    const d = new Date(s)
-    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()
-  }
-  
-  const grouped = useMemo(() => {
-    const g: Record<string, Event[]> = {}
-    for (let i = 0; i < filtered.length; i++) {
-      const e: Event = filtered[i]
-      const l: string = getDayGroupLabel(e.start_time)
-      if (!g[l]) g[l] = []
-      g[l].push(e)
-    }
-    return g
-  }, [filtered])
-  
-  useEffect(() => {
-    const keys = Object.keys(grouped)
-    if (keys.length > 0 && !visibleDayLabel) {
-      setVisibleDayLabel(keys[0])
-    }
-  }, [grouped, visibleDayLabel])
-
-  const filterLabel = dateFilter === 'today' ? 'today' 
-    : dateFilter === 'tomorrow' ? 'tomorrow' 
-    : dateFilter === 'weekend' ? 'this weekend' 
-    : new Date(dateFilter).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
-
-  // ============================================================================
-  // FORMAT HELPERS
-  // ============================================================================
-const formatTime = (s: string | null | undefined) => {
-  if (!s) return 'TBC'
-  return formatUKTime(s)
-}  
-  const formatPrice = (min: number | null, max: number | null) => {
-  if (min === 0 || (!min && !max)) return null
-  const fmt = (n: number) => `£${n.toFixed(2)}`  // ← ALWAYS 2 decimals
-  if (min && max && min !== max) return `${fmt(min)}–${fmt(max)}`
-  return fmt(min || max || 0)
-}
-  
-  const isFree = (min: number | null, max: number | null) => min === 0 || (!min && !max)
-  
-  const getGenres = (g: string | null) => g ? g.split(',').map((x: string) => x.trim()).slice(0, 2).join(' · ') : null
-  
-  const mapsUrl = (v: Venue) => `https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}`
-  
-  const getTicketUrl = (url: string | null) => {
-    if (!url) return null
-    if (!url.startsWith('http://') && !url.startsWith('https://')) return `https://${url}`
-    return url
-  }
-
-  // ============================================================================
-  // P1 FIX: ONBOARDING & SAVE FUNCTIONS
-  // ============================================================================
-  const completeOnboarding = useCallback((): void => {
-    setShowOnboarding(false)
-    localStorage.setItem('so_onboarding_complete', 'true')
-  }, [])
-
-  const toggleSaveEvent = useCallback((eventId: string, e?: React.MouseEvent): void => {
-    if (e) {
-      e.stopPropagation()
-      e.preventDefault()
-    }
-    setSavedEventIds((prev: Set<string>) => {
-      const next: Set<string> = new Set(prev)
-      if (next.has(eventId)) {
-        next.delete(eventId)
-      } else {
-        next.add(eventId)
-      }
-      return next
-    })
-  }, [])
-
-  const isEventSaved = useCallback((eventId: string): boolean => {
-    return savedEventIds.has(eventId)
-  }, [savedEventIds])
-
-  // ============================================================================
-  // LOGO TAP HANDLER (Admin access)
-  // ============================================================================
-   const handleLogoTap = useCallback((): void => {
-    if (logoTapTimer.current) {
-      clearTimeout(logoTapTimer.current)
-    }
-    
-    const newCount: number = logoTapCount + 1
-    setLogoTapCount(newCount)
-    
-    if (newCount >= 5) {
-      setShowAdminMenu(true)
-      setLogoTapCount(0)
-      return
-    }
-    
-    logoTapTimer.current = setTimeout(() => {
-      setLogoTapCount(0)
-    }, 2000)
-  }, [logoTapCount])
-
-  // ============================================================================
-  // LIST SCROLL HANDLER (Day label tracking)
-  // ============================================================================
-    const handleListScroll = useCallback((): void => {
-    if (!listScrollRef.current) return
-    
-    const scrollTop: number = listScrollRef.current.scrollTop
-    const labels: string[] = Object.keys(grouped)
-    
-    for (let i = 0; i < labels.length; i++) {
-      const label: string = labels[i]
-      const el: HTMLDivElement | undefined = daySectionRefs.current.get(label)
-      if (el) {
-        const rect: DOMRect = el.getBoundingClientRect()
-        const containerRect: DOMRect = listScrollRef.current.getBoundingClientRect()
-        if (rect.top <= containerRect.top + 50 && rect.bottom > containerRect.top) {
-          setVisibleDayLabel(prev => prev === label ? prev : label)
-          break
-        }
-      }
-    }
-  }, [grouped])
-
-// ============================================================================
-  // DATA LOADING
-  // ============================================================================
-useEffect(() => {
-  const loadEvents = async () => {
-    console.log('🔍 Loading events with brands...')
-    
-    // PRIMARY QUERY: Try loading with brands
-    const { data: eventsData, error: eventsError } = await supabase
-      .from('events')
-      .select(`
-        *,
-        venue:venues(*),
-        brand:brands(*)
-      `)
-      .eq('status', 'published')
-      .gte('start_time', new Date().toISOString().split('T')[0])
-      .order('start_time')
-    
-    if (eventsError) {
-      console.warn('⚠️ Events query with brands failed:', eventsError.message)
-      
-      // FALLBACK: Try without brands
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('events')
-        .select(`
-          *,
-          venue:venues(*)
-        `)
-        .eq('status', 'published')
-        .gte('start_time', new Date().toISOString().split('T')[0])
-        .order('start_time')
-      
-      if (fallbackError) {
-        console.error('❌ Fallback query failed:', fallbackError)
-        setLoading(false)
-        return
-      }
-      
-      if (fallbackData) {
-        console.log(`✅ Loaded ${fallbackData.length} events (without brands)`)
-        setEvents(fallbackData)
-        const venueIds = new Set(fallbackData.map(e => e.venue_id))
-        trackMapLoaded(fallbackData.length, venueIds.size)
-      }
-    } else if (eventsData) {
-      console.log(`✅ Loaded ${eventsData.length} events (with brands)`)
-      console.log('📊 Brand coverage:', eventsData.filter(e => e.brand).length, 'events have brands')
-      setEvents(eventsData)
-      const venueIds = new Set(eventsData.map(e => e.venue_id))
-      trackMapLoaded(eventsData.length, venueIds.size)
-    }
-    
-    setLoading(false)
-  }
-  
-  loadEvents()
-}, [])
-  // ============================================================================
-  // MAP INITIALIZATION - P1 FIX: minZoom changed from 10 to 12
-  // ============================================================================
-  useEffect(() => {
-    if (!mapContainer.current) return
-
-     setMapReady(false)
-    
-    if (map.current) {
-      map.current.remove()
-      map.current = null
-    }
-    
-    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
-    
-    const m = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-1.6131, 54.9695],
-      zoom: showIntro ? 2 : 14,
-      pitch: 0,
-      bearing: 0,
-      minZoom: 12, // P1 FIX: Changed from 10 to prevent globe view
-      maxZoom: 18,
-      pitchWithRotate: false,
-      dragRotate: false,
-      touchPitch: false,
-      renderWorldCopies: false,
-      dragPan: !showIntro,
-      scrollZoom: !showIntro,
-      doubleClickZoom: !showIntro,
-      touchZoomRotate: !showIntro,
-      fadeDuration: 0,
-    })
-    
-    m.on('load', () => {
-  console.log('🗺️ Map loaded')
-  setMapReady(true)
-  
-  // Enable interactions
-  const canvas = m.getCanvas()
-  if (canvas) {
-    canvas.style.touchAction = 'pan-x pan-y'
-  }
-  
-  m.dragPan.enable()
-  m.scrollZoom.enable()
-  m.doubleClickZoom.enable()
-  m.touchZoomRotate.enable()
-})
-    
-      map.current = m
-
-  return () => {
-    if (map.current) {
-      try {
-        map.current.remove()
-      } catch (error) {
-        // Ignore
-      }
-      map.current = null
-    }
-  }
-}, []) 
-
-// Intro animation - simplified
-useEffect(() => {
-  const hasSeenIntro = localStorage.getItem('so_intro_seen')
-  if (hasSeenIntro) {
-    setShowIntro(false)
-    return
-  }
-  
-  const timer = setTimeout(() => {
-    setShowIntro(false)
-    localStorage.setItem('so_intro_seen', 'true')
-  }, 1000)
-  
-  return () => clearTimeout(timer)
-}, [])
-
-  // ============================================================================
-  // USER LOCATION
-  // ============================================================================
-  const toggleUserLocation = useCallback(() => {
-    if (showUserLocation) {
-      setShowUserLocation(false)
-      if (userMarkerRef.current) {
-        userMarkerRef.current.remove()
-        userMarkerRef.current = null
-      }
-      trackLocationDenied()
-    } else {
-      if ('geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords
-            setUserLocation({ lat: latitude, lng: longitude })
-            setShowUserLocation(true)
-            trackLocationEnabled()
-          },
-          (error) => {
-            console.log('Location error:', error)
-            alert('Unable to get your location. Please enable location services.')
-            trackLocationDenied()
-          },
-          { enableHighAccuracy: true, timeout: 10000 }
-        )
-      } else {
-        alert('Geolocation is not supported by your browser.')
-      }
-    }
-  }, [showUserLocation])
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setShowMenu(false)
-  }
-
-  useEffect(() => {
-    if (!map.current || !mapReady || !showUserLocation || !userLocation) return
-    
-    if (userMarkerRef.current) {
-      userMarkerRef.current.remove()
-    }
-    
-    const el = document.createElement('div')
-    el.innerHTML = `
-      <div style="position: relative;">
-        <div style="width: 20px; height: 20px; background: #4285F4; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
-        <div style="position: absolute; top: -4px; left: -4px; width: 28px; height: 28px; background: rgba(66,133,244,0.2); border-radius: 50%; animation: pulse 2s infinite;"></div>
-      </div>
-    `
-    
-    userMarkerRef.current = new mapboxgl.Marker({ element: el })
-      .setLngLat([userLocation.lng, userLocation.lat])
-      .addTo(map.current)
-    
-    return () => {
-      if (userMarkerRef.current) {
-        userMarkerRef.current.remove()
-      }
-    }
-  }, [userLocation, showUserLocation, mapReady])
-
-  // ============================================================================
-  // MARKER HIGHLIGHT
-  // ============================================================================
-  const highlightMarker = useCallback((eventId: string | null) => {
-    markersRef.current.forEach((data, id) => {
-      const selected = eventId && id.includes(eventId)
-      if (data.inner) {
-        data.inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
-        data.inner.style.transform = selected ? 'scale(1.25)' : 'scale(1)'
-        data.inner.style.filter = selected 
-          ? 'drop-shadow(0 6px 10px rgba(0,0,0,0.5))' 
-          : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-      }
-      data.el.style.zIndex = selected ? '5' : '1'
-    })
-  }, [])
-
-  // ============================================================================
-  // SELECT EVENT
-  // ============================================================================
-  const selectEvent = useCallback((event: Event): void => {
-    let idx: number = -1
-    for (let i = 0; i < filtered.length; i++) {
-      if (filtered[i].id === event.id) {
-        idx = i
-        break
-      }
-    }
-    if (idx !== -1) {
-      setCurrentIndex(idx)
-      setViewMode('preview')
-      setSheetVisible(true)
-      setClusterEvents([])
-      highlightMarker(event.id)
-      
-      if (event.venue && map.current) {
-        const currentZoom: number = map.current.getZoom() || 14
-        map.current.easeTo({
-          center: [event.venue.lng, event.venue.lat],
-          zoom: Math.max(currentZoom, 14.5),
-          duration: 300,
-        })
-      }
-      
-      trackEventView(event.id, event.title, event.venue?.name || '', 'list')
-    }
-  }, [filtered, highlightMarker])
-
-  // ============================================================================
-  // NAVIGATE (Prev/Next)
-  // ============================================================================
-  const navigate = useCallback((direction: 'prev' | 'next'): void => {
-    if (isAnimating) return
-    
-    setIsAnimating(true)
-    
-    const newIndex: number = direction === 'next' 
-      ? Math.min(currentIndex + 1, filtered.length - 1)
-      : Math.max(currentIndex - 1, 0)
-    
-    if (newIndex !== currentIndex) {
-      setCurrentIndex(newIndex)
-      const newEvent: Event = filtered[newIndex]
-      highlightMarker(newEvent.id)
-      
-      if (newEvent.venue && map.current) {
-        map.current.easeTo({
-          center: [newEvent.venue.lng, newEvent.venue.lat],
-          zoom: 14.5,
-          duration: 300,
-        })
-      }
-    }
-    
-    setTimeout(() => setIsAnimating(false), 300)
-  }, [currentIndex, filtered, highlightMarker, isAnimating])
-
-  // ============================================================================
-  // SHEET CONTROLS
-  // ============================================================================
-  const openSheet = useCallback((mode: ViewMode): void => {
-    setViewMode(mode)
-    requestAnimationFrame(() => {
-      setSheetVisible(true)
-    })
-  }, [])
-
-  const closeSheet = useCallback((): void => {
-    setSheetVisible(false)
-    setTimeout(() => {
-      setViewMode('map')
-      setClusterEvents([])
-      highlightMarker(null)
-    }, SPRING.sheetDuration)
-  }, [highlightMarker])
-
-  // ============================================================================
-  // TOUCH/GESTURE HANDLERS
-  // ============================================================================
-  const onTouchStart = useCallback((e: React.TouchEvent): void => {
-    const touch = e.touches[0]
-    setStartX(touch.clientX)
-    setStartY(touch.clientY)
-    setDragX(0)
-    setDragY(0)
-    setIsDragging(true)
-    setDragDirection(null)
-    lastPos.current = { x: touch.clientX, y: touch.clientY, time: Date.now() }
-  }, [])
-
-  const onTouchMove = useCallback((e: React.TouchEvent): void => {
-    if (!isDragging) return
-    const touch = e.touches[0]
-    const dx = touch.clientX - startX
-    const dy = touch.clientY - startY
-    if (!dragDirection) {
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-        setDragDirection(Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical')
-      }
-    }
-    if (dragDirection === 'horizontal') {
-      setDragX(dx)
-    } else if (dragDirection === 'vertical') {
-      setDragY(Math.max(0, dy))
-    }
-    const now = Date.now()
-    const dt = now - lastPos.current.time
-    if (dt > 0) {
-      setVelocity({
-        x: (touch.clientX - lastPos.current.x) / dt * 1000,
-        y: (touch.clientY - lastPos.current.y) / dt * 1000,
-      })
-    }
-    lastPos.current = { x: touch.clientX, y: touch.clientY, time: now }
-  }, [isDragging, startX, startY, dragDirection])
-
-  const onTouchEnd = useCallback((): void => {
-    setIsDragging(false)
-    if (dragDirection === 'vertical') {
-      if (dragY > GESTURE.dismissThreshold || velocity.y > GESTURE.dismissVelocity) {
-        closeSheet()
-      }
-    } else if (dragDirection === 'horizontal' && viewMode === 'preview') {
-      if (dragX < -GESTURE.swipeThreshold || velocity.x < -GESTURE.velocityThreshold) {
-        navigate('next')
-      } else if (dragX > GESTURE.swipeThreshold || velocity.x > GESTURE.velocityThreshold) {
-        navigate('prev')
-      }
-    }
-    setDragX(0)
-    setDragY(0)
-    setDragDirection(null)
-  }, [dragDirection, dragX, dragY, velocity, viewMode, closeSheet, navigate])
-
-  // ============================================================================
-  // TRANSFORM HELPERS
-  // ============================================================================
-  const getSheetStyle = (visible: boolean): React.CSSProperties => ({
-    transform: visible ? 'translateY(0)' : 'translateY(100%)',
-    transition: isDragging ? 'none' : `transform ${SPRING.sheetDuration}ms ${SPRING.sheet}`,
-  })
-
-  const getCardTransform = (): React.CSSProperties => ({
-    transform: `translateX(${dragX * 0.5}px)`,
-    transition: isDragging ? 'none' : `transform ${SPRING.springBackDuration}ms ${SPRING.springBack}`,
-  })
-
-  const getDismissTransform = (): React.CSSProperties => ({
-    transform: `translateY(${dragY}px) scale(${1 - dragY * 0.0005})`,
-    transition: isDragging ? 'none' : `transform ${SPRING.springBackDuration}ms ${SPRING.springBack}`,
-    opacity: 1 - dragY * 0.002,
-  })
-
-  // ============================================================================
-  // COMPUTED VALUES
-  // ============================================================================
-  const noSelectStyle: React.CSSProperties = {
-    userSelect: 'none',
-    WebkitUserSelect: 'none',
-  }
-
-  const peekProgress: number = Math.min(Math.abs(dragX) / GESTURE.swipeThreshold, 1)
-  const dismissProgress: number = Math.min(dragY / GESTURE.dismissThreshold, 1)
-  const showPrevPeek: boolean = dragX > 20 && currentIndex > 0
-  const showNextPeek: boolean = dragX < -20 && currentIndex < filtered.length - 1
-
-  // ============================================================================
-  // MARKERS
-  // ============================================================================
-  useEffect(() => {
-    if (!map.current || !mapReady) return
-    
-    markersRef.current.forEach(d => d.marker.remove())
-    markersRef.current.clear()
-    
-    if (filtered.length === 0) {
-      map.current.flyTo({ 
-        center: [-1.6131, 54.9695], 
-        zoom: 14, 
-        duration: 500, 
-        easing: (t) => 1 - Math.pow(1 - t, 3) 
-      })
-      return
-    }
-
-    const byVenue: Record<string, Event[]> = {}
-    for (let i = 0; i < filtered.length; i++) {
-      const e: Event = filtered[i]
-      if (e.venue) {
-        const k = `${e.venue.lat.toFixed(6)},${e.venue.lng.toFixed(6)}`
-        if (!byVenue[k]) byVenue[k] = []
-        byVenue[k].push(e)
-      }
-    }
-
-    const venueKeys: string[] = Object.keys(byVenue)
-    for (let vi = 0; vi < venueKeys.length; vi++) {
-      const key: string = venueKeys[vi]
-      const evs: Event[] = byVenue[key]
-      const v: Venue = evs[0].venue!
-      const count: number = evs.length
-      const ids: string = evs.map((e: Event) => e.id).join(',')
-      let hasCurated = false
-      for (let i = 0; i < evs.length; i++) {
-        if (evs[i].so_pick) {
-          hasCurated = true
-          break
-        }
-      }
-
-      const el = document.createElement('div')
-      el.style.cursor = 'pointer'
-      el.style.zIndex = '1'
-      
-      const inner = document.createElement('div')
-      inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
-      inner.style.transformOrigin = 'center bottom'
-      inner.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-
-      if (count > 1) {
-        el.style.width = '44px'
-        el.style.height = '44px'
-        if (hasCurated) {
-          inner.innerHTML = `<div style="position:relative;width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}<img src="/so-icon.png" style="position:absolute;top:-6px;right:-6px;height:14px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));" /></div>`
-        } else {
-          inner.innerHTML = `<div style="width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}</div>`
-        }
-      } else {
-        el.style.width = '32px'
-        el.style.height = '42px'
-        if (hasCurated) {
-          inner.innerHTML = `<div style="position:relative;width:32px;height:42px;"><svg viewBox="0 0 24 36" width="32" height="42" style="position:absolute;top:0;left:0;"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="6" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg><img src="/so-icon.png" style="position:absolute;top:5px;left:50%;transform:translateX(-50%);height:10px;width:auto;" /></div>`
-        } else {
-          inner.innerHTML = `<svg viewBox="0 0 24 36" width="32" height="42"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="5" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg>`
-        }
-      }
-      
-      el.appendChild(inner)
-
-      el.onpointerdown = (e) => { 
-        e.stopPropagation()
-        inner.style.transform = 'scale(1.15)' 
-        inner.style.transition = 'transform 60ms ease-out'
-      }
-      el.onpointerup = () => { 
-        inner.style.transform = 'scale(1)'
-        inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
-      }
-      el.onpointerleave = () => { 
-        inner.style.transform = 'scale(1)'
-        inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
-      }
-
-const handleMarkerClick = (e: any) => {
-  e.preventDefault()
-  e.stopPropagation()
-  
-  console.log('🎯 Marker clicked!', { count, venueId: v.id }) // ← ADD THIS for debugging
-  
-  if (count > 1) {
-    setClusterEvents(evs)
-    setViewMode('cluster')
-    requestAnimationFrame(() => {
-      setSheetVisible(true)
-    })
-  } else {
-    let idx = -1
-    for (let i = 0; i < filtered.length; i++) {
-      if (filtered[i].id === evs[0].id) {
-        idx = i
-        break
-      }
-    }
-    if (idx !== -1) {  // ← ADD THIS CHECK
-      setCurrentIndex(idx)
-      setViewMode('preview')
-      trackMarkerClick(evs[0].id, evs[0].title, v.name)
-      trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
-      
-      requestAnimationFrame(() => {
-        setSheetVisible(true)
-        highlightMarker(evs[0].id)
-      })
-    }
-  }
-  
-  const currentZoom = map.current?.getZoom() || 14
-  map.current?.easeTo({
-    center: [v.lng, v.lat],
-    zoom: Math.max(currentZoom, 14.5),
-    duration: 300,
-    easing: (t: number) => 1 - Math.pow(1 - t, 2),
-  })
-}
-
-// ✅ ADD BOTH event listeners for mobile compatibility
-el.addEventListener('click', handleMarkerClick, { passive: false })
-el.addEventListener('touchend', handleMarkerClick, { passive: false }) // ← ADD THIS LINE
-el.style.pointerEvents = 'auto'  // ← MAKE SURE THIS EXISTS
-el.style.cursor = 'pointer'  // ← MAKE SURE THIS EXISTS
-
-      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([v.lng, v.lat])
-        .addTo(map.current!)
-      
-      markersRef.current.set(ids, { marker, el, inner })
-    }
-
-    if (filtered.length > 0) {
-      const bounds = new mapboxgl.LngLatBounds()
-      for (let i = 0; i < filtered.length; i++) {
-        const e: Event = filtered[i]
-        if (e.venue) bounds.extend([e.venue.lng, e.venue.lat])
-      }
-      
-      const padding = deviceType === 'desktop' 
-        ? { top: 100, bottom: 100, left: 420, right: 100 }
-        : deviceType === 'tablet'
-        ? { top: 100, bottom: 150, left: 350, right: 50 }
-        : { top: 180, bottom: 150, left: 40, right: 40 }
-      
-      map.current.fitBounds(bounds, { 
-        padding,
-        maxZoom: 15,
-        minZoom: 13,
-        duration: 600 
-      })
-    }
-  }, [filtered, mapReady, highlightMarker, deviceType])
-
-// ============================================================================
-// END OF PART 1 - COPY PART 2 DIRECTLY AFTER THIS LINE
-// ============================================================================
-// ============================================================================
-// SOUNDED OUT - PAGE.TSX - PART 2 OF 3
-// ============================================================================
-// This is lines ~850 to ~1700
-// Copy this AFTER Part 1, BEFORE Part 3
-// This section contains all the component definitions
-// ============================================================================
-
-// ============================================================================
 // P1 FIX: ONBOARDING MODAL COMPONENT
 // ============================================================================
 const OnboardingModal = ({ onComplete }: OnboardingModalProps): JSX.Element => (
@@ -4149,6 +3126,1030 @@ function MobileDetailSheet({
   )
 }
   
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+export default function Home() {
+  // Initialize analytics
+  useEffect(() => {
+    initAnalytics()
+  }, [])
+
+  // Load user on mount and listen for auth changes
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser()
+      if (data.user) {
+        setUser({ id: data.user.id, email: data.user.email })
+      }
+    }
+    loadUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setUser({ id: session.user.id, email: session.user.email })
+      } else {
+        setUser(null)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
+  // Track page view on mount
+  useEffect(() => {
+    const trackInit = async () => {
+      await trackPageView('map_home', {
+        device_type: deviceType,
+        date_filter: dateFilter,
+        genre_filter: activeGenre || 'none',
+        events_count: events.length,
+      })
+    }
+    trackInit()
+  }, []) // Empty dependency array = run once on mount
+  
+  const mapContainer = useRef<HTMLDivElement>(null)
+  const map = useRef<mapboxgl.Map | null>(null)
+  const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; el: HTMLDivElement; inner: HTMLDivElement }>>(new Map())
+  
+  // Core state
+  const [events, setEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
+  const [dateFilter, setDateFilter] = useState<DateFilter>('today')
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('map')
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [clusterEvents, setClusterEvents] = useState<Event[]>([])
+  const [visibleDayLabel, setVisibleDayLabel] = useState<string>('')
+  const [showAdminMenu, setShowAdminMenu] = useState(false)
+
+  // User auth state
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
+  
+  // Responsive state
+  const [deviceType, setDeviceType] = useState<DeviceType>(() => {
+    if (typeof window !== 'undefined') {
+      const width = window.innerWidth
+      if (width >= 1024) return 'desktop'
+      if (width >= 768) return 'tablet'
+    }
+    return 'mobile'
+  })
+  const [windowWidth, setWindowWidth] = useState(() => {
+    if (typeof window !== 'undefined') return window.innerWidth
+    return 0
+  })
+  
+  // Animation state
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [sheetVisible, setSheetVisible] = useState(false)
+  const [mapReady, setMapReady] = useState(false)
+  const [showIntro, setShowIntro] = useState(true)
+  const [introPhase, setIntroPhase] = useState<'logo' | 'zoom' | 'done'>('logo')
+  
+  // First-load welcome overlay
+  const [showWelcome, setShowWelcome] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !localStorage.getItem('so_welcome_seen')
+    }
+    return true
+  })
+
+
+  // ============================================================================
+// TICKET SOURCE INFO
+// ============================================================================
+const TICKET_SOURCES: Record<string, { name: string; shortName: string; color: string }> = {
+  ra: { name: 'Resident Advisor', shortName: 'RA', color: '#000' },
+  fatsoma: { name: 'Fatsoma', shortName: 'Fatsoma', color: '#ff4081' },
+  skiddle: { name: 'Skiddle', shortName: 'Skiddle', color: '#00b4d8' },
+  dice: { name: 'DICE', shortName: 'DICE', color: '#000' },
+  eventbrite: { name: 'Eventbrite', shortName: 'Eventbrite', color: '#f05537' },
+  fixr: { name: 'FIXR', shortName: 'FIXR', color: '#6c5ce7' },
+  venue: { name: 'Venue', shortName: 'Venue', color: '#ab67f7' },
+  other: { name: 'Tickets', shortName: 'Tickets', color: '#ab67f7' },
+}
+
+// Auto-detect ticket source from URL
+const detectTicketSource = (url: string | null): string => {
+  if (!url) return 'other'
+  const lower = url.toLowerCase()
+  if (lower.includes('ra.co') || lower.includes('residentadvisor')) return 'ra'
+  if (lower.includes('fatsoma')) return 'fatsoma'
+  if (lower.includes('skiddle')) return 'skiddle'
+  if (lower.includes('dice.fm') || lower.includes('dice.')) return 'dice'
+  if (lower.includes('eventbrite')) return 'eventbrite'
+  if (lower.includes('fixr')) return 'fixr'
+  return 'other'
+}
+  
+  // ============================================================================
+  // P1 FIX: ONBOARDING STATE
+  // ============================================================================
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return !localStorage.getItem('so_onboarding_complete')
+    }
+    return true
+  })
+
+  // ============================================================================
+  // P1 FIX: SAVED EVENTS STATE
+  // ============================================================================
+  const [savedEventIds, setSavedEventIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved: string | null = localStorage.getItem('so_saved_events')
+      if (saved) {
+        const parsed: string[] = JSON.parse(saved) as string[]
+        return new Set(parsed)
+      }
+    }
+    return new Set()
+  })
+  
+  // Genre/vibe filter state
+  const [activeGenre, setActiveGenre] = useState<string | null>(null)
+  const [showFreeOnly, setShowFreeOnly] = useState(false)
+  
+  // Detail view state
+  const [showAllGenres, setShowAllGenres] = useState(false)
+  const [showDescription, setShowDescription] = useState(false)
+  
+  // Claim modal state
+  const [showClaimModal, setShowClaimModal] = useState(false)
+  const [claimType, setClaimType] = useState<'venue' | 'event'>('event')
+  const [claimForm, setClaimForm] = useState({ name: '', email: '', role: 'owner', proofUrl: '' })
+  const [claimSubmitting, setClaimSubmitting] = useState(false)
+  const [claimSubmitted, setClaimSubmitted] = useState(false)
+  const [claimError, setClaimError] = useState('')
+
+  // Login prompt modal state
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  
+  // Menu state
+  const [showMenu, setShowMenu] = useState(false)
+  const [logoTapCount, setLogoTapCount] = useState(0)
+  const logoTapTimer = useRef<NodeJS.Timeout | null>(null)
+  
+  // User location state
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [showUserLocation, setShowUserLocation] = useState(false)
+  const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
+  
+  // Refs for scroll tracking
+  const listScrollRef = useRef<HTMLDivElement>(null)
+  const daySectionRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  
+  // Gesture state
+  const [dragX, setDragX] = useState(0)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragDirection, setDragDirection] = useState<'horizontal' | 'vertical' | null>(null)
+  const [startX, setStartX] = useState(0)
+  const [startY, setStartY] = useState(0)
+  const [velocity, setVelocity] = useState({ x: 0, y: 0 })
+  const lastPos = useRef({ x: 0, y: 0, time: 0 })
+
+  // ============================================================================
+  // P1 FIX: SYNC SAVED EVENTS TO LOCALSTORAGE
+  // ============================================================================
+  useEffect(() => {
+    const arr: string[] = Array.from(savedEventIds)
+    localStorage.setItem('so_saved_events', JSON.stringify(arr))
+  }, [savedEventIds])
+
+  // ============================================================================
+  // RESPONSIVE DETECTION
+  // ============================================================================
+  useEffect(() => {
+    const updateDeviceType = () => {
+      const width = window.innerWidth
+      setWindowWidth(width)
+      if (width < BREAKPOINTS.mobile) {
+        setDeviceType('mobile')
+      } else if (width < BREAKPOINTS.tablet) {
+        setDeviceType('tablet')
+      } else {
+        setDeviceType('desktop')
+      }
+    }
+    
+    updateDeviceType()
+    window.addEventListener('resize', updateDeviceType)
+    return () => window.removeEventListener('resize', updateDeviceType)
+  }, [])
+
+  // ============================================================================
+  // DATE HELPERS
+  // ============================================================================
+  const getDateStr = (d: Date) => getUKDateString(d)
+
+const isTonight = (s: string) => {
+  if (!s) return false
+  return isUKToday(s)
+}
+
+const isTomorrow = (s: string) => {
+  if (!s) return false
+  return isUKTomorrow(s)
+}
+
+const isWeekend = (s: string) => {
+  if (!s) return false
+  return isUKWeekend(s)
+}
+
+const getDateLabel = (s: string) => {
+  if (!s) return 'TBC'
+  return getUKDateLabel(s)
+}
+
+const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
+  const d = new Date()
+  d.setDate(d.getDate() + i)
+  return { 
+    str: getDateStr(d), 
+    name: d.toLocaleDateString('en-GB', { weekday: 'short' }), 
+    num: d.getDate() 
+  }
+})
+
+  // ============================================================================
+  // FILTERED DATA - P1 FIX: Using for loops for TypeScript
+  // ============================================================================
+  const dateFiltered = useMemo(() => {
+    const result: Event[] = []
+    for (let i = 0; i < events.length; i++) {
+      const e: Event = events[i]
+      if (dateFilter === 'today' && isTonight(e.start_time)) result.push(e)
+      else if (dateFilter === 'tomorrow' && isTomorrow(e.start_time)) result.push(e)
+      else if (dateFilter === 'weekend' && isWeekend(e.start_time)) result.push(e)
+      else if (dateFilter !== 'today' && dateFilter !== 'tomorrow' && dateFilter !== 'weekend' && getDateStr(new Date(e.start_time)) === dateFilter) result.push(e)
+    }
+    return result
+  }, [events, dateFilter])
+  
+  const PINNED_GENRES = ['techno', 'house', 'dnb', 'disco', 'hip-hop', 'indie', 'live', 'student']
+  
+  const availableGenres = useMemo(() => {
+    const genreCount = new Map<string, number>()
+    for (let i = 0; i < dateFiltered.length; i++) {
+      const e: Event = dateFiltered[i]
+      if (e.genres) {
+        const genreList: string[] = e.genres.split(',')
+        for (let j = 0; j < genreList.length; j++) {
+          const normalized: string = genreList[j].trim().toLowerCase()
+          genreCount.set(normalized, (genreCount.get(normalized) || 0) + 1)
+        }
+      }
+    }
+    
+    const pinnedPresent: string[] = []
+    const unpinned: { genre: string; count: number }[] = []
+    
+    genreCount.forEach((count: number, genre: string) => {
+      if (PINNED_GENRES.includes(genre)) {
+        pinnedPresent.push(genre)
+      } else {
+        unpinned.push({ genre, count })
+      }
+    })
+    
+    pinnedPresent.sort((a: string, b: string) => PINNED_GENRES.indexOf(a) - PINNED_GENRES.indexOf(b))
+    unpinned.sort((a, b) => b.count - a.count)
+    
+    const result: string[] = []
+    for (let i = 0; i < pinnedPresent.length; i++) {
+      result.push(pinnedPresent[i])
+    }
+    for (let i = 0; i < unpinned.length; i++) {
+      result.push(unpinned[i].genre)
+    }
+    return result.slice(0, 8)
+  }, [dateFiltered])
+  
+  const filtered = useMemo(() => {
+    let result: Event[] = dateFiltered
+    if (activeGenre) {
+      const temp: Event[] = []
+      for (let i = 0; i < result.length; i++) {
+        if (result[i].genres?.toLowerCase().includes(activeGenre.toLowerCase())) {
+          temp.push(result[i])
+        }
+      }
+      result = temp
+    }
+    if (showFreeOnly) {
+      const temp: Event[] = []
+      for (let i = 0; i < result.length; i++) {
+        if (result[i].price_min === 0) {
+          temp.push(result[i])
+        }
+      }
+      result = temp
+    }
+    return result
+  }, [dateFiltered, activeGenre, showFreeOnly])
+
+  const current = filtered[currentIndex] || null
+  const nextEvent = filtered[currentIndex + 1] || null
+  const prevEvent = filtered[currentIndex - 1] || null
+  
+  const getDayGroupLabel = (s: string) => {
+    const d = new Date(s)
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()
+  }
+  
+  const grouped = useMemo(() => {
+    const g: Record<string, Event[]> = {}
+    for (let i = 0; i < filtered.length; i++) {
+      const e: Event = filtered[i]
+      const l: string = getDayGroupLabel(e.start_time)
+      if (!g[l]) g[l] = []
+      g[l].push(e)
+    }
+    return g
+  }, [filtered])
+  
+  useEffect(() => {
+    const keys = Object.keys(grouped)
+    if (keys.length > 0 && !visibleDayLabel) {
+      setVisibleDayLabel(keys[0])
+    }
+  }, [grouped, visibleDayLabel])
+
+  const filterLabel = dateFilter === 'today' ? 'today' 
+    : dateFilter === 'tomorrow' ? 'tomorrow' 
+    : dateFilter === 'weekend' ? 'this weekend' 
+    : new Date(dateFilter).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
+
+  // ============================================================================
+  // FORMAT HELPERS
+  // ============================================================================
+const formatTime = (s: string | null | undefined) => {
+  if (!s) return 'TBC'
+  return formatUKTime(s)
+}  
+  const formatPrice = (min: number | null, max: number | null) => {
+  if (min === 0 || (!min && !max)) return null
+  const fmt = (n: number) => `£${n.toFixed(2)}`  // ← ALWAYS 2 decimals
+  if (min && max && min !== max) return `${fmt(min)}–${fmt(max)}`
+  return fmt(min || max || 0)
+}
+  
+  const isFree = (min: number | null, max: number | null) => min === 0 || (!min && !max)
+  
+  const getGenres = (g: string | null) => g ? g.split(',').map((x: string) => x.trim()).slice(0, 2).join(' · ') : null
+  
+  const mapsUrl = (v: Venue) => `https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}`
+  
+  const getTicketUrl = (url: string | null) => {
+    if (!url) return null
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return `https://${url}`
+    return url
+  }
+
+  // ============================================================================
+  // P1 FIX: ONBOARDING & SAVE FUNCTIONS
+  // ============================================================================
+  const completeOnboarding = useCallback((): void => {
+    setShowOnboarding(false)
+    localStorage.setItem('so_onboarding_complete', 'true')
+  }, [])
+
+  const toggleSaveEvent = useCallback((eventId: string, e?: React.MouseEvent): void => {
+    if (e) {
+      e.stopPropagation()
+      e.preventDefault()
+    }
+    setSavedEventIds((prev: Set<string>) => {
+      const next: Set<string> = new Set(prev)
+      if (next.has(eventId)) {
+        next.delete(eventId)
+      } else {
+        next.add(eventId)
+      }
+      return next
+    })
+  }, [])
+
+  const isEventSaved = useCallback((eventId: string): boolean => {
+    return savedEventIds.has(eventId)
+  }, [savedEventIds])
+
+  // ============================================================================
+  // LOGO TAP HANDLER (Admin access)
+  // ============================================================================
+   const handleLogoTap = useCallback((): void => {
+    if (logoTapTimer.current) {
+      clearTimeout(logoTapTimer.current)
+    }
+    
+    const newCount: number = logoTapCount + 1
+    setLogoTapCount(newCount)
+    
+    if (newCount >= 5) {
+      setShowAdminMenu(true)
+      setLogoTapCount(0)
+      return
+    }
+    
+    logoTapTimer.current = setTimeout(() => {
+      setLogoTapCount(0)
+    }, 2000)
+  }, [logoTapCount])
+
+  // ============================================================================
+  // LIST SCROLL HANDLER (Day label tracking)
+  // ============================================================================
+    const handleListScroll = useCallback((): void => {
+    if (!listScrollRef.current) return
+    
+    const scrollTop: number = listScrollRef.current.scrollTop
+    const labels: string[] = Object.keys(grouped)
+    
+    for (let i = 0; i < labels.length; i++) {
+      const label: string = labels[i]
+      const el: HTMLDivElement | undefined = daySectionRefs.current.get(label)
+      if (el) {
+        const rect: DOMRect = el.getBoundingClientRect()
+        const containerRect: DOMRect = listScrollRef.current.getBoundingClientRect()
+        if (rect.top <= containerRect.top + 50 && rect.bottom > containerRect.top) {
+          setVisibleDayLabel(prev => prev === label ? prev : label)
+          break
+        }
+      }
+    }
+  }, [grouped])
+
+// ============================================================================
+  // DATA LOADING
+  // ============================================================================
+useEffect(() => {
+  const loadEvents = async () => {
+    console.log('🔍 Loading events with brands...')
+    
+    // PRIMARY QUERY: Try loading with brands
+    const { data: eventsData, error: eventsError } = await supabase
+      .from('events')
+      .select(`
+        *,
+        venue:venues(*),
+        brand:brands(*)
+      `)
+      .eq('status', 'published')
+      .gte('start_time', new Date().toISOString().split('T')[0])
+      .order('start_time')
+    
+    if (eventsError) {
+      console.warn('⚠️ Events query with brands failed:', eventsError.message)
+      
+      // FALLBACK: Try without brands
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('events')
+        .select(`
+          *,
+          venue:venues(*)
+        `)
+        .eq('status', 'published')
+        .gte('start_time', new Date().toISOString().split('T')[0])
+        .order('start_time')
+      
+      if (fallbackError) {
+        console.error('❌ Fallback query failed:', fallbackError)
+        setLoading(false)
+        return
+      }
+      
+      if (fallbackData) {
+        console.log(`✅ Loaded ${fallbackData.length} events (without brands)`)
+        setEvents(fallbackData)
+        const venueIds = new Set(fallbackData.map(e => e.venue_id))
+        trackMapLoaded(fallbackData.length, venueIds.size)
+      }
+    } else if (eventsData) {
+      console.log(`✅ Loaded ${eventsData.length} events (with brands)`)
+      console.log('📊 Brand coverage:', eventsData.filter(e => e.brand).length, 'events have brands')
+      setEvents(eventsData)
+      const venueIds = new Set(eventsData.map(e => e.venue_id))
+      trackMapLoaded(eventsData.length, venueIds.size)
+    }
+    
+    setLoading(false)
+  }
+  
+  loadEvents()
+}, [])
+  // ============================================================================
+  // MAP INITIALIZATION - P1 FIX: minZoom changed from 10 to 12
+  // ============================================================================
+  useEffect(() => {
+    if (!mapContainer.current) return
+
+     setMapReady(false)
+    
+    if (map.current) {
+      map.current.remove()
+      map.current = null
+    }
+    
+    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
+    
+    const m = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [-1.6131, 54.9695],
+      zoom: showIntro ? 2 : 14,
+      pitch: 0,
+      bearing: 0,
+      minZoom: 12, // P1 FIX: Changed from 10 to prevent globe view
+      maxZoom: 18,
+      pitchWithRotate: false,
+      dragRotate: false,
+      touchPitch: false,
+      renderWorldCopies: false,
+      dragPan: !showIntro,
+      scrollZoom: !showIntro,
+      doubleClickZoom: !showIntro,
+      touchZoomRotate: !showIntro,
+      fadeDuration: 0,
+    })
+    
+    m.on('load', () => {
+  console.log('🗺️ Map loaded')
+  setMapReady(true)
+  
+  // Enable interactions
+  const canvas = m.getCanvas()
+  if (canvas) {
+    canvas.style.touchAction = 'pan-x pan-y'
+  }
+  
+  m.dragPan.enable()
+  m.scrollZoom.enable()
+  m.doubleClickZoom.enable()
+  m.touchZoomRotate.enable()
+})
+    
+      map.current = m
+
+  return () => {
+    if (map.current) {
+      try {
+        map.current.remove()
+      } catch (error) {
+        // Ignore
+      }
+      map.current = null
+    }
+  }
+}, []) 
+
+// Intro animation - simplified
+useEffect(() => {
+  const hasSeenIntro = localStorage.getItem('so_intro_seen')
+  if (hasSeenIntro) {
+    setShowIntro(false)
+    return
+  }
+  
+  const timer = setTimeout(() => {
+    setShowIntro(false)
+    localStorage.setItem('so_intro_seen', 'true')
+  }, 1000)
+  
+  return () => clearTimeout(timer)
+}, [])
+
+  // ============================================================================
+  // USER LOCATION
+  // ============================================================================
+  const toggleUserLocation = useCallback(() => {
+    if (showUserLocation) {
+      setShowUserLocation(false)
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove()
+        userMarkerRef.current = null
+      }
+      trackLocationDenied()
+    } else {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords
+            setUserLocation({ lat: latitude, lng: longitude })
+            setShowUserLocation(true)
+            trackLocationEnabled()
+          },
+          (error) => {
+            console.log('Location error:', error)
+            alert('Unable to get your location. Please enable location services.')
+            trackLocationDenied()
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        )
+      } else {
+        alert('Geolocation is not supported by your browser.')
+      }
+    }
+  }, [showUserLocation])
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setShowMenu(false)
+  }
+
+  useEffect(() => {
+    if (!map.current || !mapReady || !showUserLocation || !userLocation) return
+    
+    if (userMarkerRef.current) {
+      userMarkerRef.current.remove()
+    }
+    
+    const el = document.createElement('div')
+    el.innerHTML = `
+      <div style="position: relative;">
+        <div style="width: 20px; height: 20px; background: #4285F4; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+        <div style="position: absolute; top: -4px; left: -4px; width: 28px; height: 28px; background: rgba(66,133,244,0.2); border-radius: 50%; animation: pulse 2s infinite;"></div>
+      </div>
+    `
+    
+    userMarkerRef.current = new mapboxgl.Marker({ element: el })
+      .setLngLat([userLocation.lng, userLocation.lat])
+      .addTo(map.current)
+    
+    return () => {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove()
+      }
+    }
+  }, [userLocation, showUserLocation, mapReady])
+
+  // ============================================================================
+  // MARKER HIGHLIGHT
+  // ============================================================================
+  const highlightMarker = useCallback((eventId: string | null) => {
+    markersRef.current.forEach((data, id) => {
+      const selected = eventId && id.includes(eventId)
+      if (data.inner) {
+        data.inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
+        data.inner.style.transform = selected ? 'scale(1.25)' : 'scale(1)'
+        data.inner.style.filter = selected 
+          ? 'drop-shadow(0 6px 10px rgba(0,0,0,0.5))' 
+          : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+      }
+      data.el.style.zIndex = selected ? '5' : '1'
+    })
+  }, [])
+
+  // ============================================================================
+  // SELECT EVENT
+  // ============================================================================
+  const selectEvent = useCallback((event: Event): void => {
+    let idx: number = -1
+    for (let i = 0; i < filtered.length; i++) {
+      if (filtered[i].id === event.id) {
+        idx = i
+        break
+      }
+    }
+    if (idx !== -1) {
+      setCurrentIndex(idx)
+      setViewMode('preview')
+      setSheetVisible(true)
+      setClusterEvents([])
+      highlightMarker(event.id)
+      
+      if (event.venue && map.current) {
+        const currentZoom: number = map.current.getZoom() || 14
+        map.current.easeTo({
+          center: [event.venue.lng, event.venue.lat],
+          zoom: Math.max(currentZoom, 14.5),
+          duration: 300,
+        })
+      }
+      
+      trackEventView(event.id, event.title, event.venue?.name || '', 'list')
+    }
+  }, [filtered, highlightMarker])
+
+  // ============================================================================
+  // NAVIGATE (Prev/Next)
+  // ============================================================================
+  const navigate = useCallback((direction: 'prev' | 'next'): void => {
+    if (isAnimating) return
+    
+    setIsAnimating(true)
+    
+    const newIndex: number = direction === 'next' 
+      ? Math.min(currentIndex + 1, filtered.length - 1)
+      : Math.max(currentIndex - 1, 0)
+    
+    if (newIndex !== currentIndex) {
+      setCurrentIndex(newIndex)
+      const newEvent: Event = filtered[newIndex]
+      highlightMarker(newEvent.id)
+      
+      if (newEvent.venue && map.current) {
+        map.current.easeTo({
+          center: [newEvent.venue.lng, newEvent.venue.lat],
+          zoom: 14.5,
+          duration: 300,
+        })
+      }
+    }
+    
+    setTimeout(() => setIsAnimating(false), 300)
+  }, [currentIndex, filtered, highlightMarker, isAnimating])
+
+  // ============================================================================
+  // SHEET CONTROLS
+  // ============================================================================
+  const openSheet = useCallback((mode: ViewMode): void => {
+    setViewMode(mode)
+    requestAnimationFrame(() => {
+      setSheetVisible(true)
+    })
+  }, [])
+
+  const closeSheet = useCallback((): void => {
+    setSheetVisible(false)
+    setTimeout(() => {
+      setViewMode('map')
+      setClusterEvents([])
+      highlightMarker(null)
+    }, SPRING.sheetDuration)
+  }, [highlightMarker])
+
+  // ============================================================================
+  // TOUCH/GESTURE HANDLERS
+  // ============================================================================
+  const onTouchStart = useCallback((e: React.TouchEvent): void => {
+    const touch = e.touches[0]
+    setStartX(touch.clientX)
+    setStartY(touch.clientY)
+    setDragX(0)
+    setDragY(0)
+    setIsDragging(true)
+    setDragDirection(null)
+    lastPos.current = { x: touch.clientX, y: touch.clientY, time: Date.now() }
+  }, [])
+
+  const onTouchMove = useCallback((e: React.TouchEvent): void => {
+    if (!isDragging) return
+    const touch = e.touches[0]
+    const dx = touch.clientX - startX
+    const dy = touch.clientY - startY
+    if (!dragDirection) {
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        setDragDirection(Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical')
+      }
+    }
+    if (dragDirection === 'horizontal') {
+      setDragX(dx)
+    } else if (dragDirection === 'vertical') {
+      setDragY(Math.max(0, dy))
+    }
+    const now = Date.now()
+    const dt = now - lastPos.current.time
+    if (dt > 0) {
+      setVelocity({
+        x: (touch.clientX - lastPos.current.x) / dt * 1000,
+        y: (touch.clientY - lastPos.current.y) / dt * 1000,
+      })
+    }
+    lastPos.current = { x: touch.clientX, y: touch.clientY, time: now }
+  }, [isDragging, startX, startY, dragDirection])
+
+  const onTouchEnd = useCallback((): void => {
+    setIsDragging(false)
+    if (dragDirection === 'vertical') {
+      if (dragY > GESTURE.dismissThreshold || velocity.y > GESTURE.dismissVelocity) {
+        closeSheet()
+      }
+    } else if (dragDirection === 'horizontal' && viewMode === 'preview') {
+      if (dragX < -GESTURE.swipeThreshold || velocity.x < -GESTURE.velocityThreshold) {
+        navigate('next')
+      } else if (dragX > GESTURE.swipeThreshold || velocity.x > GESTURE.velocityThreshold) {
+        navigate('prev')
+      }
+    }
+    setDragX(0)
+    setDragY(0)
+    setDragDirection(null)
+  }, [dragDirection, dragX, dragY, velocity, viewMode, closeSheet, navigate])
+
+  // ============================================================================
+  // TRANSFORM HELPERS
+  // ============================================================================
+  const getSheetStyle = (visible: boolean): React.CSSProperties => ({
+    transform: visible ? 'translateY(0)' : 'translateY(100%)',
+    transition: isDragging ? 'none' : `transform ${SPRING.sheetDuration}ms ${SPRING.sheet}`,
+  })
+
+  const getCardTransform = (): React.CSSProperties => ({
+    transform: `translateX(${dragX * 0.5}px)`,
+    transition: isDragging ? 'none' : `transform ${SPRING.springBackDuration}ms ${SPRING.springBack}`,
+  })
+
+  const getDismissTransform = (): React.CSSProperties => ({
+    transform: `translateY(${dragY}px) scale(${1 - dragY * 0.0005})`,
+    transition: isDragging ? 'none' : `transform ${SPRING.springBackDuration}ms ${SPRING.springBack}`,
+    opacity: 1 - dragY * 0.002,
+  })
+
+  // ============================================================================
+  // COMPUTED VALUES
+  // ============================================================================
+  const noSelectStyle: React.CSSProperties = {
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
+  }
+
+  const peekProgress: number = Math.min(Math.abs(dragX) / GESTURE.swipeThreshold, 1)
+  const dismissProgress: number = Math.min(dragY / GESTURE.dismissThreshold, 1)
+  const showPrevPeek: boolean = dragX > 20 && currentIndex > 0
+  const showNextPeek: boolean = dragX < -20 && currentIndex < filtered.length - 1
+
+  // ============================================================================
+  // MARKERS
+  // ============================================================================
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    
+    markersRef.current.forEach(d => d.marker.remove())
+    markersRef.current.clear()
+    
+    if (filtered.length === 0) {
+      map.current.flyTo({ 
+        center: [-1.6131, 54.9695], 
+        zoom: 14, 
+        duration: 500, 
+        easing: (t) => 1 - Math.pow(1 - t, 3) 
+      })
+      return
+    }
+
+    const byVenue: Record<string, Event[]> = {}
+    for (let i = 0; i < filtered.length; i++) {
+      const e: Event = filtered[i]
+      if (e.venue) {
+        const k = `${e.venue.lat.toFixed(6)},${e.venue.lng.toFixed(6)}`
+        if (!byVenue[k]) byVenue[k] = []
+        byVenue[k].push(e)
+      }
+    }
+
+    const venueKeys: string[] = Object.keys(byVenue)
+    for (let vi = 0; vi < venueKeys.length; vi++) {
+      const key: string = venueKeys[vi]
+      const evs: Event[] = byVenue[key]
+      const v: Venue = evs[0].venue!
+      const count: number = evs.length
+      const ids: string = evs.map((e: Event) => e.id).join(',')
+      let hasCurated = false
+      for (let i = 0; i < evs.length; i++) {
+        if (evs[i].so_pick) {
+          hasCurated = true
+          break
+        }
+      }
+
+      const el = document.createElement('div')
+      el.style.cursor = 'pointer'
+      el.style.zIndex = '1'
+      
+      const inner = document.createElement('div')
+      inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
+      inner.style.transformOrigin = 'center bottom'
+      inner.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+
+      if (count > 1) {
+        el.style.width = '44px'
+        el.style.height = '44px'
+        if (hasCurated) {
+          inner.innerHTML = `<div style="position:relative;width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}<img src="/so-icon.png" style="position:absolute;top:-6px;right:-6px;height:14px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));" /></div>`
+        } else {
+          inner.innerHTML = `<div style="width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}</div>`
+        }
+      } else {
+        el.style.width = '32px'
+        el.style.height = '42px'
+        if (hasCurated) {
+          inner.innerHTML = `<div style="position:relative;width:32px;height:42px;"><svg viewBox="0 0 24 36" width="32" height="42" style="position:absolute;top:0;left:0;"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="6" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg><img src="/so-icon.png" style="position:absolute;top:5px;left:50%;transform:translateX(-50%);height:10px;width:auto;" /></div>`
+        } else {
+          inner.innerHTML = `<svg viewBox="0 0 24 36" width="32" height="42"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="5" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg>`
+        }
+      }
+      
+      el.appendChild(inner)
+
+      el.onpointerdown = (e) => { 
+        e.stopPropagation()
+        inner.style.transform = 'scale(1.15)' 
+        inner.style.transition = 'transform 60ms ease-out'
+      }
+      el.onpointerup = () => { 
+        inner.style.transform = 'scale(1)'
+        inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
+      }
+      el.onpointerleave = () => { 
+        inner.style.transform = 'scale(1)'
+        inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
+      }
+
+const handleMarkerClick = (e: any) => {
+  e.preventDefault()
+  e.stopPropagation()
+  
+  console.log('🎯 Marker clicked!', { count, venueId: v.id }) // ← ADD THIS for debugging
+  
+  if (count > 1) {
+    setClusterEvents(evs)
+    setViewMode('cluster')
+    requestAnimationFrame(() => {
+      setSheetVisible(true)
+    })
+  } else {
+    let idx = -1
+    for (let i = 0; i < filtered.length; i++) {
+      if (filtered[i].id === evs[0].id) {
+        idx = i
+        break
+      }
+    }
+    if (idx !== -1) {  // ← ADD THIS CHECK
+      setCurrentIndex(idx)
+      setViewMode('preview')
+      trackMarkerClick(evs[0].id, evs[0].title, v.name)
+      trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
+      
+      requestAnimationFrame(() => {
+        setSheetVisible(true)
+        highlightMarker(evs[0].id)
+      })
+    }
+  }
+  
+  const currentZoom = map.current?.getZoom() || 14
+  map.current?.easeTo({
+    center: [v.lng, v.lat],
+    zoom: Math.max(currentZoom, 14.5),
+    duration: 300,
+    easing: (t: number) => 1 - Math.pow(1 - t, 2),
+  })
+}
+
+// ✅ ADD BOTH event listeners for mobile compatibility
+el.addEventListener('click', handleMarkerClick, { passive: false })
+el.addEventListener('touchend', handleMarkerClick, { passive: false }) // ← ADD THIS LINE
+el.style.pointerEvents = 'auto'  // ← MAKE SURE THIS EXISTS
+el.style.cursor = 'pointer'  // ← MAKE SURE THIS EXISTS
+
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([v.lng, v.lat])
+        .addTo(map.current!)
+      
+      markersRef.current.set(ids, { marker, el, inner })
+    }
+
+    if (filtered.length > 0) {
+      const bounds = new mapboxgl.LngLatBounds()
+      for (let i = 0; i < filtered.length; i++) {
+        const e: Event = filtered[i]
+        if (e.venue) bounds.extend([e.venue.lng, e.venue.lat])
+      }
+      
+      const padding = deviceType === 'desktop' 
+        ? { top: 100, bottom: 100, left: 420, right: 100 }
+        : deviceType === 'tablet'
+        ? { top: 100, bottom: 150, left: 350, right: 50 }
+        : { top: 180, bottom: 150, left: 40, right: 40 }
+      
+      map.current.fitBounds(bounds, { 
+        padding,
+        maxZoom: 15,
+        minZoom: 13,
+        duration: 600 
+      })
+    }
+  }, [filtered, mapReady, highlightMarker, deviceType])
+
+// ============================================================================
+// END OF PART 1 - COPY PART 2 DIRECTLY AFTER THIS LINE
+// ============================================================================
+// ============================================================================
+// SOUNDED OUT - PAGE.TSX - PART 2 OF 3
+// ============================================================================
+// This is lines ~850 to ~1700
+// Copy this AFTER Part 1, BEFORE Part 3
+// This section contains all the component definitions
+// ============================================================================
+
 
 
 // ============================================================================
