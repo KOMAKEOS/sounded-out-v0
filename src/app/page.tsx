@@ -82,6 +82,8 @@ const [deviceType, setDeviceType] = useState<DeviceType>(() => {
   return 'mobile'
 })
 
+const [events, setEvents] = useState<Event[]>([])
+
 // ============================================================================
 // TYPES
 // ============================================================================
