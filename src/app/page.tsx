@@ -3324,18 +3324,18 @@ const detectTicketSource = (url: string | null): string => {
   // ============================================================================
   // RESPONSIVE DETECTION
   // ============================================================================
-  useEffect(() => {
-    const updateDeviceType = () => {
-      const width = window.innerWidth
-      setWindowWidth(width)
-      if (width < BREAKPOINTS.mobile) {
-        setDeviceType('mobile')
-      } else if (width < BREAKPOINTS.tablet) {
-        setDeviceType('tablet')
-      } else {
-        setDeviceType('desktop')
-      }
-    }
+  const updateDeviceType = () => {
+  const width = window.innerWidth
+  // Remove setWindowWidth(width) - this variable doesn't exist
+  
+  if (width < BREAKPOINTS.mobile) {
+    setDeviceType('mobile')
+  } else if (width < BREAKPOINTS.tablet) {
+    setDeviceType('tablet')
+  } else {
+    setDeviceType('desktop')
+  }
+}
     
     updateDeviceType()
     window.addEventListener('resize', updateDeviceType)
