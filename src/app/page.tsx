@@ -6,7 +6,6 @@ import { supabase } from '../lib/supabase'
 import Link from 'next/link'
 import EventActions from '../components/EventActions'
 import LoginPromptModal from '../components/LoginPromptModal'
-import React, { useEffect, useState } from "react";
 import {
   formatUKTime,
   formatUKDate,
