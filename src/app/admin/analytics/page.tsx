@@ -82,7 +82,37 @@ function AnalyticsDashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [timeRange, setTimeRange] = useState('7days')
   const [isLoading, setIsLoading] = useState(true)
-  const [analyticsData, setAnalyticsData] = useState({
+  const [analyticsData, setAnalyticsData] = useState<{
+    totalSessions: number
+    todaySessions: number
+    uniqueUsers: number
+    todayUsers: number
+    eventViews: number
+    eventViewsPerSession: number
+    ticketClicks: number
+    conversionRate: number
+    topEvents: Array<{
+      event_id: string
+      event_title: string
+      venue_name: string
+      views: number
+      clicks: number
+    }>
+    topVenues: Array<{
+      name: string
+      views: number
+    }>
+    totalClaims: number
+    pendingClaims: number
+    approvedClaims: number
+    directions: number
+    shares: number
+    dailyTrend: any[]
+    devices: Record<string, number>
+    trafficSources: any[]
+    peakHours: any[]
+    liveActivity: any[]
+  }>({
     totalSessions: 0,
     todaySessions: 0,
     uniqueUsers: 0,
@@ -160,7 +190,14 @@ function AnalyticsDashboard() {
       const eventViewsPerSession = totalSessions > 0 ? (eventViews / totalSessions).toFixed(1) : 0
 
       // Top events
-      const eventViewCounts = {}
+      const eventViewCounts: Record<string, {
+        event_id: string
+        event_title: string
+        venue_name: string
+        views: number
+        clicks: number
+      }> = {}
+      
       interactionsData?.filter(i => i.interaction_type === 'view').forEach(interaction => {
         const key = `${interaction.event_id}-${interaction.event_title}`
         if (!eventViewCounts[key]) {
@@ -183,11 +220,11 @@ function AnalyticsDashboard() {
       })
 
       const topEvents = Object.values(eventViewCounts)
-        .sort((a: any, b: any) => b.views - a.views)
+        .sort((a, b) => b.views - a.views)
         .slice(0, 5)
 
       // Top venues
-      const venueViewCounts = {}
+      const venueViewCounts: Record<string, { name: string; views: number }> = {}
       interactionsData?.forEach(interaction => {
         const venue = interaction.venue_name
         if (venue && !venueViewCounts[venue]) {
@@ -197,7 +234,7 @@ function AnalyticsDashboard() {
       })
 
       const topVenues = Object.values(venueViewCounts)
-        .sort((a: any, b: any) => b.views - a.views)
+        .sort((a, b) => b.views - a.views)
         .slice(0, 5)
 
       // Claims data
@@ -217,7 +254,7 @@ function AnalyticsDashboard() {
       const shares = sharesData?.length || 0
 
       // Device breakdown
-      const deviceCounts = { mobile: 0, tablet: 0, desktop: 0 }
+      const deviceCounts: Record<string, number> = { mobile: 0, tablet: 0, desktop: 0 }
       sessionsData?.forEach(session => {
         const deviceType = session.device_type || 'desktop'
         if (deviceCounts[deviceType] !== undefined) {
@@ -262,7 +299,19 @@ function AnalyticsDashboard() {
     }
   }
 
-  const MetricCard = ({ title, value, subtitle, icon, color }) => (
+  const MetricCard = ({ 
+    title, 
+    value, 
+    subtitle, 
+    icon, 
+    color 
+  }: {
+    title: string
+    value: string | number
+    subtitle?: string
+    icon: string
+    color: string
+  }) => (
     <div 
       className="relative bg-slate-900/50 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-6 shadow-2xl"
       style={{ borderLeftColor: color, borderLeftWidth: '4px' }}
