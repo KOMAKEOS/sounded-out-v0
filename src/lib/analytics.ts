@@ -167,6 +167,9 @@ export const trackShareClick = (
   })
 }
 
+// Alias for trackShareClick (used in event/[id]/page.tsx)
+export const trackEventShare = trackShareClick
+
 // ============================================================================
 // FILTER INTERACTIONS
 // ============================================================================
@@ -221,6 +224,9 @@ export const trackClaimStart = (
 ): void => {
   track('claim_start', { claim_type: claimType, item_name: itemName })
 }
+
+// Alias for trackClaimStart (used in event/[id]/page.tsx)
+export const trackClaimStarted = trackClaimStart
 
 export const trackClaimSubmit = (
   claimType: 'venue' | 'event',
