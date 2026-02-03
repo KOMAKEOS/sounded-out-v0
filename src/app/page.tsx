@@ -647,6 +647,18 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 // MAIN HOME COMPONENT - ALL STATE AND LOGIC LIVES HERE
 // ============================================================================
 export default function Home() {
+  const updateDeviceType = () => {
+  const width = window.innerWidth
+  // Remove setWindowWidth(width) - this variable doesn't exist
+  
+  if (width < BREAKPOINTS.mobile) {
+    setDeviceType('mobile')
+  } else if (width < BREAKPOINTS.tablet) {
+    setDeviceType('tablet')
+  } else {
+    setDeviceType('desktop')
+  }
+}
   // ============================================================================
   // STATE DECLARATIONS
   // ============================================================================
@@ -3253,18 +3265,7 @@ const detectTicketSource = (url: string | null): string => {
   // ============================================================================
   // RESPONSIVE DETECTION
   // ============================================================================
-  const updateDeviceType = () => {
-  const width = window.innerWidth
-  // Remove setWindowWidth(width) - this variable doesn't exist
   
-  if (width < BREAKPOINTS.mobile) {
-    setDeviceType('mobile')
-  } else if (width < BREAKPOINTS.tablet) {
-    setDeviceType('tablet')
-  } else {
-    setDeviceType('desktop')
-  }
-}
 
   // ============================================================================
   // DATE HELPERS
