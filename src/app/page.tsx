@@ -3300,10 +3300,6 @@ const detectTicketSource = (url: string | null): string => {
   // ============================================================================
   // P1 FIX: SYNC SAVED EVENTS TO LOCALSTORAGE
   // ============================================================================
-  useEffect(() => {
-    const arr: string[] = Array.from(savedEventIds)
-    localStorage.setItem('so_saved_events', JSON.stringify(arr))
-  }, [savedEventIds])
 
   // ============================================================================
   // RESPONSIVE DETECTION
