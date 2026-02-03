@@ -3336,11 +3336,6 @@ const detectTicketSource = (url: string | null): string => {
     setDeviceType('desktop')
   }
 }
-    
-    updateDeviceType()
-    window.addEventListener('resize', updateDeviceType)
-    return () => window.removeEventListener('resize', updateDeviceType)
-  }, [])
 
   // ============================================================================
   // DATE HELPERS
