@@ -186,8 +186,8 @@ function AnalyticsDashboard() {
       const ticketClicks = interactionsData?.filter(i => i.interaction_type === 'ticket_click').length || 0
       const directions = interactionsData?.filter(i => i.interaction_type === 'directions').length || 0
       
-      const conversionRate = eventViews > 0 ? (ticketClicks / eventViews * 100).toFixed(1) : 0
-      const eventViewsPerSession = totalSessions > 0 ? (eventViews / totalSessions).toFixed(1) : 0
+      const conversionRate = eventViews > 0 ? (ticketClicks / eventViews * 100) : 0
+      const eventViewsPerSession = totalSessions > 0 ? (eventViews / totalSessions) : 0
 
       // Top events
       const eventViewCounts: Record<string, {
@@ -275,9 +275,9 @@ function AnalyticsDashboard() {
         uniqueUsers,
         todayUsers,
         eventViews,
-        eventViewsPerSession: parseFloat(eventViewsPerSession),
+        eventViewsPerSession: Math.round(eventViewsPerSession * 10) / 10, // Round to 1 decimal
         ticketClicks,
-        conversionRate: parseFloat(conversionRate),
+        conversionRate: Math.round(conversionRate * 10) / 10, // Round to 1 decimal
         topEvents,
         topVenues,
         totalClaims,
@@ -691,3 +691,4 @@ function AnalyticsDashboard() {
 }
 
 export default AnalyticsDashboard
+
