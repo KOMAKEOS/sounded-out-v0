@@ -73,17 +73,6 @@ const GESTURE = {
   dismissScale: 0.98,  // ← CHANGED from 0.97 (less shrink)
 }
 
-const [deviceType, setDeviceType] = useState<DeviceType>(() => {
-  if (typeof window !== 'undefined') {
-    const width = window.innerWidth
-    if (width >= 1024) return 'desktop'
-    if (width >= 768) return 'tablet'
-  }
-  return 'mobile'
-})
-
-const [events, setEvents] = useState<Event[]>([])
-
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -3260,26 +3249,10 @@ const detectTicketSource = (url: string | null): string => {
   // ============================================================================
   // P1 FIX: ONBOARDING STATE
   // ============================================================================
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return !localStorage.getItem('so_onboarding_complete')
-    }
-    return true
-  })
-
+  
   // ============================================================================
   // P1 FIX: SAVED EVENTS STATE
   // ============================================================================
-  const [savedEventIds, setSavedEventIds] = useState<Set<string>>(() => {
-    if (typeof window !== 'undefined') {
-      const saved: string | null = localStorage.getItem('so_saved_events')
-      if (saved) {
-        const parsed: string[] = JSON.parse(saved) as string[]
-        return new Set(parsed)
-      }
-    }
-    return new Set()
-  })
   
   // Genre/vibe filter state
   const [activeGenre, setActiveGenre] = useState<string | null>(null)
@@ -3386,17 +3359,6 @@ const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
   // ============================================================================
   // FILTERED DATA - P1 FIX: Using for loops for TypeScript
   // ============================================================================
-  const dateFiltered = useMemo(() => {
-    const result: Event[] = []
-    for (let i = 0; i < events.length; i++) {
-      const e: Event = events[i]
-      if (dateFilter === 'today' && isTonight(e.start_time)) result.push(e)
-      else if (dateFilter === 'tomorrow' && isTomorrow(e.start_time)) result.push(e)
-      else if (dateFilter === 'weekend' && isWeekend(e.start_time)) result.push(e)
-      else if (dateFilter !== 'today' && dateFilter !== 'tomorrow' && dateFilter !== 'weekend' && getDateStr(new Date(e.start_time)) === dateFilter) result.push(e)
-    }
-    return result
-  }, [events, dateFilter])
   
   const PINNED_GENRES = ['techno', 'house', 'dnb', 'disco', 'hip-hop', 'indie', 'live', 'student']
   
