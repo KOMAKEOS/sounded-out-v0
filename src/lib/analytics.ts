@@ -249,24 +249,44 @@ export const trackTicketClick = (
 }
 
 // ============================================================================
-// ADDITIONAL INTERACTION TRACKING
+// SAVE/UNSAVE FUNCTIONS
 // ============================================================================
 
-export const trackDirectionsClick = (
+export const trackSaveEvent = (
   eventId: string,
-  venueName: string,
-  venueId?: string,
-  eventTitle?: string
+  eventTitle: string,
+  action: 'save' | 'unsave',
+  venueName?: string
 ): void => {
-  track('directions_click', {
+  track('event_save', {
     event_id: eventId,
-    venue_name: venueName,
-    venue_id: venueId,
     event_title: eventTitle,
-    intent: 'navigation',
-    conversion_signal: 'high'
+    action: action,
+    venue_name: venueName,
+    engagement_level: 'high',
+    intent_signal: 'strong'
   })
 }
+
+export const trackEventSave = (
+  eventId: string,
+  eventTitle: string,
+  venueName?: string
+): void => {
+  trackSaveEvent(eventId, eventTitle, 'save', venueName)
+}
+
+export const trackEventUnsave = (
+  eventId: string,
+  eventTitle: string,
+  venueName?: string
+): void => {
+  trackSaveEvent(eventId, eventTitle, 'unsave', venueName)
+}
+
+// ============================================================================
+// SHARE FUNCTIONS
+// ============================================================================
 
 export const trackShareClick = (
   eventId: string,
@@ -284,19 +304,32 @@ export const trackShareClick = (
   })
 }
 
-export const trackSaveEvent = (
+export const trackEventShare = (
   eventId: string,
   eventTitle: string,
-  action: 'save' | 'unsave',
+  shareMethod: string,
   venueName?: string
 ): void => {
-  track('event_save', {
+  trackShareClick(eventId, eventTitle, shareMethod, venueName)
+}
+
+// ============================================================================
+// ADDITIONAL INTERACTION TRACKING
+// ============================================================================
+
+export const trackDirectionsClick = (
+  eventId: string,
+  venueName: string,
+  venueId?: string,
+  eventTitle?: string
+): void => {
+  track('directions_click', {
     event_id: eventId,
-    event_title: eventTitle,
-    action: action,
     venue_name: venueName,
-    engagement_level: 'high',
-    intent_signal: 'strong'
+    venue_id: venueId,
+    event_title: eventTitle,
+    intent: 'navigation',
+    conversion_signal: 'high'
   })
 }
 
@@ -442,7 +475,7 @@ export const trackLocationDenied = (): void => {
 }
 
 // ============================================================================
-// BUSINESS METRICS
+// BUSINESS METRICS & CLAIMS
 // ============================================================================
 
 export const trackClaimStart = (
@@ -507,6 +540,9 @@ export const trackClaimSubmit = (
     })
     .catch(error => console.error('Claim submit error:', error))
 }
+
+// Alias for backward compatibility
+export const trackClaimStarted = trackClaimStart
 
 // ============================================================================
 // CTA & CONVERSION TRACKING
