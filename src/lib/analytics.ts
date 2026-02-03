@@ -1,421 +1,318 @@
-/**
- * SOUNDED OUT - COMPREHENSIVE ANALYTICS SYSTEM
- * Tracks all user interactions for DAU/WAU/MAU and viral metrics
- */
-
-import { supabase } from './supabase';
-import { useEffect } from 'react';
-
 // ============================================================================
-// CORE ANALYTICS ENGINE
+// SOUNDED OUT - ANALYTICS MODULE
+// ============================================================================
+// All tracking functions used across the app
 // ============================================================================
 
-class AnalyticsEngine {
-  private sessionId: string;
-  private userId: string | null = null;
-  private queue: any[] = [];
-  private flushTimer: NodeJS.Timeout | null = null;
+// Types
+interface AnalyticsEvent {
+  event: string
+  properties?: Record<string, unknown>
+  timestamp: string
+  sessionId?: string
+}
 
-  constructor() {
-    this.sessionId = this.getOrCreateSessionId();
-    this.initializeUser();
-    this.startAutoFlush();
-    
-    // Track session start
-    this.trackSessionStart();
-    
-    // Track page visibility changes
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          this.flush(); // Flush when user leaves
-        }
-      });
-    }
-  }
+// Session ID for tracking user sessions
+let sessionId: string | null = null
 
-  private getOrCreateSessionId(): string {
-    if (typeof window === 'undefined') return 'ssr_session';
-    
-    let sessionId = sessionStorage.getItem('so_session_id');
+const getSessionId = (): string => {
+  if (sessionId) return sessionId
+  
+  if (typeof window !== 'undefined') {
+    sessionId = localStorage.getItem('so_session_id')
     if (!sessionId) {
-      sessionId = `ses_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      sessionStorage.setItem('so_session_id', sessionId);
-      sessionStorage.setItem('so_session_start', new Date().toISOString());
+      sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      localStorage.setItem('so_session_id', sessionId)
     }
-    return sessionId;
+  } else {
+    sessionId = 'server'
   }
-
-  private async initializeUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    this.userId = user?.id || null;
-  }
-
-  private getDeviceInfo() {
-    if (typeof window === 'undefined') {
-      return { device_type: 'desktop', browser: 'unknown', user_agent: 'server' };
-    }
-
-    const width = window.innerWidth;
-    const ua = navigator.userAgent;
-
-    return {
-      device_type: width < 768 ? 'mobile' : width < 1024 ? 'tablet' : 'desktop',
-      browser: ua.includes('Chrome') ? 'Chrome' : 
-               ua.includes('Safari') ? 'Safari' : 
-               ua.includes('Firefox') ? 'Firefox' : 'Other',
-      user_agent: ua
-    };
-  }
-
-  private startAutoFlush() {
-    this.flushTimer = setInterval(() => {
-      this.flush();
-    }, 10000); // Flush every 10 seconds
-  }
-
-  private async flush() {
-    if (this.queue.length === 0) return;
-
-    const events = [...this.queue];
-    this.queue = [];
-
-    try {
-      // Insert into analytics_events table
-      const { error } = await supabase
-        .from('analytics_events')
-        .insert(events);
-
-      if (error) {
-        console.error('Analytics flush error:', error);
-        // Don't re-queue to avoid infinite loops
-      }
-    } catch (e) {
-      console.error('Analytics exception:', e);
-    }
-  }
-
-  async track(eventName: string, properties: Record<string, any> = {}) {
-    // Get fresh user ID in case they just logged in
-    if (!this.userId) {
-      const { data: { user } } = await supabase.auth.getUser();
-      this.userId = user?.id || null;
-    }
-
-    const deviceInfo = this.getDeviceInfo();
-
-    const event = {
-      event_name: eventName,
-      user_id: this.userId,
-      session_id: this.sessionId,
-      properties: {
-        ...properties,
-        ...deviceInfo,
-        page_url: typeof window !== 'undefined' ? window.location.href : '',
-        page_path: typeof window !== 'undefined' ? window.location.pathname : '',
-        referrer: typeof document !== 'undefined' ? document.referrer : '',
-        timestamp: new Date().toISOString()
-      },
-      created_at: new Date().toISOString()
-    };
-
-    this.queue.push(event);
-
-    // Also track user interaction if it's a meaningful action
-    if (this.shouldTrackInteraction(eventName)) {
-      await this.trackInteraction(eventName, properties);
-    }
-
-    // Critical events flush immediately
-    const criticalEvents = ['signup', 'login', 'ticket_clicked', 'event_shared'];
-    if (criticalEvents.includes(eventName)) {
-      await this.flush();
-    }
-  }
-
-  private shouldTrackInteraction(eventName: string): boolean {
-    const interactionEvents = [
-      'event_viewed', 'event_saved', 'event_unsaved', 'ticket_clicked',
-      'directions_clicked', 'event_shared', 'venue_viewed', 'brand_viewed'
-    ];
-    return interactionEvents.includes(eventName);
-  }
-
-  private async trackInteraction(eventName: string, properties: Record<string, any>) {
-    const interaction = {
-      user_id: this.userId,
-      session_id: this.sessionId,
-      interaction_type: this.mapEventToInteractionType(eventName),
-      target_type: this.extractTargetType(properties),
-      target_id: properties.event_id || properties.venue_id || properties.brand_id,
-      target_data: properties,
-      source_page: properties.source || (typeof window !== 'undefined' ? window.location.pathname : ''),
-      source_component: properties.component,
-      device_type: this.getDeviceInfo().device_type,
-      created_at: new Date().toISOString()
-    };
-
-    try {
-      await supabase.from('user_interactions').insert(interaction);
-    } catch (e) {
-      console.error('Interaction tracking error:', e);
-    }
-  }
-
-  private mapEventToInteractionType(eventName: string): string {
-    const map: Record<string, string> = {
-      'event_viewed': 'view',
-      'event_saved': 'save',
-      'event_unsaved': 'unsave',
-      'ticket_clicked': 'click',
-      'directions_clicked': 'click',
-      'event_shared': 'share',
-      'venue_viewed': 'view',
-      'brand_viewed': 'view'
-    };
-    return map[eventName] || 'other';
-  }
-
-  private extractTargetType(properties: Record<string, any>): string {
-    if (properties.event_id) return 'event';
-    if (properties.venue_id) return 'venue';
-    if (properties.brand_id) return 'brand';
-    return 'unknown';
-  }
-
-  // Session tracking
-  private trackSessionStart() {
-    this.track('session_started', {
-      is_new_session: true,
-      session_id: this.sessionId
-    });
-  }
-
-  // Cleanup
-  destroy() {
-    if (this.flushTimer) {
-      clearInterval(this.flushTimer);
-    }
-    this.flush();
-  }
-}
-
-// Singleton instance
-let analyticsInstance: AnalyticsEngine | null = null;
-
-function getAnalytics(): AnalyticsEngine {
-  if (!analyticsInstance) {
-    analyticsInstance = new AnalyticsEngine();
-  }
-  return analyticsInstance;
+  return sessionId
 }
 
 // ============================================================================
-// PUBLIC TRACKING FUNCTIONS - USE THESE IN YOUR COMPONENTS
+// CORE TRACKING
 // ============================================================================
 
+export const initAnalytics = (): void => {
+  if (typeof window === 'undefined') return
+  
+  console.log('📊 Sounded Out Analytics initialized')
+  
+  // Track session start
+  track('session_start', {
+    referrer: document.referrer,
+    landing_page: window.location.pathname,
+  })
+}
+
+const track = (eventName: string, properties?: Record<string, unknown>): void => {
+  if (typeof window === 'undefined') return
+  
+  const event: AnalyticsEvent = {
+    event: eventName,
+    properties: {
+      ...properties,
+      url: window.location.href,
+      path: window.location.pathname,
+      userAgent: navigator.userAgent,
+      screenWidth: window.innerWidth,
+      screenHeight: window.innerHeight,
+      deviceType: window.innerWidth >= 1024 ? 'desktop' : window.innerWidth >= 768 ? 'tablet' : 'mobile',
+    },
+    timestamp: new Date().toISOString(),
+    sessionId: getSessionId(),
+  }
+  
+  // Console log in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('📊', eventName, properties || '')
+  }
+  
+  // Store locally for debugging
+  try {
+    const stored = localStorage.getItem('so_analytics') || '[]'
+    const events = JSON.parse(stored) as AnalyticsEvent[]
+    events.push(event)
+    // Keep only last 200 events
+    while (events.length > 200) events.shift()
+    localStorage.setItem('so_analytics', JSON.stringify(events))
+  } catch {
+    // Ignore storage errors
+  }
+  
+  // TODO: Send to analytics backend
+  // fetch('/api/analytics', { method: 'POST', body: JSON.stringify(event) })
+}
+
+// ============================================================================
 // PAGE VIEWS
-export async function trackPageView(pageName: string, properties?: Record<string, any>) {
-  await getAnalytics().track('page_viewed', {
-    page_name: pageName,
-    ...properties
-  });
+// ============================================================================
+
+export const trackPageView = (pageName: string, properties?: Record<string, unknown>): void => {
+  track('page_view', { page: pageName, ...properties })
 }
 
-// USER AUTHENTICATION
-export async function trackSignup(method: 'google' | 'email') {
-  await getAnalytics().track('signup', { method });
-}
-
-export async function trackLogin(method: 'google' | 'email') {
-  await getAnalytics().track('login', { method });
-}
-
-export async function trackLogout() {
-  await getAnalytics().track('logout', {});
-}
-
+// ============================================================================
 // MAP INTERACTIONS
-export async function trackMapLoaded(bounds: any, zoom: number) {
-  await getAnalytics().track('map_loaded', { bounds, zoom });
+// ============================================================================
+
+export const trackMapLoaded = (eventCount: number, venueCount?: number): void => {
+  track('map_loaded', { event_count: eventCount, venue_count: venueCount })
 }
 
-export async function trackMapMoved(bounds: any, zoom: number) {
-  await getAnalytics().track('map_moved', { bounds, zoom });
-}
-
-export async function trackMarkerClick(eventId: string, eventName: string, venueId: string) {
-  await getAnalytics().track('marker_clicked', {
+export const trackMarkerClick = (
+  eventId: string, 
+  eventTitle: string, 
+  venueName?: string
+): void => {
+  track('marker_click', {
     event_id: eventId,
-    event_name: eventName,
-    venue_id: venueId,
-    source: 'map'
-  });
+    event_title: eventTitle,
+    venue_name: venueName,
+  })
 }
 
-// EVENT INTERACTIONS - CORE METRICS
-export async function trackEventView(
+// ============================================================================
+// EVENT INTERACTIONS
+// ============================================================================
+
+export const trackEventView = (
   eventId: string,
-  eventName: string,
-  venueId: string,
-  venueName: string,
-  source: 'map' | 'list' | 'search' | 'share' | 'direct',
-  properties?: Record<string, any>
-) {
-  await getAnalytics().track('event_viewed', {
+  eventTitle: string,
+  venueName?: string,
+  source?: 'map_pin' | 'list' | 'search' | 'direct' | 'cluster'
+): void => {
+  track('event_view', {
     event_id: eventId,
-    event_name: eventName,
-    venue_id: venueId,
+    event_title: eventTitle,
     venue_name: venueName,
     source,
-    ...properties
-  });
+  })
 }
 
-export async function trackEventSave(eventId: string, eventName: string) {
-  await getAnalytics().track('event_saved', {
-    event_id: eventId,
-    event_name: eventName
-  });
-}
-
-export async function trackEventUnsave(eventId: string, eventName: string) {
-  await getAnalytics().track('event_unsaved', {
-    event_id: eventId,
-    event_name: eventName
-  });
-}
-
-// TICKET CLICKS - CRITICAL CONVERSION METRIC
-export async function trackTicketClick(
+export const trackTicketClick = (
   eventId: string,
-  eventName: string,
-  ticketUrl: string,
-  venueId: string,
-  venueName: string,
-  price?: number | null,
-  ticketPlatform?: string | null
-) {
-  await getAnalytics().track('ticket_clicked', {
+  eventTitle: string,
+  ticketSource?: string,
+  price?: number
+): void => {
+  track('ticket_click', {
     event_id: eventId,
-    event_name: eventName,
-    ticket_url: ticketUrl,
-    venue_id: venueId,
-    venue_name: venueName,
+    event_title: eventTitle,
+    ticket_source: ticketSource,
     price,
-    ticket_platform: ticketPlatform
-  });
+  })
 }
 
-// DIRECTIONS CLICKS
-export async function trackDirectionsClick(
+export const trackDirectionsClick = (
   eventId: string,
-  venueId: string,
-  venueName: string
-) {
-  await getAnalytics().track('directions_clicked', {
+  venueName?: string
+): void => {
+  track('directions_click', {
     event_id: eventId,
-    venue_id: venueId,
-    venue_name: venueName
-  });
-}
-
-// SHARING - VIRAL METRIC
-export async function trackEventShare(
-  eventId: string,
-  eventName: string,
-  method: 'link' | 'whatsapp' | 'instagram' | 'twitter' | 'facebook' | 'native',
-  shareUrl: string
-) {
-  await getAnalytics().track('event_shared', {
-    event_id: eventId,
-    event_name: eventName,
-    share_method: method,
-    share_url: shareUrl
-  });
-}
-
-// VENUE INTERACTIONS
-export async function trackVenueView(
-  venueId: string,
-  venueName: string,
-  source: 'map' | 'event_page' | 'list' | 'search'
-) {
-  await getAnalytics().track('venue_viewed', {
-    venue_id: venueId,
     venue_name: venueName,
-    source
-  });
+  })
 }
 
-// BRAND INTERACTIONS
-export async function trackBrandView(
-  brandId: string,
-  brandName: string,
-  source: 'event_page' | 'search' | 'direct'
-) {
-  await getAnalytics().track('brand_viewed', {
-    brand_id: brandId,
-    brand_name: brandName,
-    source
-  });
+export const trackShareClick = (
+  eventId: string,
+  eventTitle: string,
+  shareMethod?: string
+): void => {
+  track('share_click', {
+    event_id: eventId,
+    event_title: eventTitle,
+    share_method: shareMethod,
+  })
 }
 
-// SEARCH
-export async function trackSearch(query: string, resultCount: number) {
-  await getAnalytics().track('search_performed', {
-    search_query: query,
-    result_count: resultCount
-  });
+// ============================================================================
+// FILTER INTERACTIONS
+// ============================================================================
+
+export const trackDateFilter = (filter: string, resultCount: number): void => {
+  track('date_filter', { filter, result_count: resultCount })
 }
 
-// FILTERS
-export async function trackFilterApplied(filterType: string, filterValue: any) {
-  await getAnalytics().track('filter_applied', {
-    filter_type: filterType,
-    filter_value: filterValue
-  });
+export const trackGenreFilter = (genre: string, resultCount: number): void => {
+  track('genre_filter', { genre, result_count: resultCount })
 }
 
-// CLAIMS
-export async function trackClaimStarted(
-  claimType: 'event' | 'venue' | 'brand',
-  targetId: string,
-  targetName: string
-) {
-  await getAnalytics().track('claim_started', {
+export const trackListOpen = (eventCount: number): void => {
+  track('list_open', { event_count: eventCount })
+}
+
+// ============================================================================
+// MENU / NAVIGATION
+// ============================================================================
+
+export const trackMenuOpen = (): void => {
+  track('menu_open')
+}
+
+// ============================================================================
+// LOCATION
+// ============================================================================
+
+export const trackLocationEnabled = (): void => {
+  track('location_enabled')
+}
+
+export const trackLocationDenied = (): void => {
+  track('location_denied')
+}
+
+// ============================================================================
+// CTA / CONVERSIONS
+// ============================================================================
+
+export const trackCTAClick = (ctaName: string, destination?: string): void => {
+  track('cta_click', { cta_name: ctaName, destination })
+}
+
+// ============================================================================
+// CLAIM FLOW
+// ============================================================================
+
+export const trackClaimStart = (
+  claimType: 'venue' | 'event',
+  itemName: string
+): void => {
+  track('claim_start', { claim_type: claimType, item_name: itemName })
+}
+
+export const trackClaimSubmit = (
+  claimType: 'venue' | 'event',
+  itemName: string,
+  itemId?: string
+): void => {
+  track('claim_submit', {
     claim_type: claimType,
-    target_id: targetId,
-    target_name: targetName
-  });
+    item_name: itemName,
+    item_id: itemId,
+  })
 }
 
-export async function trackClaimSubmitted(
-  claimType: 'event' | 'venue' | 'brand',
-  targetId: string,
-  targetName: string
-) {
-  await getAnalytics().track('claim_submitted', {
-    claim_type: claimType,
-    target_id: targetId,
-    target_name: targetName
-  });
+// ============================================================================
+// SAVE / BOOKMARK
+// ============================================================================
+
+export const trackEventSave = (eventId: string, eventTitle: string): void => {
+  track('event_save', { event_id: eventId, event_title: eventTitle })
 }
 
-// React Hook for page tracking
-export function usePageTracking(pageName: string, properties?: Record<string, any>) {
-  useEffect(() => {
-    trackPageView(pageName, properties);
-  }, [pageName]);
+export const trackEventUnsave = (eventId: string, eventTitle: string): void => {
+  track('event_unsave', { event_id: eventId, event_title: eventTitle })
 }
 
-// Cleanup on app unmount
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => {
-    if (analyticsInstance) {
-      analyticsInstance.destroy();
-    }
-  });
+// ============================================================================
+// AUTH
+// ============================================================================
+
+export const trackSignupStart = (source?: string): void => {
+  track('signup_start', { source })
 }
 
-export { getAnalytics };
+export const trackSignupComplete = (method?: 'email' | 'google' | 'apple'): void => {
+  track('signup_complete', { method })
+}
+
+export const trackLoginStart = (source?: string): void => {
+  track('login_start', { source })
+}
+
+export const trackLoginComplete = (method?: 'email' | 'google' | 'apple'): void => {
+  track('login_complete', { method })
+}
+
+export const trackLogout = (): void => {
+  track('logout')
+}
+
+// ============================================================================
+// ERRORS
+// ============================================================================
+
+export const trackError = (
+  errorType: string,
+  errorMessage: string,
+  context?: string
+): void => {
+  track('error', {
+    error_type: errorType,
+    error_message: errorMessage,
+    context,
+  })
+}
+
+// ============================================================================
+// DEBUG HELPERS
+// ============================================================================
+
+export const getAnalyticsLog = (): AnalyticsEvent[] => {
+  if (typeof window === 'undefined') return []
+  try {
+    const stored = localStorage.getItem('so_analytics') || '[]'
+    return JSON.parse(stored) as AnalyticsEvent[]
+  } catch {
+    return []
+  }
+}
+
+export const clearAnalyticsLog = (): void => {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem('so_analytics')
+  console.log('📊 Analytics log cleared')
+}
+
+export const getAnalyticsSummary = (): Record<string, number> => {
+  const events = getAnalyticsLog()
+  const summary: Record<string, number> = {}
+  
+  for (const event of events) {
+    summary[event.event] = (summary[event.event] || 0) + 1
+  }
+  
+  return summary
+}
