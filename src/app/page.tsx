@@ -313,7 +313,7 @@ const OnboardingModal = ({ onComplete }: OnboardingModalProps): JSX.Element => (
 // ============================================================================
 // P1 FIX: SAVE BUTTON COMPONENT
 // ============================================================================
-const SaveButton = ({ eventId, saved, onToggle, size = 'medium', requireAuth = false, onAuthRequired }: SaveButtonProps & { requireAuth?: boolean; onAuthRequired?: () => void }): JSX.Element => {
+const SaveButton = ({ eventId, saved, onToggle, size = 'medium', requireAuth = false, onAuthRequired, user }: SaveButtonProps & { requireAuth?: boolean; onAuthRequired?: () => void; user?: { id: string; email?: string } | null }): JSX.Element => {
   const [animating, setAnimating] = useState<boolean>(false)
   
   const handleClick = (e: React.MouseEvent): void => {
@@ -1130,6 +1130,7 @@ export default function Home() {
   size="small"
   requireAuth={true}
   onAuthRequired={() => setShowLoginModal(true)}
+  user={user}
 />
 
                     {evt.sold_out && (
@@ -2448,6 +2449,7 @@ const DesktopDetailPanel: React.FC = () => {
   size="small"
   requireAuth={true}
   onAuthRequired={() => setShowLoginModal(true)}
+  user={user}
 />
 
                       {evt.sold_out && (
@@ -2632,6 +2634,7 @@ const DesktopDetailPanel: React.FC = () => {
   size="small"
   requireAuth={true}
   onAuthRequired={() => setShowLoginModal(true)}
+  user={user}
 />
                 </div>
               ))}
