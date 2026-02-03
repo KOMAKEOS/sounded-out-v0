@@ -127,8 +127,6 @@ export default function EventPage() {
   const [copySuccess, setCopySuccess] = useState(false);
   const [mapInitialized, setMapInitialized] = useState(false);
 
-  const supabase = createClient();
-
   // ============================================================================
   // LOAD EVENT DATA
   // ============================================================================
