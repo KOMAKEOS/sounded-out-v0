@@ -3245,57 +3245,6 @@ const detectTicketSource = (url: string | null): string => {
   if (lower.includes('fixr')) return 'fixr'
   return 'other'
 }
-  
-  // ============================================================================
-  // P1 FIX: ONBOARDING STATE
-  // ============================================================================
-  
-  // ============================================================================
-  // P1 FIX: SAVED EVENTS STATE
-  // ============================================================================
-  
-  // Genre/vibe filter state
-  const [activeGenre, setActiveGenre] = useState<string | null>(null)
-  const [showFreeOnly, setShowFreeOnly] = useState(false)
-  
-  // Detail view state
-  const [showAllGenres, setShowAllGenres] = useState(false)
-  const [showDescription, setShowDescription] = useState(false)
-  
-  // Claim modal state
-  const [showClaimModal, setShowClaimModal] = useState(false)
-  const [claimType, setClaimType] = useState<'venue' | 'event'>('event')
-  const [claimForm, setClaimForm] = useState({ name: '', email: '', role: 'owner', proofUrl: '' })
-  const [claimSubmitting, setClaimSubmitting] = useState(false)
-  const [claimSubmitted, setClaimSubmitted] = useState(false)
-  const [claimError, setClaimError] = useState('')
-
-  // Login prompt modal state
-  const [showLoginModal, setShowLoginModal] = useState(false)
-  
-  // Menu state
-  const [showMenu, setShowMenu] = useState(false)
-  const [logoTapCount, setLogoTapCount] = useState(0)
-  const logoTapTimer = useRef<NodeJS.Timeout | null>(null)
-  
-  // User location state
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [showUserLocation, setShowUserLocation] = useState(false)
-  const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
-  
-  // Refs for scroll tracking
-  const listScrollRef = useRef<HTMLDivElement>(null)
-  const daySectionRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  
-  // Gesture state
-  const [dragX, setDragX] = useState(0)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragDirection, setDragDirection] = useState<'horizontal' | 'vertical' | null>(null)
-  const [startX, setStartX] = useState(0)
-  const [startY, setStartY] = useState(0)
-  const [velocity, setVelocity] = useState({ x: 0, y: 0 })
-  const lastPos = useRef({ x: 0, y: 0, time: 0 })
 
   // ============================================================================
   // P1 FIX: SYNC SAVED EVENTS TO LOCALSTORAGE
