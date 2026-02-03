@@ -154,15 +154,22 @@ export default function EventPage() {
         setEvent(eventData);
 
         // Track event view
-        if (eventData) {
-          await trackEventView(
-            eventData.id,
-            eventData.title,
-            eventData.venue_id,
-            eventData.venue?.name || 'Unknown Venue',
-            'direct'
-          );
-        }
+       if (eventData) {
+  await trackEventView(
+    eventData.id,                                    // eventId
+    eventData.title,                                 // eventTitle  
+    eventData.venue?.name || 'Unknown Venue',       // venueName
+    eventData.venue_id || 'unknown',               // venueId
+    eventData.genres?.split(',')[0] || 'unknown',   // genre
+    eventData.genres || 'Unknown',                  // genreFull
+    'direct',                                       // source
+    'Sounded Out',                                  // brandName
+    eventData.start_time || new Date().toISOString(), // startTime
+    eventData.price_min || 0,                       // price
+    eventData.event_url || '',                      // eventUrl
+    'event_page'                                    // viewSource
+  );
+}
 
         // Check if saved
         if (currentUser && eventData) {
