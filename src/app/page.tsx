@@ -643,10 +643,100 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 
 
 
+// ============================================================================
+// MAIN HOME COMPONENT - ALL STATE AND LOGIC LIVES HERE
+// ============================================================================
+export default function Home() {
+  // ============================================================================
+  // STATE DECLARATIONS
+  // ============================================================================
+  const mapContainer = useRef<HTMLDivElement>(null)
+  const map = useRef<mapboxgl.Map | null>(null)
+  const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; el: HTMLDivElement; inner: HTMLDivElement }>>(new Map())
+  
+  const [events, setEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
+  const [dateFilter, setDateFilter] = useState<DateFilter>('today')
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('map')
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [clusterEvents, setClusterEvents] = useState<Event[]>([])
+  const [visibleDayLabel, setVisibleDayLabel] = useState<string>('')
+  const [showAdminMenu, setShowAdminMenu] = useState(false)
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
+  
+  const [deviceType, setDeviceType] = useState<DeviceType>(() => {
+    if (typeof window !== 'undefined') {
+      const width = window.innerWidth
+      if (width >= 1024) return 'desktop'
+      if (width >= 768) return 'tablet'
+    }
+    return 'mobile'
+  })
+  const [windowWidth, setWindowWidth] = useState(() => {
+    if (typeof window !== 'undefined') return window.innerWidth
+    return 0
+  })
+  
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [sheetVisible, setSheetVisible] = useState(false)
+  const [mapReady, setMapReady] = useState(false)
+  const [showIntro, setShowIntro] = useState(true)
+  const [introPhase, setIntroPhase] = useState<'logo' | 'zoom' | 'done'>('logo')
+  const [showWelcome, setShowWelcome] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !localStorage.getItem('so_welcome_seen')
+    }
+    return true
+  })
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return !localStorage.getItem('so_onboarding_complete')
+    }
+    return true
+  })
+  const [savedEventIds, setSavedEventIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved: string | null = localStorage.getItem('so_saved_events')
+      if (saved) {
+        const parsed: string[] = JSON.parse(saved) as string[]
+        return new Set(parsed)
+      }
+    }
+    return new Set()
+  })
+  const [activeGenre, setActiveGenre] = useState<string | null>(null)
+  const [showFreeOnly, setShowFreeOnly] = useState(false)
+  const [showAllGenres, setShowAllGenres] = useState(false)
+  const [showDescription, setShowDescription] = useState(false)
+  const [showClaimModal, setShowClaimModal] = useState(false)
+  const [claimType, setClaimType] = useState<'venue' | 'event'>('event')
+  const [claimForm, setClaimForm] = useState({ name: '', email: '', role: 'owner', proofUrl: '' })
+  const [claimSubmitting, setClaimSubmitting] = useState(false)
+  const [claimSubmitted, setClaimSubmitted] = useState(false)
+  const [claimError, setClaimError] = useState('')
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const [logoTapCount, setLogoTapCount] = useState(0)
+  const logoTapTimer = useRef<NodeJS.Timeout | null>(null)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [showUserLocation, setShowUserLocation] = useState(false)
+  const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
+  const listScrollRef = useRef<HTMLDivElement>(null)
+  const daySectionRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const [dragX, setDragX] = useState(0)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragDirection, setDragDirection] = useState<'horizontal' | 'vertical' | null>(null)
+  const [startX, setStartX] = useState(0)
+  const [startY, setStartY] = useState(0)
+  const [velocity, setVelocity] = useState({ x: 0, y: 0 })
+  const lastPos = useRef({ x: 0, y: 0, time: 0 })
+
   // ============================================================================
   // DESKTOP/TABLET SIDEBAR COMPONENT - P1 FIXES APPLIED
   // ============================================================================
-const DesktopSidebar = () => {
+  const DesktopSidebar = () => {
   return (
     <aside style={{
       width: deviceType === 'desktop' ? '380px' : '320px',
@@ -3126,99 +3216,6 @@ function MobileDetailSheet({
   )
 }
   
-
-// ============================================================================
-// MAIN COMPONENT
-// ============================================================================
-export default function Home() {
-  // Initialize analytics
-  useEffect(() => {
-    initAnalytics()
-  }, [])
-
-  // Load user on mount and listen for auth changes
-  useEffect(() => {
-    const loadUser = async () => {
-      const { data } = await supabase.auth.getUser()
-      if (data.user) {
-        setUser({ id: data.user.id, email: data.user.email })
-      }
-    }
-    loadUser()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        setUser({ id: session.user.id, email: session.user.email })
-      } else {
-        setUser(null)
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [])
-  // Track page view on mount
-  useEffect(() => {
-    const trackInit = async () => {
-      await trackPageView('map_home', {
-        device_type: deviceType,
-        date_filter: dateFilter,
-        genre_filter: activeGenre || 'none',
-        events_count: events.length,
-      })
-    }
-    trackInit()
-  }, []) // Empty dependency array = run once on mount
-  
-  const mapContainer = useRef<HTMLDivElement>(null)
-  const map = useRef<mapboxgl.Map | null>(null)
-  const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; el: HTMLDivElement; inner: HTMLDivElement }>>(new Map())
-  
-  // Core state
-  const [events, setEvents] = useState<Event[]>([])
-  const [loading, setLoading] = useState(true)
-  const [dateFilter, setDateFilter] = useState<DateFilter>('today')
-  const [showDatePicker, setShowDatePicker] = useState(false)
-  const [viewMode, setViewMode] = useState<ViewMode>('map')
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [clusterEvents, setClusterEvents] = useState<Event[]>([])
-  const [visibleDayLabel, setVisibleDayLabel] = useState<string>('')
-  const [showAdminMenu, setShowAdminMenu] = useState(false)
-
-  // User auth state
-  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
-  
-  // Responsive state
-  const [deviceType, setDeviceType] = useState<DeviceType>(() => {
-    if (typeof window !== 'undefined') {
-      const width = window.innerWidth
-      if (width >= 1024) return 'desktop'
-      if (width >= 768) return 'tablet'
-    }
-    return 'mobile'
-  })
-  const [windowWidth, setWindowWidth] = useState(() => {
-    if (typeof window !== 'undefined') return window.innerWidth
-    return 0
-  })
-  
-  // Animation state
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [sheetVisible, setSheetVisible] = useState(false)
-  const [mapReady, setMapReady] = useState(false)
-  const [showIntro, setShowIntro] = useState(true)
-  const [introPhase, setIntroPhase] = useState<'logo' | 'zoom' | 'done'>('logo')
-  
-  // First-load welcome overlay
-  const [showWelcome, setShowWelcome] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !localStorage.getItem('so_welcome_seen')
-    }
-    return true
-  })
-
-
   // ============================================================================
 // TICKET SOURCE INFO
 // ============================================================================
