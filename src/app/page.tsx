@@ -3307,7 +3307,42 @@ const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
   // ============================================================================
   
   const PINNED_GENRES = ['techno', 'house', 'dnb', 'disco', 'hip-hop', 'indie', 'live', 'student']
-  
+
+const dateFiltered = useMemo(() => {
+  const out: Event[] = []
+
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]
+    const s = e.start_time
+
+    // Protect against missing start_time
+    if (!s) continue
+
+    if (dateFilter === 'today') {
+      if (isTonight(s)) out.push(e)
+      continue
+    }
+
+    if (dateFilter === 'tomorrow') {
+      if (isTomorrow(s)) out.push(e)
+      continue
+    }
+
+    if (dateFilter === 'weekend') {
+      if (isWeekend(s)) out.push(e)
+      continue
+    }
+
+    // If dateFilter is a specific date string (like "2026-02-10")
+    // compare by UK date string
+    if (getUKDateString(new Date(s)) === dateFilter) {
+      out.push(e)
+    }
+  }
+
+  return out
+}, [events, dateFilter])
+
   const availableGenres = useMemo(() => {
     const genreCount = new Map<string, number>()
     for (let i = 0; i < dateFiltered.length; i++) {
