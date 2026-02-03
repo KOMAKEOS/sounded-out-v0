@@ -135,7 +135,7 @@ export default function EventPage() {
     async function loadEvent() {
       try {
         // Get current user
-        const { data: { user: currentUser } } = await this.supabase.auth.getUser();
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
         setUser(currentUser);
 
         // Load event with venue and brand
