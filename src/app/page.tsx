@@ -73,6 +73,15 @@ const GESTURE = {
   dismissScale: 0.98,  // ← CHANGED from 0.97 (less shrink)
 }
 
+const [deviceType, setDeviceType] = useState<DeviceType>(() => {
+  if (typeof window !== 'undefined') {
+    const width = window.innerWidth
+    if (width >= 1024) return 'desktop'
+    if (width >= 768) return 'tablet'
+  }
+  return 'mobile'
+})
+
 // ============================================================================
 // TYPES
 // ============================================================================
