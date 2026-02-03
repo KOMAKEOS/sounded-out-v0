@@ -857,9 +857,9 @@ const DesktopSidebar = () => {
               const isSelected: boolean = activeGenre === genre
               return (
                 <button
-                  key={genre}
-                   
-                    e.stopPropagation();
+  key={genre}
+  onClick={(e: React.MouseEvent) => {
+    e.stopPropagation();
                     setActiveGenre(isSelected ? null : genre)
                     trackGenreFilter(genre, filtered.length)
                   }}
