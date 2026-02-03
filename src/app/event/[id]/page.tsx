@@ -293,16 +293,19 @@ export default function EventPage() {
     if (!event || !event.event_url) return;
 
     await trackTicketClick(
-      event.id,
-      event.title,
-      event.event_url,
-      event.venue_id,
-      event.venue?.name || 'Unknown Venue',
-      event.price_min,
-      event.event_url.includes('skiddle') ? 'skiddle' : 
-      event.event_url.includes('dice') ? 'dice' : 
-      event.event_url.includes('fixr') ? 'fixr' : 'other'
-    );
+  event.id,                                        // eventId
+  event.title,                                     // eventTitle
+  event.venue?.name || 'Unknown Venue',           // venueName
+  event.venue_id || 'unknown',                    // venueId
+  event.genres?.split(',')[0] || 'unknown',       // genre
+  event.genres || 'Unknown',                      // genreFull
+  'event_page',                                   // source
+  'Sounded Out',                                  // brandName
+  event.start_time || new Date().toISOString(),   // startTime
+  event.price_min || 0,                          // price
+  event.event_url || '',                         // eventUrl
+  'ticket_button'                                // clickSource
+);
 
     window.open(event.event_url, '_blank');
   }
