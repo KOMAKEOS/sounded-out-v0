@@ -676,6 +676,18 @@ export default function Home() {
   const [visibleDayLabel, setVisibleDayLabel] = useState<string>('')
   const [showAdminMenu, setShowAdminMenu] = useState(false)
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
+
+  const dateFiltered = useMemo(() => {
+  const result: Event[] = []
+  for (let i = 0; i < events.length; i++) {
+    const e: Event = events[i]
+    if (dateFilter === 'today' && isTonight(e.start_time)) result.push(e)
+    else if (dateFilter === 'tomorrow' && isTomorrow(e.start_time)) result.push(e)
+    else if (dateFilter === 'weekend' && isWeekend(e.start_time)) result.push(e)
+    else if (dateFilter !== 'today' && dateFilter !== 'tomorrow' && dateFilter !== 'weekend' && getDateStr(new Date(e.start_time)) === dateFilter) result.push(e)
+  }
+  return result
+}, [events, dateFilter])
   
   const [deviceType, setDeviceType] = useState<DeviceType>(() => {
     if (typeof window !== 'undefined') {
@@ -3308,18 +3320,6 @@ const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
   // FILTERED DATA - P1 FIX: Using for loops for TypeScript
   // ============================================================================
     
-
-const dateFiltered = useMemo(() => {
-  const result: Event[] = []
-  for (let i = 0; i < events.length; i++) {
-    const e: Event = events[i]
-    if (dateFilter === 'today' && isTonight(e.start_time)) result.push(e)
-    else if (dateFilter === 'tomorrow' && isTomorrow(e.start_time)) result.push(e)
-    else if (dateFilter === 'weekend' && isWeekend(e.start_time)) result.push(e)
-    else if (dateFilter !== 'today' && dateFilter !== 'tomorrow' && dateFilter !== 'weekend' && getDateStr(new Date(e.start_time)) === dateFilter) result.push(e)
-  }
-  return result
-}, [events, dateFilter])
 
 const availableGenres = useMemo(() => {
   const genreCount = new Map<string, number>()
