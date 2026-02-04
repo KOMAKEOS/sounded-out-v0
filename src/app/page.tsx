@@ -1184,7 +1184,7 @@ export default function Home() {
           </div>
         ))}
 
-        {filtered.length === 0 && (
+        {events.length === 0 && (
           <EmptyStateNoEvents
             filterLabel={filterLabel}
             onReset={() => {
@@ -1568,13 +1568,13 @@ const DesktopDetailPanel: React.FC = () => {
       background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', 
       border: 'none',
       borderRadius: '22px', 
-      color: currentIndex === filtered.length - 1 ? '#444' : 'white', 
+color: currentIndex === events.length - 1 ? '#444' : 'white'
       fontSize: '14px', 
       fontWeight: 600, 
-      cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
-      pointerEvents: 'auto',
-      boxShadow: currentIndex === filtered.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',
-      ...noSelectStyle 
+cursor: currentIndex === events.length - 1 ? 'default' : 'pointer'
+  pointerEvents: 'auto',
+boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)'
+  ...noSelectStyle 
     }}
   >
     Next →
@@ -2261,7 +2261,7 @@ const DesktopDetailPanel: React.FC = () => {
             gap: '8px',
           }}
         >
-          <span style={{ color: '#ab67f7', fontWeight: 700 }}>{filtered.length}</span>
+          <span style={{ color: '#ab67f7', fontWeight: 700 }}>{events.length}</span>
           <span>events {filterLabel}</span>
         </button>
       )}
@@ -2324,7 +2324,7 @@ const DesktopDetailPanel: React.FC = () => {
                 Events {filterLabel}
               </h2>
               <p style={{ fontSize: '13px', color: '#999' }}>
-                <span style={{ color: '#ab67f7', fontWeight: 700 }}>{filtered.length}</span> happening
+<span style={{ color: '#ab67f7', fontWeight: 700 }}>{events.length}</span> happening
               </p>
             </div>
             <button
@@ -2356,8 +2356,8 @@ const DesktopDetailPanel: React.FC = () => {
             padding: '16px 20px',
             paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
           }}>
-            {filtered.length === 0 ? (
-              <EmptyStateNoEvents
+{events.length === 0 ? (
+            <EmptyStateNoEvents
                 filterLabel={filterLabel}
                 onReset={() => {
                   setDateFilter('today')
@@ -2367,7 +2367,7 @@ const DesktopDetailPanel: React.FC = () => {
               />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {filtered.map((evt: Event) => (
+{events.map((evt: Event) => (
                   <div
                     key={evt.id}
                     onClick={(clickEv: React.MouseEvent) => {
@@ -3046,11 +3046,11 @@ function MobileDetailSheet({
             ← Prev
           </button>
           <span style={{ fontSize: '13px', color: '#666', fontWeight: 600, padding: '6px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-            {currentIndex + 1} / {filtered.length}
+{currentIndex + 1} / {events.length}
           </span>
           <button 
             onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next') }} 
-            disabled={currentIndex === filtered.length - 1} 
+disabled={currentIndex === events.length - 1}
             style={{ padding: '10px 18px', background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.2)', border: 'none', borderRadius: '10px', color: currentIndex === filtered.length - 1 ? '#444' : '#ab67f7', fontSize: '14px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', ...noSelectStyle }}
           >
             Next →
