@@ -715,10 +715,8 @@ const availableGenres = useMemo(() => {
       unpinned.push({ genre, count })
     }
   })
-  
   pinnedPresent.sort((a: string, b: string) => PINNED_GENRES.indexOf(a) - PINNED_GENRES.indexOf(b))
   unpinned.sort((a, b) => b.count - a.count)
-  
   const result: string[] = []
   for (let i = 0; i < pinnedPresent.length; i++) {
     result.push(pinnedPresent[i])
@@ -728,13 +726,22 @@ const availableGenres = useMemo(() => {
   }
   return result.slice(0, 8)
 }, [dateFiltered])
-
-
   const filtered = useMemo(() => {
   let result = dateFiltered
-  
   return result
 }, [dateFiltered, activeGenre, showFreeOnly])
+  const grouped = useMemo(() => {
+    const g: Record<string, Event[]> = {}
+    for (let i = 0; i < filtered.length; i++) {
+      const e: Event = filtered[i]
+      const l: string = getDayGroupLabel(e.start_time)
+      if (!g[l]) g[l] = []
+      g[l].push(e)
+    }
+
+    return g
+
+  }, [filtered])
 
 const current = filtered[currentIndex] || null
   const nextEvent = filtered[currentIndex + 1] || null
@@ -3376,16 +3383,6 @@ const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()
   }
   
-  const grouped = useMemo(() => {
-    const g: Record<string, Event[]> = {}
-    for (let i = 0; i < filtered.length; i++) {
-      const e: Event = filtered[i]
-      const l: string = getDayGroupLabel(e.start_time)
-      if (!g[l]) g[l] = []
-      g[l].push(e)
-    }
-    return g
-  }, [filtered])
   
   useEffect(() => {
     const keys = Object.keys(grouped)
