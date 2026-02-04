@@ -1560,7 +1560,7 @@ const DesktopDetailPanel: React.FC = () => {
       e.stopPropagation(); 
       navigate('next') 
     }} 
-    disabled={currentIndex === filtered.length - 1} 
+disabled={currentIndex === events.length - 1}
     style={{ 
       minHeight: '44px', 
       minWidth: '80px',
