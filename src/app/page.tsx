@@ -727,22 +727,6 @@ const availableGenres = useMemo(() => {
   return result.slice(0, 8)
 }, [dateFiltered])
 
-
-  const availableGenres = useMemo(() => {
-  const genreCount = new Map<string, number>()
-  for (let i = 0; i < dateFiltered.length; i++) {
-    const e: Event = dateFiltered[i]
-    if (e.genres) {
-      const genreList: string[] = e.genres.split(',')
-      for (let j = 0; j < genreList.length; j++) {
-        const normalized: string = genreList[j].trim().toLowerCase()
-        genreCount.set(normalized, (genreCount.get(normalized) || 0) + 1)
-      }
-    }
-  }
-
-  const filtered = useMemo(() => {
-  let result = dateFiltered
   
   // Genre filter
   if (activeGenre) {
