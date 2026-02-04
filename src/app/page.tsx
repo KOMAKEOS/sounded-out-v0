@@ -923,7 +923,7 @@ export default function Home() {
                   onClick={(e: React.MouseEvent) => { 
       e.stopPropagation(); 
       setDateFilter(d.str)
-      trackDateFilter(d.str, filtered.length)  // ← ADD THIS
+      trackDateFilter(d.str, 0)  // ← ADD THIS
       setShowDatePicker(false)
     }}
                   style={{
