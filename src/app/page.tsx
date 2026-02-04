@@ -251,16 +251,17 @@ const mapsUrl = (venue: Venue): string => {
 
 const getNext7Days = (): { str: string; name: string; num: number }[] => {
   const result: { str: string; name: string; num: number }[] = []
-  const dateStr = d.toISOString().split('T')[0]
+  const now = new Date()
   
   for (let i = 0; i < 7; i++) {
     const d = new Date(now)
     d.setDate(d.getDate() + i)
-    const ukDate = toUKTime(d)
+    const dateStr = d.toISOString().split('T')[0]
+    
     result.push({
-      str: getUKDateString(ukDate),
-      name: ukDate.toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 3).toUpperCase(),
-      num: ukDate.getDate()
+      str: dateStr,
+      name: d.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'Europe/London' }).slice(0, 3).toUpperCase(),
+      num: d.getDate()
     })
   }
   
