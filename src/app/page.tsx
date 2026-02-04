@@ -3305,49 +3305,7 @@ const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
   // ============================================================================
   // FILTERED DATA - P1 FIX: Using for loops for TypeScript
   // ============================================================================
-  
-  const PINNED_GENRES = ['techno', 'house', 'dnb', 'disco', 'hip-hop', 'indie', 'live', 'student']
-
-const dateFiltered = useMemo(() => {
-  return out
-}, [events, dateFilter])
-
-  const availableGenres = useMemo(() => {
-    const genreCount = new Map<string, number>()
-    for (let i = 0; i < dateFiltered.length; i++) {
-      const e: Event = dateFiltered[i]
-      if (e.genres) {
-        const genreList: string[] = e.genres.split(',')
-        for (let j = 0; j < genreList.length; j++) {
-          const normalized: string = genreList[j].trim().toLowerCase()
-          genreCount.set(normalized, (genreCount.get(normalized) || 0) + 1)
-        }
-      }
-    }
     
-    const pinnedPresent: string[] = []
-    const unpinned: { genre: string; count: number }[] = []
-    
-    genreCount.forEach((count: number, genre: string) => {
-      if (PINNED_GENRES.includes(genre)) {
-        pinnedPresent.push(genre)
-      } else {
-        unpinned.push({ genre, count })
-      }
-    })
-    
-    pinnedPresent.sort((a: string, b: string) => PINNED_GENRES.indexOf(a) - PINNED_GENRES.indexOf(b))
-    unpinned.sort((a, b) => b.count - a.count)
-    
-    const result: string[] = []
-    for (let i = 0; i < pinnedPresent.length; i++) {
-      result.push(pinnedPresent[i])
-    }
-    for (let i = 0; i < unpinned.length; i++) {
-      result.push(unpinned[i].genre)
-    }
-    return result.slice(0, 8)
-  }, [dateFiltered])
   
   const filtered = useMemo(() => {
     let result: Event[] = dateFiltered
