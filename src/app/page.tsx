@@ -679,7 +679,7 @@ export default function Home() {
   const [activeGenre, setActiveGenre] = useState<string | null>(null)
   const [showFreeOnly, setShowFreeOnly] = useState(false)
 
-  const dateFiltered = (() => {
+  const dateFiltered = useMemo(() => {
   const result: Event[] = []
   for (let i = 0; i < events.length; i++) {
     const e: Event = events[i]
