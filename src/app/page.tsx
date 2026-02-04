@@ -746,7 +746,24 @@ const availableGenres = useMemo(() => {
 const current = filtered[currentIndex] || null
   const nextEvent = filtered[currentIndex + 1] || null
   const prevEvent = filtered[currentIndex - 1] || null
+
+  const getDayGroupLabel = (s: string) => {
+    const d = new Date(s)
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()
+  }
   
+  
+  useEffect(() => {
+    const keys = Object.keys(grouped)
+    if (keys.length > 0 && !visibleDayLabel) {
+      setVisibleDayLabel(keys[0])
+    }
+  }, [grouped, visibleDayLabel])
+
+  const filterLabel = dateFilter === 'today' ? 'today' 
+    : dateFilter === 'tomorrow' ? 'tomorrow' 
+    : dateFilter === 'weekend' ? 'this weekend' 
+    : new Date(dateFilter).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
   
   const [deviceType, setDeviceType] = useState<DeviceType>(() => {
     if (typeof window !== 'undefined') {
@@ -3378,23 +3395,6 @@ const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
   // ============================================================================
 
   
-  const getDayGroupLabel = (s: string) => {
-    const d = new Date(s)
-    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()
-  }
-  
-  
-  useEffect(() => {
-    const keys = Object.keys(grouped)
-    if (keys.length > 0 && !visibleDayLabel) {
-      setVisibleDayLabel(keys[0])
-    }
-  }, [grouped, visibleDayLabel])
-
-  const filterLabel = dateFilter === 'today' ? 'today' 
-    : dateFilter === 'tomorrow' ? 'tomorrow' 
-    : dateFilter === 'weekend' ? 'this weekend' 
-    : new Date(dateFilter).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })
 
   // ============================================================================
   // FORMAT HELPERS
