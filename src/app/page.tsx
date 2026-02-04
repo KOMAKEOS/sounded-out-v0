@@ -480,7 +480,6 @@ const EventThumbnail = ({ imageUrl, genres, size = 52 }: { imageUrl: string | nu
     </div>
   )
 }
-// ============================================================================
 // NAVIGATION MENU COMPONENT (Shared between desktop/mobile)
 // ============================================================================
 const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; user?: { id: string; email?: string } | null; onSignOut?: () => void }) => {
@@ -1501,7 +1500,6 @@ export default function Home() {
       </aside>
     )
   }
-  // ============================================================================
   // GLOBAL STYLES
   // ============================================================================
   const globalStyles = `
@@ -2312,7 +2310,6 @@ export default function Home() {
   }
 
   // ============================================================================
-  // ============================================================================
   // MAP MARKERS EFFECT - COMPREHENSIVE MARKER GENERATION
   // ============================================================================
   useEffect(() => {
@@ -2876,10 +2873,8 @@ export default function Home() {
       </div>
     )
   }
-}
 
   // ============================================================================
-            <div>
               <p style={{ fontSize: '10px', color: '#888', marginBottom: '1px' }}>Presented by</p>
               <p style={{ fontSize: '15px', color: '#ab67f7', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {current.brand.name}
@@ -3456,7 +3451,6 @@ export default function Home() {
     );
   }
 
-  // ============================================================================
   // ============================================================================
   // RENDER - MOBILE LAYOUT - COMPREHENSIVE MOBILE VIEW WITH ALL FEATURES
   // ============================================================================
@@ -4521,7 +4515,6 @@ export default function Home() {
   );
 }
 
-// ============================================================================
 // ============================================================================
 // FORMAT HELPERS - COMPREHENSIVE TIME & DATE HANDLING
 // ============================================================================
