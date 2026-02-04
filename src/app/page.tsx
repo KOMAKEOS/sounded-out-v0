@@ -676,6 +676,8 @@ export default function Home() {
   const [visibleDayLabel, setVisibleDayLabel] = useState<string>('')
   const [showAdminMenu, setShowAdminMenu] = useState(false)
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
+  const [activeGenre, setActiveGenre] = useState<string | null>(null)
+  const [showFreeOnly, setShowFreeOnly] = useState(false)
 
   const dateFiltered = useMemo(() => {
   const result: Event[] = []
@@ -727,37 +729,9 @@ const availableGenres = useMemo(() => {
   return result.slice(0, 8)
 }, [dateFiltered])
 
-  
-  // Genre filter
-  if (activeGenre) {
-    result = result.filter((e: Event) => 
-      e.genres && e.genres.toLowerCase().includes(activeGenre.toLowerCase())
-    )
-  }
-  
-  // Free filter
-  if (showFreeOnly) {
-    result = result.filter((e: Event) => 
-      e.price_min === 0 || (!e.price_min && !e.price_max)
-    )
-  }
 
   const filtered = useMemo(() => {
   let result = dateFiltered
-  
-  // Genre filter
-  if (activeGenre) {
-    result = result.filter((e: Event) => 
-      e.genres && e.genres.toLowerCase().includes(activeGenre.toLowerCase())
-    )
-  }
-  
-  // Free filter
-  if (showFreeOnly) {
-    result = result.filter((e: Event) => 
-      e.price_min === 0 || (!e.price_min && !e.price_max)
-    )
-  }
   
   return result
 }, [dateFiltered, activeGenre, showFreeOnly])
@@ -803,8 +777,6 @@ const availableGenres = useMemo(() => {
     }
     return new Set()
   })
-  const [activeGenre, setActiveGenre] = useState<string | null>(null)
-  const [showFreeOnly, setShowFreeOnly] = useState(false)
   const [showAllGenres, setShowAllGenres] = useState(false)
   const [showDescription, setShowDescription] = useState(false)
   const [showClaimModal, setShowClaimModal] = useState(false)
