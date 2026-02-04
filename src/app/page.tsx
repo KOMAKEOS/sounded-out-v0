@@ -1734,7 +1734,7 @@ boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,10
         {(viewMode === 'preview' || viewMode === 'detail') && current && <DesktopDetailPanel />}
         
         {/* Modals and overlays - same as before */}
-        {viewMode === 'cluster' && clusterEvents.length > 0 && (
+        {viewMode === 'cluster' && cluster > 0 && (
           <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); setViewMode('map'); setClusterEvents([]); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {/* Cluster modal content */}
           </div>
@@ -2864,6 +2864,7 @@ function MobileDetailSheet({
   current, 
   currentIndex, 
   filtered, 
+  events,
   showAllGenres, 
   setShowAllGenres, 
   showDescription, 
