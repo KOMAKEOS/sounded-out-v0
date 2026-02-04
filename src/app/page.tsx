@@ -1552,7 +1552,7 @@ const DesktopDetailPanel: React.FC = () => {
     pointerEvents: 'auto',
     backdropFilter: 'blur(10px)',
   }}>
-    {currentIndex + 1} / {filtered.length}
+    {currentIndex + 1} / {events.length}
   </span>
   
   <button 
@@ -3221,7 +3221,7 @@ disabled={currentIndex === events.length - 1}
           ← Prev
         </button>
         <span style={{ fontSize: '14px', color: '#999', fontWeight: 600, padding: '10px 18px', background: 'rgba(0,0,0,0.6)', borderRadius: '20px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
-          {currentIndex + 1} / {filtered.length}
+          {currentIndex + 1} / {events.length}
         </span>
         <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next') }} disabled={currentIndex === filtered.length - 1} style={{ minHeight: '48px', minWidth: '90px', background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #ab67f7, #c490ff)', border: 'none', borderRadius: '24px', padding: '12px 20px', color: currentIndex === filtered.length - 1 ? '#444' : 'white', fontSize: '15px', fontWeight: 700, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', boxShadow: currentIndex === filtered.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.5)', transition: 'all 200ms ease', ...noSelectStyle }}>
           Next →
