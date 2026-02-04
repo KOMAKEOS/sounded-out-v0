@@ -3377,7 +3377,18 @@ const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
   // ============================================================================
   // FILTERED DATA - P1 FIX: Using for loops for TypeScript
   // ============================================================================
-    
+  const availableGenres = useMemo(() => {
+  const genreCount = new Map<string, number>()
+  for (let i = 0; i < dateFiltered.length; i++) {
+    const e: Event = dateFiltered[i]
+    if (e.genres) {
+      const genreList: string[] = e.genres.split(',')
+      for (let j = 0; j < genreList.length; j++) {
+        const normalized: string = genreList[j].trim().toLowerCase()
+        genreCount.set(normalized, (genreCount.get(normalized) || 0) + 1)
+      }
+    }
+  }
   
   const PINNED_GENRES = ['techno', 'house', 'dnb', 'disco', 'hip-hop', 'indie', 'live', 'student']
   const pinnedPresent: string[] = []
