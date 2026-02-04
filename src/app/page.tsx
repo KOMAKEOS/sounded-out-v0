@@ -251,7 +251,7 @@ const mapsUrl = (venue: Venue): string => {
 
 const getNext7Days = (): { str: string; name: string; num: number }[] => {
   const result: { str: string; name: string; num: number }[] = []
-  const now = toUKTime(new Date())
+  const dateStr = d.toISOString().split('T')[0]
   
   for (let i = 0; i < 7; i++) {
     const d = new Date(now)
