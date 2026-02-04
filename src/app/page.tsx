@@ -741,6 +741,23 @@ const availableGenres = useMemo(() => {
       e.price_min === 0 || (!e.price_min && !e.price_max)
     )
   }
+
+  const filtered = useMemo(() => {
+  let result = dateFiltered
+  
+  // Genre filter
+  if (activeGenre) {
+    result = result.filter((e: Event) => 
+      e.genres && e.genres.toLowerCase().includes(activeGenre.toLowerCase())
+    )
+  }
+  
+  // Free filter
+  if (showFreeOnly) {
+    result = result.filter((e: Event) => 
+      e.price_min === 0 || (!e.price_min && !e.price_max)
+    )
+  }
   
   return result
 }, [dateFiltered, activeGenre, showFreeOnly])
