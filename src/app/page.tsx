@@ -745,30 +745,6 @@ const availableGenres = useMemo(() => {
   return result
 }, [dateFiltered, activeGenre, showFreeOnly])
   
-  const PINNED_GENRES = ['techno', 'house', 'dnb', 'disco', 'hip-hop', 'indie', 'live', 'student']
-  const pinnedPresent: string[] = []
-  const unpinned: { genre: string; count: number }[] = []
-  
-  genreCount.forEach((count: number, genre: string) => {
-    if (PINNED_GENRES.includes(genre)) {
-      pinnedPresent.push(genre)
-    } else {
-      unpinned.push({ genre, count })
-    }
-  })
-  
-  pinnedPresent.sort((a: string, b: string) => PINNED_GENRES.indexOf(a) - PINNED_GENRES.indexOf(b))
-  unpinned.sort((a, b) => b.count - a.count)
-  
-  const result: string[] = []
-  for (let i = 0; i < pinnedPresent.length; i++) {
-    result.push(pinnedPresent[i])
-  }
-  for (let i = 0; i < unpinned.length; i++) {
-    result.push(unpinned[i].genre)
-  }
-  return result.slice(0, 8)
-}, [dateFiltered])
   
   const [deviceType, setDeviceType] = useState<DeviceType>(() => {
     if (typeof window !== 'undefined') {
