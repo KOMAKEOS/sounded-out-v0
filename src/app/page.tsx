@@ -866,7 +866,7 @@ export default function Home() {
                   e.stopPropagation(); 
                   if (dateFilter !== f) {
           setDateFilter(f)
-          trackDateFilter(f, filtered.length)  // ← ADD THIS
+          trackDateFilter(f, 0)  // ← ADD THIS
         }
                 }}
                 aria-pressed={isSelected}
