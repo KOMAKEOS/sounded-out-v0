@@ -2511,6 +2511,7 @@ boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,10
           current={current}
           currentIndex={currentIndex}
           filtered={events}
+          events={events}
           showAllGenres={showAllGenres}
           setShowAllGenres={setShowAllGenres}
           showDescription={showDescription}
