@@ -1568,12 +1568,12 @@ const DesktopDetailPanel: React.FC = () => {
       background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', 
       border: 'none',
       borderRadius: '22px', 
-color: currentIndex === events.length - 1 ? '#444' : 'white'
+color: currentIndex === events.length - 1 ? '#444' : 'white',
       fontSize: '14px', 
       fontWeight: 600, 
-cursor: currentIndex === events.length - 1 ? 'default' : 'pointer'
+cursor: currentIndex === events.length - 1 ? 'default' : 'pointer',
   pointerEvents: 'auto',
-boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)'
+boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',
   ...noSelectStyle 
     }}
   >
