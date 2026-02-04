@@ -3047,7 +3047,7 @@ function MobileDetailSheet({
             ← Prev
           </button>
           <span style={{ fontSize: '13px', color: '#666', fontWeight: 600, padding: '6px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-{currentIndex + 1} / {events.length}
+{currentIndex + 1} / {filtered.length}
           </span>
           <button 
             onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next') }} 
