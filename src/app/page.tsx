@@ -963,7 +963,7 @@ export default function Home() {
   onClick={(e: React.MouseEvent) => {
     e.stopPropagation();
                     setActiveGenre(isSelected ? null : genre)
-                    trackGenreFilter(genre, filtered.length)
+                    trackGenreFilter(genre, 0)
                   }}
                   aria-pressed={isSelected}
                   style={{
@@ -1976,7 +1976,7 @@ const DesktopDetailPanel: React.FC = () => {
                 e.stopPropagation()
                if (dateFilter !== f) {
           setDateFilter(f)
-          trackDateFilter(f, filtered.length)  // ← ADD THIS
+          trackDateFilter(f, 0)  // ← ADD THIS
         }
               }}
               aria-pressed={isSelected}
@@ -2050,7 +2050,7 @@ const DesktopDetailPanel: React.FC = () => {
                   e.stopPropagation()
                   setDateFilter(d.str)
                   setShowDatePicker(false)
-                  trackDateFilter(d.str, filtered.length)
+                  trackDateFilter(d.str, 0)
                 }}
                 style={{
                   flex: 1,
@@ -2103,7 +2103,7 @@ const DesktopDetailPanel: React.FC = () => {
                 onClick={(e: React.MouseEvent) => {
                   e.stopPropagation()
                   setActiveGenre(isSelected ? null : genre)
-                  trackGenreFilter(genre, filtered.length)
+                  trackGenreFilter(genre, 0)
                 }}
                 aria-pressed={isSelected}
                 style={{
@@ -2237,7 +2237,7 @@ const DesktopDetailPanel: React.FC = () => {
           onClick={(e: React.MouseEvent) => {
             e.stopPropagation()
             openSheet('list')
-            trackListOpen(filtered.length)
+            trackListOpen(0)
           }}
           style={{
             position: 'fixed',
