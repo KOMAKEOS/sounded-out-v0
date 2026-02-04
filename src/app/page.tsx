@@ -647,18 +647,6 @@ const NavigationLinks = ({ onClose, user, onSignOut }: { onClose?: () => void; u
 // MAIN HOME COMPONENT - ALL STATE AND LOGIC LIVES HERE
 // ============================================================================
 export default function Home() {
-  const updateDeviceType = () => {
-  const width = window.innerWidth
-  // Remove setWindowWidth(width) - this variable doesn't exist
-  
-  if (width < BREAKPOINTS.mobile) {
-    setDeviceType('mobile')
-  } else if (width < BREAKPOINTS.tablet) {
-    setDeviceType('tablet')
-  } else {
-    setDeviceType('desktop')
-  }
-}
   // ============================================================================
   // STATE DECLARATIONS
   // ============================================================================
@@ -727,9 +715,18 @@ const availableGenres = useMemo(() => {
   return result.slice(0, 8)
 }, [dateFiltered])
   const filtered = useMemo(() => {
-  let result = dateFiltered
-  return result
-}, [dateFiltered, activeGenre, showFreeOnly])
+    let result = dateFiltered
+    if (activeGenre) {
+      result = result.filter((e: Event) => {
+        if (!e.genres) return false
+        return e.genres.toLowerCase().includes(activeGenre.toLowerCase())
+      })
+    }
+    if (showFreeOnly) {
+      result = result.filter((e: Event) => e.price_min === 0 || (!e.price_min && !e.price_max))
+    }
+    return result
+  }, [dateFiltered, activeGenre, showFreeOnly])
   const grouped = useMemo(() => {
     const g: Record<string, Event[]> = {}
     for (let i = 0; i < filtered.length; i++) {
@@ -1721,16 +1718,6 @@ boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,10
   `
 
 // ============================================================================
-// END OF PART 2 - CONTINUE TO PART 3
-// ============================================================================
-// ============================================================================
-// SOUNDED OUT - PAGE.TSX - PART 3 OF 3
-// ============================================================================
-// This is lines ~1700 to end
-// Copy this AFTER Part 2
-// This section contains the return statements and helper components
-// ============================================================================
-// ============================================================================
   // RENDER - DESKTOP/TABLET LAYOUT
   // ============================================================================
   if (deviceType === 'desktop' || deviceType === 'tablet') {
@@ -2515,12 +2502,6 @@ boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,10
                     )}
                   </p>
                 )}
-
-                      {evt.brand && (
-                        <p style={{ fontSize: '12px', color: '#ab67f7', marginBottom: '2px' }}>
-                          by {evt.brand.name} {evt.brand.is_verified ? '✓' : ''}
-                        </p>
-                      )}
 
                       <p style={{ fontSize: '12px', color: '#aaa', marginBottom: '6px' }}>
                         {evt.venue?.name}
@@ -3318,109 +3299,6 @@ disabled={currentIndex === events.length - 1}
     </div>
   )
 }
-  
-  // ============================================================================
-// TICKET SOURCE INFO
-// ============================================================================
- TICKET_SOURCES: Record<string, { name: string; shortName: string; color: string }> = {
-  ra: { name: 'Resident Advisor', shortName: 'RA', color: '#000' },
-  fatsoma: { name: 'Fatsoma', shortName: 'Fatsoma', color: '#ff4081' },
-  skiddle: { name: 'Skiddle', shortName: 'Skiddle', color: '#00b4d8' },
-  dice: { name: 'DICE', shortName: 'DICE', color: '#000' },
-  eventbrite: { name: 'Eventbrite', shortName: 'Eventbrite', color: '#f05537' },
-  fixr: { name: 'FIXR', shortName: 'FIXR', color: '#6c5ce7' },
-  venue: { name: 'Venue', shortName: 'Venue', color: '#ab67f7' },
-  other: { name: 'Tickets', shortName: 'Tickets', color: '#ab67f7' },
-}
-
-// Auto-detect ticket source from URL
-const detectTicketSource = (url: string | null): string => {
-  if (!url) return 'other'
-  const lower = url.toLowerCase()
-  if (lower.includes('ra.co') || lower.includes('residentadvisor')) return 'ra'
-  if (lower.includes('fatsoma')) return 'fatsoma'
-  if (lower.includes('skiddle')) return 'skiddle'
-  if (lower.includes('dice.fm') || lower.includes('dice.')) return 'dice'
-  if (lower.includes('eventbrite')) return 'eventbrite'
-  if (lower.includes('fixr')) return 'fixr'
-  return 'other'
-}
-
-  // ============================================================================
-  // P1 FIX: SYNC SAVED EVENTS TO LOCALSTORAGE
-  // ============================================================================
-
-  // ============================================================================
-  // RESPONSIVE DETECTION
-  // ============================================================================
-  
-
-  // ============================================================================
-  // DATE HELPERS
-  // ============================================================================
-  const getDateStr = (d: Date) => getUKDateString(d)
-
-const isTonight = (s: string) => {
-  if (!s) return false
-  return isUKToday(s)
-}
-
-const isTomorrow = (s: string) => {
-  if (!s) return false
-  return isUKTomorrow(s)
-}
-
-const isWeekend = (s: string) => {
-  if (!s) return false
-  return isUKWeekend(s)
-}
-
-const getDateLabel = (s: string) => {
-  if (!s) return 'TBC'
-  return getUKDateLabel(s)
-}
-
-const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
-  const d = new Date()
-  d.setDate(d.getDate() + i)
-  return { 
-    str: getDateStr(d), 
-    name: d.toLocaleDateString('en-GB', { weekday: 'short' }), 
-    num: d.getDate() 
-  }
-})
-
-  // ============================================================================
-  // FILTERED DATA - P1 FIX: Using for loops for TypeScript
-  // ============================================================================
-
-  
-
-  // ============================================================================
-  // FORMAT HELPERS
-  // ============================================================================
-const formatTime = (s: string | null | undefined) => {
-  if (!s) return 'TBC'
-  return formatUKTime(s)
-}  
-  const formatPrice = (min: number | null, max: number | null) => {
-  if (min === 0 || (!min && !max)) return null
-  const fmt = (n: number) => `£${n.toFixed(2)}`  // ← ALWAYS 2 decimals
-  if (min && max && min !== max) return `${fmt(min)}–${fmt(max)}`
-  return fmt(min || max || 0)
-}
-  
-  const isFree = (min: number | null, max: number | null) => min === 0 || (!min && !max)
-  
-  const getGenres = (g: string | null) => g ? g.split(',').map((x: string) => x.trim()).slice(0, 2).join(' · ') : null
-  
-  const mapsUrl = (v: Venue) => `https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}`
-  
-  const getTicketUrl = (url: string | null) => {
-    if (!url) return null
-    if (!url.startsWith('http://') && !url.startsWith('https://')) return `https://${url}`
-    return url
-  }
 
   // ============================================================================
   // P1 FIX: ONBOARDING & SAVE FUNCTIONS
@@ -4048,19 +3926,6 @@ el.style.cursor = 'pointer'  // ← MAKE SURE THIS EXISTS
       })
     }
   }, [filtered, mapReady, highlightMarker, deviceType])
-
-// ============================================================================
-// END OF PART 1 - COPY PART 2 DIRECTLY AFTER THIS LINE
-// ============================================================================
-// ============================================================================
-// SOUNDED OUT - PAGE.TSX - PART 2 OF 3
-// ============================================================================
-// This is lines ~850 to ~1700
-// Copy this AFTER Part 1, BEFORE Part 3
-// This section contains all the component definitions
-// ============================================================================
-
-
 
 // ============================================================================
 // CLAIM MODAL COMPONENT
