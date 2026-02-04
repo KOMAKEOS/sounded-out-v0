@@ -56,9 +56,15 @@ interface CollabReq {
   id: string; from: string; fromId: string; type: string; detail: string
   genre: string; urgency: string; responses: number
 }
-interface TourDay {
-  time: string; icon: string; title: string; sub: string; det: string
-  note: string | null; hl: boolean
+interface TourItem {
+  time: string; icon: string; title: string; type: 'flight' | 'transport' | 'hotel' | 'venue' | 'food' | 'performance' | 'free' | 'soundcheck'
+  hl: boolean
+  summary: string
+  address?: string
+  mapQ?: string
+  details: { label: string; value: string }[]
+  actions?: { label: string; icon: 'map' | 'call' | 'web' | 'copy'; url?: string }[]
+  note?: string
 }
 interface Screen { v: string; p: Record<string, string> }
 
@@ -118,29 +124,262 @@ const COLLABS: CollabReq[] = [
   { id:'cr6', from:'Natty D', fromId:'natty-d', type:'Forming a new label', detail:'Thinking of starting a label focused on 140/grime from the northeast. Looking for co-founders, A&R, and producers who want to build something. Lets talk.', genre:'Grime / 140', urgency:'Exploratory', responses:14 },
 ]
 
-const TOUR_DAYS: Record<string, TourDay[]> = {
+const TOUR_DAYS: Record<string, TourItem[]> = {
   'Fri 14 Mar': [
-    { time:'14:30', icon:'✈️', title:'Flight Arrives', sub:'Ryanair FR204 · Dublin → Newcastle', det:'Terminal 1 · Gate info updates 2hrs before', note:'Boarding pass in your email', hl:false },
-    { time:'15:15', icon:'🚗', title:'Airport Pickup', sub:'Driver: Marcus · Silver VW Passat', det:'Meeting at Arrivals hall, Terminal 1', note:'Marcus will hold a sign with your name', hl:false },
-    { time:'16:00', icon:'🏨', title:'Hotel Check-in', sub:'Malmaison Newcastle', det:'Quayside · Room 312 · 2 nights booked', note:'Breakfast included 07:00–10:30', hl:false },
-    { time:'18:00', icon:'🚶', title:'Free Evening', sub:'Explore the Quayside', det:'Hotel is a 12 min walk to venue along the river', note:null, hl:false },
-    { time:'21:00', icon:'🍽️', title:'Dinner', sub:'Dobson & Parnell', det:'21 Queen St · Reservation for 4 at 21:00', note:"Booked under 'Underground Sound'", hl:false },
+    { time:'14:30', icon:'✈️', title:'Flight Arrives', type:'flight', hl:false,
+      summary:'Ryanair FR204 · Dublin → Newcastle',
+      details:[
+        { label:'Airline', value:'Ryanair' },
+        { label:'Flight', value:'FR204' },
+        { label:'Route', value:'Dublin (DUB) → Newcastle (NCL)' },
+        { label:'Departs', value:'13:00 GMT from Dublin T1' },
+        { label:'Arrives', value:'14:30 GMT at Newcastle T1' },
+        { label:'Booking Ref', value:'RYR-7X4K92' },
+        { label:'Gate Info', value:'Updates 2hrs before departure' },
+        { label:'Baggage', value:'1x cabin bag included. Hold bag added.' },
+      ],
+      actions:[
+        { label:'Open in Ryanair App', icon:'web', url:'https://www.ryanair.com/gb/en/manage-booking' },
+      ],
+      note:'Boarding pass is in your email — screenshot it before you fly. Passport required.'
+    },
+    { time:'15:15', icon:'🚗', title:'Airport Pickup', type:'transport', hl:false,
+      summary:'Driver: Marcus · Silver VW Passat',
+      address:'Newcastle Airport, Arrivals Hall, Terminal 1',
+      mapQ:'Newcastle+Airport+Terminal+1+Arrivals',
+      details:[
+        { label:'Driver', value:'Marcus' },
+        { label:'Vehicle', value:'Silver VW Passat · Reg: NK21 XYZ' },
+        { label:'Meeting Point', value:'Arrivals hall, just past baggage claim. He will hold a sign with your name.' },
+        { label:'Journey Time', value:'~25 mins to hotel (traffic dependent)' },
+        { label:'Route', value:'A696 → A1 → Quayside' },
+        { label:'Cost', value:'Covered by promoter' },
+      ],
+      actions:[
+        { label:'Directions to Pickup', icon:'map', url:'https://www.google.com/maps/search/?api=1&query=Newcastle+Airport+Arrivals+Terminal+1' },
+        { label:'Call Marcus', icon:'call', url:'tel:+447XXXXXXXXX' },
+      ],
+      note:'If your flight is delayed, text Marcus. He will wait.'
+    },
+    { time:'16:00', icon:'🏨', title:'Hotel Check-in', type:'hotel', hl:false,
+      summary:'Malmaison Newcastle · 2 nights',
+      address:'104 Quayside, Newcastle upon Tyne, NE1 3DX',
+      mapQ:'Malmaison+Newcastle+Quayside',
+      details:[
+        { label:'Hotel', value:'Malmaison Newcastle' },
+        { label:'Address', value:'104 Quayside, Newcastle upon Tyne, NE1 3DX' },
+        { label:'Room', value:'312 · King bed · River view' },
+        { label:'Check-in', value:'From 15:00 (early check-in confirmed)' },
+        { label:'Check-out', value:'Sun 16 Mar by 10:00' },
+        { label:'Nights', value:'2 (Fri 14 – Sun 16 Mar)' },
+        { label:'Booking Ref', value:'MAL-NCL-89274' },
+        { label:'Breakfast', value:'Included · 07:00–10:30 · Ground floor' },
+        { label:'Wi-Fi', value:'Free · Network: Malmaison_Guest · No password' },
+        { label:'Parking', value:'Valet available · £15/night (not needed)' },
+      ],
+      actions:[
+        { label:'Hotel on Map', icon:'map', url:'https://www.google.com/maps/search/?api=1&query=Malmaison+Newcastle+104+Quayside' },
+        { label:'Call Hotel', icon:'call', url:'tel:+44191XXXXXXX' },
+        { label:'Hotel Website', icon:'web', url:'https://www.malmaison.com/locations/newcastle/' },
+      ],
+      note:'Booked under "Underground Sound". Mention this at reception.'
+    },
+    { time:'18:00', icon:'🚶', title:'Free Evening', type:'free', hl:false,
+      summary:'Explore the Quayside area',
+      address:'Quayside, Newcastle upon Tyne',
+      mapQ:'Newcastle+Quayside',
+      details:[
+        { label:'Suggestion', value:'Walk along the river towards the Tyne Bridge and Gateshead Millennium Bridge' },
+        { label:'Distance to Venue', value:'12 min walk from hotel along the river to Digital' },
+        { label:'Nearby', value:'Bars, restaurants, BALTIC gallery (free entry, closes 18:00)' },
+      ],
+      actions:[
+        { label:'Explore on Map', icon:'map', url:'https://www.google.com/maps/search/?api=1&query=Newcastle+Quayside+walk' },
+        { label:'Walk to Digital', icon:'map', url:'https://www.google.com/maps/dir/Malmaison+Newcastle/Digital+Newcastle+Times+Square' },
+      ],
+    },
+    { time:'21:00', icon:'🍽️', title:'Dinner', type:'food', hl:false,
+      summary:'Dobson & Parnell · Reservation for 4',
+      address:'21 Queen Street, Newcastle upon Tyne, NE1 3UG',
+      mapQ:'Dobson+and+Parnell+Newcastle',
+      details:[
+        { label:'Restaurant', value:'Dobson & Parnell' },
+        { label:'Address', value:'21 Queen St, Newcastle upon Tyne, NE1 3UG' },
+        { label:'Reservation', value:'21:00 · Table for 4' },
+        { label:'Booked Under', value:"'Underground Sound'" },
+        { label:'Walk from Hotel', value:'8 min walk' },
+        { label:'Cuisine', value:'Modern British · Tasting menu available' },
+        { label:'Dietary', value:'Tell them in advance — they accommodate everything' },
+        { label:'Budget', value:'Covered by promoter (drinks within reason)' },
+      ],
+      actions:[
+        { label:'Directions from Hotel', icon:'map', url:'https://www.google.com/maps/dir/Malmaison+Newcastle/Dobson+and+Parnell+21+Queen+Street+Newcastle' },
+        { label:'Call Restaurant', icon:'call', url:'tel:+441912211552' },
+        { label:'View Menu', icon:'web', url:'https://www.dobsonandparnell.co.uk/menus' },
+      ],
+      note:'Oli and the rest of the Underground Sound crew will be there. Good chance to connect before the event.'
+    },
   ],
   'Sat 15 Mar': [
-    { time:'10:30', icon:'☕', title:'Breakfast', sub:'Malmaison — Ground Floor', det:'Full English, continental, pastries', note:null, hl:false },
-    { time:'12:00', icon:'🍽️', title:'Lunch', sub:'Quay Ingredient', det:'Queen St · Casual, walk-in', note:'Great sandwiches. 5 min walk.', hl:false },
-    { time:'15:00', icon:'🚶', title:'Free Afternoon', sub:'Ouseburn Valley / BALTIC gallery', det:'Both walkable from Quayside', note:null, hl:false },
-    { time:'17:00', icon:'🔊', title:'Soundcheck', sub:'Digital, Newcastle', det:'Times Bridge · Backstage access from 16:30', note:'Ask for Oli at the stage door', hl:false },
-    { time:'19:00', icon:'🍽️', title:'Pre-show Meal', sub:'Backstage at Digital', det:'Rider confirmed: beer, water, fruit, sandwiches', note:null, hl:false },
-    { time:'21:00', icon:'🚪', title:'Doors Open', sub:'Northeast Weekender', det:'800 capacity. Pre-sale sold 620 tickets.', note:null, hl:false },
-    { time:'23:00', icon:'🎵', title:'YOUR SET — Main Room', sub:'23:00 – 01:00 · Full PA · Lighting rig', det:'Funktion-One. Allen & Heath Xone:96. 2x CDJ-3000.', note:'Capacity 800. Expecting 700+. Headline slot.', hl:true },
-    { time:'01:00', icon:'🎶', title:'After-set', sub:'Backstage / Green Room', det:'DJ Vortex closing until 3am', note:null, hl:false },
+    { time:'10:30', icon:'☕', title:'Breakfast', type:'food', hl:false,
+      summary:'Malmaison — Ground Floor Restaurant',
+      details:[
+        { label:'Where', value:'Ground floor restaurant at the hotel' },
+        { label:'Time', value:'07:00–10:30' },
+        { label:'Options', value:'Full English, continental, pastries, fresh juice, coffee' },
+        { label:'Cost', value:'Included with room' },
+      ],
+    },
+    { time:'12:00', icon:'🍽️', title:'Lunch', type:'food', hl:false,
+      summary:'Quay Ingredient · Casual walk-in',
+      address:'4 Queen Street, Newcastle upon Tyne, NE1 3UG',
+      mapQ:'Quay+Ingredient+Newcastle',
+      details:[
+        { label:'Restaurant', value:'Quay Ingredient' },
+        { label:'Address', value:'4 Queen St, NE1 3UG' },
+        { label:'Style', value:'Casual café · No reservation needed' },
+        { label:'Walk from Hotel', value:'5 min' },
+        { label:'Known For', value:'Best sandwiches on the Quayside. Great coffee.' },
+        { label:'Budget', value:'£8–15 per person' },
+      ],
+      actions:[
+        { label:'Directions', icon:'map', url:'https://www.google.com/maps/dir/Malmaison+Newcastle/Quay+Ingredient+Newcastle' },
+      ],
+    },
+    { time:'15:00', icon:'🚶', title:'Free Afternoon', type:'free', hl:false,
+      summary:'Ouseburn Valley / BALTIC gallery',
+      details:[
+        { label:'Ouseburn Valley', value:'Creative quarter — street art, breweries, studios. 15 min walk from hotel.' },
+        { label:'BALTIC Centre', value:'Contemporary art gallery · Free entry · Rooftop views of the city' },
+        { label:'Note', value:'Stay relaxed — big night ahead. Back to hotel by 16:00 latest.' },
+      ],
+      actions:[
+        { label:'Walk to Ouseburn', icon:'map', url:'https://www.google.com/maps/dir/Malmaison+Newcastle/Ouseburn+Valley+Newcastle' },
+        { label:'Walk to BALTIC', icon:'map', url:'https://www.google.com/maps/dir/Malmaison+Newcastle/BALTIC+Centre+for+Contemporary+Art' },
+      ],
+    },
+    { time:'17:00', icon:'🔊', title:'Soundcheck', type:'soundcheck', hl:false,
+      summary:'Digital, Newcastle · Main Room',
+      address:'Times Square, Newcastle upon Tyne, NE1 4EP',
+      mapQ:'Digital+Newcastle+Times+Square',
+      details:[
+        { label:'Venue', value:'Digital' },
+        { label:'Address', value:'Times Square, Newcastle upon Tyne, NE1 4EP' },
+        { label:'Access', value:'Backstage entrance — side door on Times Bridge' },
+        { label:'Contact at Venue', value:'Ask for Oli at the stage door' },
+        { label:'Backstage From', value:'16:30 onwards' },
+        { label:'Sound System', value:'Funktion-One Resolution 5 · Full range + subs' },
+        { label:'Mixer', value:'Allen & Heath Xone:96' },
+        { label:'Decks', value:'2x Pioneer CDJ-3000 + 1x Technics 1210 (if needed)' },
+        { label:'Monitor', value:'Funktion-One wedge monitor on stage' },
+        { label:'Walk from Hotel', value:'12 min along the Quayside' },
+      ],
+      actions:[
+        { label:'Directions to Digital', icon:'map', url:'https://www.google.com/maps/dir/Malmaison+Newcastle/Digital+Newcastle+Times+Square' },
+        { label:'Call Oli (Promoter)', icon:'call', url:'tel:+447XXXXXXXXX' },
+      ],
+      note:'Bring USB sticks. Venue has good CDJs but no laptop stand — bring your own if needed.'
+    },
+    { time:'19:00', icon:'🍽️', title:'Pre-show Meal', type:'food', hl:false,
+      summary:'Backstage at Digital · Rider provided',
+      details:[
+        { label:'Where', value:'Backstage green room' },
+        { label:'Rider', value:'Beer (local ale + lager), water, Red Bull, fruit platter, sandwiches' },
+        { label:'Dietary', value:'Mention any requirements to Oli before the day' },
+        { label:'Extras', value:'Towels and a mirror in the green room' },
+      ],
+    },
+    { time:'21:00', icon:'🚪', title:'Doors Open', type:'venue', hl:false,
+      summary:'Northeast Weekender · Doors 21:00',
+      details:[
+        { label:'Event', value:'Northeast Weekender' },
+        { label:'Capacity', value:'800' },
+        { label:'Pre-sale', value:'620 sold' },
+        { label:'Rooms', value:'Main Room (DnB/Bass) + Dark Room (Techno)' },
+        { label:'Your Room', value:'Main Room' },
+        { label:'Event Ends', value:'03:00' },
+      ],
+    },
+    { time:'23:00', icon:'🎵', title:'YOUR SET — Main Room', type:'performance', hl:true,
+      summary:'23:00 – 01:00 · Headline Slot',
+      details:[
+        { label:'Time', value:'23:00 – 01:00 (2 hours)' },
+        { label:'Room', value:'Main Room' },
+        { label:'Sound', value:'Funktion-One Resolution 5' },
+        { label:'Mixer', value:'Allen & Heath Xone:96' },
+        { label:'Decks', value:'2x CDJ-3000 · 1x Technics 1210' },
+        { label:'Capacity', value:'800 · Expecting 700+' },
+        { label:'Before You', value:'DJ Koda (warm-up) until 23:00' },
+        { label:'After You', value:'DJ Vortex (closing) 01:00–03:00' },
+        { label:'MC', value:'Natty D will be on mic' },
+        { label:'Fee', value:'Confirmed · paid within 7 days' },
+      ],
+      note:'Headline slot. The room will be full by 23:00. Natty D is on MC duties — he knows the crowd well. Bring your A-game.'
+    },
+    { time:'01:00', icon:'🎶', title:'After-set', type:'free', hl:false,
+      summary:'Green Room · DJ Vortex closing until 03:00',
+      details:[
+        { label:'Backstage', value:'Green room open all night' },
+        { label:'Closing DJ', value:'DJ Vortex · 01:00–03:00' },
+        { label:'Transport Home', value:'Marcus is on standby from 01:00 onwards. Text when ready.' },
+      ],
+      actions:[
+        { label:'Text Marcus (Driver)', icon:'call', url:'sms:+447XXXXXXXXX' },
+      ],
+    },
   ],
   'Sun 16 Mar': [
-    { time:'09:00', icon:'☕', title:'Breakfast', sub:'Last morning at Malmaison', det:'07:00–10:30', note:null, hl:false },
-    { time:'10:00', icon:'🏨', title:'Hotel Checkout', sub:'Malmaison Newcastle', det:'Checkout by 10:00 · Bags at reception', note:null, hl:false },
-    { time:'10:30', icon:'🚗', title:'Airport Transfer', sub:'Driver: Marcus · Same vehicle', det:'Hotel pickup 10:30 · 25 min to airport', note:null, hl:false },
-    { time:'12:45', icon:'✈️', title:'Flight Departs', sub:'Ryanair FR207 · Newcastle → Dublin', det:'Arrive airport by 11:15. Gate closes 12:25.', note:null, hl:false },
+    { time:'09:00', icon:'☕', title:'Breakfast', type:'food', hl:false,
+      summary:'Last morning at Malmaison',
+      details:[
+        { label:'Where', value:'Ground floor restaurant' },
+        { label:'Time', value:'07:00–10:30' },
+        { label:'Note', value:'Last chance — eat well before your flight' },
+      ],
+    },
+    { time:'10:00', icon:'🏨', title:'Hotel Checkout', type:'hotel', hl:false,
+      summary:'Checkout by 10:00',
+      details:[
+        { label:'Checkout', value:'By 10:00 at reception' },
+        { label:'Late Checkout', value:'Not available (fully booked)' },
+        { label:'Luggage', value:'Leave bags at reception if you want to walk around before pickup' },
+      ],
+    },
+    { time:'10:30', icon:'🚗', title:'Airport Transfer', type:'transport', hl:false,
+      summary:'Driver: Marcus · Hotel to Airport',
+      address:'Malmaison Newcastle → Newcastle Airport',
+      details:[
+        { label:'Driver', value:'Marcus · Same vehicle as arrival' },
+        { label:'Pickup', value:'10:30 at hotel entrance' },
+        { label:'Journey', value:'~25 mins to airport' },
+        { label:'Route', value:'Quayside → A1 → A696 → Airport' },
+      ],
+      actions:[
+        { label:'Route to Airport', icon:'map', url:'https://www.google.com/maps/dir/Malmaison+Newcastle/Newcastle+Airport' },
+        { label:'Call Marcus', icon:'call', url:'tel:+447XXXXXXXXX' },
+      ],
+      note:'Allow extra time. Weekend traffic on the A1 can be unpredictable.'
+    },
+    { time:'12:45', icon:'✈️', title:'Flight Departs', type:'flight', hl:false,
+      summary:'Ryanair FR207 · Newcastle → Dublin',
+      address:'Newcastle Airport, Terminal 1',
+      mapQ:'Newcastle+Airport+Terminal+1+Departures',
+      details:[
+        { label:'Airline', value:'Ryanair' },
+        { label:'Flight', value:'FR207' },
+        { label:'Route', value:'Newcastle (NCL) → Dublin (DUB)' },
+        { label:'Departs', value:'12:45 GMT' },
+        { label:'Arrives', value:'14:15 GMT (Dublin time)' },
+        { label:'Booking Ref', value:'RYR-7X4K92' },
+        { label:'Check-in', value:'Online check-in already done' },
+        { label:'Bag Drop', value:'Opens 2hrs before · Closes 40 min before' },
+        { label:'Gate Closes', value:'12:25 — be at gate by 12:15 latest' },
+      ],
+      actions:[
+        { label:'Airport Map', icon:'map', url:'https://www.google.com/maps/search/?api=1&query=Newcastle+Airport+Terminal+1' },
+      ],
+      note:'Arrive by 11:15. Security can take 15–20 min on Sunday mornings. Gate closes at 12:25.'
+    },
   ],
 }
 
@@ -170,6 +409,11 @@ const ico = {
   heart: (c: string = C.t3) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>,
   reply: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth="1.8"><polyline points="9,17 4,12 9,7"/><path d="M20 18v-2a4 4 0 00-4-4H4"/></svg>,
   phone: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.t2} strokeWidth="1.8"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>,
+  mapPin: (c: string = C.a) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  extLink: (c: string = C.a) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>,
+  copy: (c: string = C.t2) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>,
+  chevDown: (c: string = C.t3) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>,
+  chevUp: (c: string = C.t3) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2"><path d="M18 15l-6-6-6 6"/></svg>,
   users: (c: string = C.t2) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
   edit: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.t2} strokeWidth="1.8"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
   // Tab bar
@@ -504,10 +748,37 @@ function NetworkScreen({ nav, onTab }: { nav: (v: string, p?: Record<string, str
   )
 }
 
-// ── TOUR HQ (inline in network) ──────────────────────────────────────────────
+// ── TOUR HQ (rebuilt — expandable, actionable, real logistics) ────────────────
 function TourContent({ nav }: { nav: (v: string, p?: Record<string, string>) => void }) {
   const days = Object.keys(TOUR_DAYS)
   const [day, setDay] = useState(days[1])
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  const toggle = (key: string) => setExpanded(expanded === key ? null : key)
+
+  const actionIcon = (type: string) => {
+    if (type === 'map') return ico.mapPin()
+    if (type === 'call') return ico.phone()
+    if (type === 'web') return ico.extLink()
+    if (type === 'copy') return ico.copy()
+    return null
+  }
+
+  const typeBadge = (type: string) => {
+    const m: Record<string, { bg: string; bdr: string; c: string; label: string }> = {
+      flight: { bg: 'rgba(96,165,250,0.1)', bdr: 'rgba(96,165,250,0.2)', c: C.blue, label: 'Flight' },
+      transport: { bg: C.amD, bdr: C.amB, c: C.am, label: 'Transport' },
+      hotel: { bg: C.aDim, bdr: C.aBdr, c: C.a, label: 'Hotel' },
+      venue: { bg: C.aDim, bdr: C.aBdr, c: C.a, label: 'Venue' },
+      food: { bg: C.gD, bdr: C.gB, c: C.g, label: 'Food' },
+      performance: { bg: C.aDim, bdr: C.aBdr, c: C.a, label: 'Performance' },
+      soundcheck: { bg: C.amD, bdr: C.amB, c: C.am, label: 'Soundcheck' },
+      free: { bg: 'rgba(255,255,255,0.04)', bdr: C.glB, c: C.t3, label: 'Free Time' },
+    }
+    const s = m[type] || m.free
+    return <span style={{ padding: '2px 8px', borderRadius: 6, background: s.bg, border: `1px solid ${s.bdr}`, fontSize: 10, fontWeight: 600, color: s.c, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</span>
+  }
+
   return (
     <div>
       <div style={{ padding: '16px 20px 0' }}>
@@ -518,42 +789,98 @@ function TourContent({ nav }: { nav: (v: string, p?: Record<string, string>) => 
         </Card>
         <p style={{ color: C.t3, fontSize: 12, margin: '0 0 12px' }}>Northeast Weekender · Newcastle · 14–16 Mar 2026</p>
       </div>
-      <div style={{ padding: '0 20px 0', display: 'flex', gap: 8 }}>
-        {days.map(d => <Pill key={d} active={day === d} onClick={() => setDay(d)}>{d}</Pill>)}
+      <div style={{ padding: '0 20px 0', display: 'flex', gap: 8, overflowX: 'auto' }}>
+        {days.map(d => <Pill key={d} active={day === d} onClick={() => { setDay(d); setExpanded(null) }}>{d}</Pill>)}
       </div>
       <div style={{ padding: '16px 20px 0' }}>
         <Sec>Itinerary — {day}</Sec>
-        {TOUR_DAYS[day].map((item, i, arr) => (
-          <div key={i} style={{ display: 'flex', gap: 14, position: 'relative' }}>
-            {i < arr.length - 1 && <div style={{ position: 'absolute', left: 19, top: 42, bottom: -4, width: 1, background: C.dv }} />}
-            <div style={{ width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: item.hl ? C.aDim : C.card, border: `1px solid ${item.hl ? C.aBdr : C.glB}`, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, fontSize: 18 }}>{item.icon}</div>
-            <div style={{ flex: 1, marginBottom: 12 }}>
-              <Card hl={item.hl}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                  <p style={{ color: C.t, fontSize: 14, fontWeight: 600, margin: 0 }}>{item.title}</p>
-                  <span style={{ color: item.hl ? C.a : C.t3, fontSize: 13, fontWeight: 600, flexShrink: 0, marginLeft: 8 }}>{item.time}</span>
+        {TOUR_DAYS[day].map((item, i, arr) => {
+          const key = `${day}-${i}`
+          const isOpen = expanded === key
+          return (
+            <div key={key} style={{ display: 'flex', gap: 14, position: 'relative' }}>
+              {i < arr.length - 1 && <div style={{ position: 'absolute', left: 19, top: 42, bottom: -4, width: 1, background: C.dv }} />}
+              <div style={{ width: 40, height: 40, borderRadius: 20, flexShrink: 0, background: item.hl ? C.aDim : C.card, border: `1px solid ${item.hl ? C.aBdr : C.glB}`, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, fontSize: 18 }}>{item.icon}</div>
+              <div style={{ flex: 1, marginBottom: 12 }}>
+                <div onClick={() => toggle(key)} style={{ padding: 16, borderRadius: 14, background: item.hl ? `linear-gradient(135deg, ${C.aGlow}, ${C.card})` : C.card, border: `1px solid ${item.hl ? C.aBdr : isOpen ? C.aBdr : C.glB}`, cursor: 'pointer', transition: 'all .2s ease' }}>
+                  {/* Header row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <p style={{ color: C.t, fontSize: 14, fontWeight: 600, margin: 0 }}>{item.title}</p>
+                        {typeBadge(item.type)}
+                      </div>
+                      <p style={{ color: C.t2, fontSize: 13, margin: 0 }}>{item.summary}</p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 8 }}>
+                      <span style={{ color: item.hl ? C.a : C.t3, fontSize: 13, fontWeight: 600 }}>{item.time}</span>
+                      {isOpen ? ico.chevUp(C.a) : ico.chevDown()}
+                    </div>
+                  </div>
+                  {item.address && !isOpen && <p style={{ color: C.t4, fontSize: 12, margin: '4px 0 0' }}>{item.address}</p>}
+
+                  {/* Expanded detail panel */}
+                  {isOpen && (
+                    <div style={{ marginTop: 12, borderTop: `1px solid ${C.glB}`, paddingTop: 12 }}>
+                      {/* Address with map link */}
+                      {item.address && (
+                        <div onClick={(e) => { e.stopPropagation(); if (item.mapQ) window.open(`https://www.google.com/maps/search/?api=1&query=${item.mapQ}`, '_blank') }} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '8px 12px', borderRadius: 10, background: 'rgba(171,103,247,0.06)', border: `1px solid ${C.aBdr}`, marginBottom: 12, cursor: item.mapQ ? 'pointer' : 'default' }}>
+                          {ico.mapPin(C.a)}
+                          <div style={{ flex: 1 }}>
+                            <p style={{ color: C.t, fontSize: 13, fontWeight: 500, margin: 0 }}>{item.address}</p>
+                            {item.mapQ && <p style={{ color: C.a, fontSize: 11, margin: '2px 0 0', fontWeight: 500 }}>Open in Google Maps →</p>}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Detail rows */}
+                      {item.details.map((d, di) => (
+                        <div key={di} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '7px 0', borderBottom: di < item.details.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none' }}>
+                          <span style={{ color: C.t3, fontSize: 12, fontWeight: 500, flexShrink: 0, minWidth: 90 }}>{d.label}</span>
+                          <span style={{ color: C.t, fontSize: 12, textAlign: 'right', flex: 1, marginLeft: 12, lineHeight: 1.4 }}>{d.value}</span>
+                        </div>
+                      ))}
+
+                      {/* Note */}
+                      {item.note && (
+                        <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 10, background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                          <p style={{ color: C.am, fontSize: 12, margin: 0, lineHeight: 1.5 }}>💡 {item.note}</p>
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      {item.actions && item.actions.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+                          {item.actions.map((act, ai) => (
+                            <div key={ai} onClick={(e) => { e.stopPropagation(); if (act.url) window.open(act.url, '_blank') }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: act.icon === 'map' ? 'rgba(171,103,247,0.08)' : act.icon === 'call' ? C.gD : 'rgba(255,255,255,0.03)', border: `1px solid ${act.icon === 'map' ? C.aBdr : act.icon === 'call' ? C.gB : C.glB}`, cursor: 'pointer' }}>
+                              {actionIcon(act.icon)}
+                              <span style={{ color: act.icon === 'map' ? C.a : act.icon === 'call' ? C.g : C.t2, fontSize: 13, fontWeight: 500 }}>{act.label}</span>
+                              <span style={{ marginLeft: 'auto' }}>{ico.extLink(act.icon === 'map' ? C.a : act.icon === 'call' ? C.g : C.t3)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <p style={{ color: C.t2, fontSize: 13, margin: '2px 0 0' }}>{item.sub}</p>
-                <p style={{ color: C.t3, fontSize: 12, margin: '4px 0 0' }}>{item.det}</p>
-                {item.note && <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}><p style={{ color: C.t3, fontSize: 12, margin: 0, fontStyle: 'italic' }}>{item.note}</p></div>}
-              </Card>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
       <div style={{ padding: '8px 20px 0' }}><Sec>Key Contacts</Sec>
         {TOUR_CONTACTS.map((ct, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: i < TOUR_CONTACTS.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
             <div><p style={{ color: C.t, fontSize: 14, fontWeight: 500, margin: 0 }}>{ct.name}</p><p style={{ color: C.t3, fontSize: 12, margin: '2px 0 0' }}>{ct.role}</p></div>
-            <div style={{ display: 'flex', gap: 8 }}><SmBtn icon={ico.phone()} /><SmBtn icon={ico.msg(C.t3, 14)} /></div>
+            <div style={{ display: 'flex', gap: 8 }}><SmBtn icon={ico.phone()} onClick={() => window.open(ct.ph.startsWith('+') ? `tel:${ct.ph}` : '#', '_blank')} /><SmBtn icon={ico.msg(C.t3, 14)} /></div>
           </div>
         ))}
       </div>
       <div style={{ padding: 20, display: 'flex', gap: 10 }}>
         <Btn full icon={ico.msg()}>Message Artist</Btn>
-        <Btn full icon={ico.share()}>Share Link</Btn>
+        <Btn full icon={ico.share()}>Share Itinerary</Btn>
       </div>
-      <p style={{ color: C.t3, fontSize: 12, textAlign: 'center', padding: '0 20px 8px', lineHeight: 1.5 }}>Artist can view this itinerary without an account</p>
+      <p style={{ color: C.t3, fontSize: 12, textAlign: 'center', padding: '0 20px 8px', lineHeight: 1.5 }}>Artist can view this itinerary without an account · Shareable link</p>
     </div>
   )
 }
