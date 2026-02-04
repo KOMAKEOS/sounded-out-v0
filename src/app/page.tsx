@@ -3306,29 +3306,6 @@ const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
   // FILTERED DATA - P1 FIX: Using for loops for TypeScript
   // ============================================================================
     
-  
-  const filtered = useMemo(() => {
-    let result: Event[] = dateFiltered
-    if (activeGenre) {
-      const temp: Event[] = []
-      for (let i = 0; i < result.length; i++) {
-        if (result[i].genres?.toLowerCase().includes(activeGenre.toLowerCase())) {
-          temp.push(result[i])
-        }
-      }
-      result = temp
-    }
-    if (showFreeOnly) {
-      const temp: Event[] = []
-      for (let i = 0; i < result.length; i++) {
-        if (result[i].price_min === 0) {
-          temp.push(result[i])
-        }
-      }
-      result = temp
-    }
-    return result
-  }, [dateFiltered, activeGenre, showFreeOnly])
 
 const dateFiltered = useMemo(() => {
   const result: Event[] = []
