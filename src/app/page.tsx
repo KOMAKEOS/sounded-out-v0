@@ -3330,6 +3330,18 @@ const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
     return result
   }, [dateFiltered, activeGenre, showFreeOnly])
 
+const dateFiltered = useMemo(() => {
+  const result: Event[] = []
+  for (let i = 0; i < events.length; i++) {
+    const e: Event = events[i]
+    if (dateFilter === 'today' && isTonight(e.start_time)) result.push(e)
+    else if (dateFilter === 'tomorrow' && isTomorrow(e.start_time)) result.push(e)
+    else if (dateFilter === 'weekend' && isWeekend(e.start_time)) result.push(e)
+    else if (dateFilter !== 'today' && dateFilter !== 'tomorrow' && dateFilter !== 'weekend' && getDateStr(new Date(e.start_time)) === dateFilter) result.push(e)
+  }
+  return result
+}, [events, dateFilter])
+
 const availableGenres = useMemo(() => {
   const genreCount = new Map<string, number>()
   for (let i = 0; i < dateFiltered.length; i++) {
