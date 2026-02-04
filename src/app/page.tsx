@@ -199,6 +199,93 @@ const formatGenre = (genre: string): string => {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+// UK Time helper functions for date filtering
+const isTonight = (startTime: string): boolean => {
+  return isUKToday(startTime)
+}
+
+const isTomorrow = (startTime: string): boolean => {
+  return isUKTomorrow(startTime)
+}
+
+const isWeekend = (startTime: string): boolean => {
+  return isUKWeekend(startTime)
+}
+
+const getDateStr = (date: Date): string => {
+  return getUKDateString(date)
+}
+
+// Additional helper functions used throughout
+const formatTime = (isoString: string): string => {
+  return formatUKTime(isoString)
+}
+
+const getDateLabel = (isoString: string): string => {
+  return getUKDateLabel(isoString)
+}
+
+const formatPrice = (min: number | null, max: number | null): string => {
+  if (!min && !max) return ''
+  if (min === 0 && !max) return 'FREE'
+  if (min && max && min !== max) return `£${min}–£${max}`
+  return `£${min || max}`
+}
+
+const isFree = (min: number | null, max: number | null): boolean => {
+  return min === 0 || (!min && !max)
+}
+
+const getGenres = (genres: string | null): string[] => {
+  if (!genres) return []
+  return genres.split(',').map(g => g.trim())
+}
+
+const getTicketUrl = (event: Event): string | null => {
+  return event.event_url
+}
+
+const mapsUrl = (venue: Venue): string => {
+  return `https://www.google.com/maps/search/?api=1&query=${venue.lat},${venue.lng}`
+}
+
+const getNext7Days = (): { str: string; name: string; num: number }[] => {
+  const result: { str: string; name: string; num: number }[] = []
+  const now = toUKTime(new Date())
+  
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now)
+    d.setDate(d.getDate() + i)
+    const ukDate = toUKTime(d)
+    result.push({
+      str: getUKDateString(ukDate),
+      name: ukDate.toLocaleDateString('en-GB', { weekday: 'short' }).slice(0, 3).toUpperCase(),
+      num: ukDate.getDate()
+    })
+  }
+  
+  return result
+}
+
+const TICKET_SOURCES: Record<string, { name: string; shortName: string }> = {
+  skiddle: { name: 'Skiddle', shortName: 'Skiddle' },
+  dice: { name: 'DICE', shortName: 'DICE' },
+  ra: { name: 'Resident Advisor', shortName: 'RA' },
+  fatsoma: { name: 'Fatsoma', shortName: 'Fatsoma' },
+  eventbrite: { name: 'Eventbrite', shortName: 'EB' },
+  default: { name: 'Tickets', shortName: 'Tix' }
+}
+
+const detectTicketSource = (url: string | null): string => {
+  if (!url) return 'default'
+  if (url.includes('skiddle')) return 'skiddle'
+  if (url.includes('dice')) return 'dice'
+  if (url.includes('residentadvisor')) return 'ra'
+  if (url.includes('fatsoma')) return 'fatsoma'
+  if (url.includes('eventbrite')) return 'eventbrite'
+  return 'default'
+}
+
 // Get price display based on price_type
 const getPriceDisplay = (event: Event): { text: string; type: 'free' | 'freeBefore' | 'paid' | 'tba' } | null => {
   const { price_type, price_min, price_max, free_before_time } = event
