@@ -679,7 +679,7 @@ export default function Home() {
   const [activeGenre, setActiveGenre] = useState<string | null>(null)
   const [showFreeOnly, setShowFreeOnly] = useState(false)
 
-  const dateFiltered = useMemo(() => {
+  const dateFiltered = (() => {
   const result: Event[] = []
   for (let i = 0; i < events.length; i++) {
     const e: Event = events[i]
@@ -735,6 +735,10 @@ const availableGenres = useMemo(() => {
   
   return result
 }, [dateFiltered, activeGenre, showFreeOnly])
+
+const current = filtered[currentIndex] || null
+  const nextEvent = filtered[currentIndex + 1] || null
+  const prevEvent = filtered[currentIndex - 1] || null
   
   
   const [deviceType, setDeviceType] = useState<DeviceType>(() => {
@@ -3365,10 +3369,7 @@ const getNext7Days = () => Array.from({ length: 7 }, (_, i) => {
   // ============================================================================
   // FILTERED DATA - P1 FIX: Using for loops for TypeScript
   // ============================================================================
-  
-  const current = filtered[currentIndex] || null
-  const nextEvent = filtered[currentIndex + 1] || null
-  const prevEvent = filtered[currentIndex - 1] || null
+
   
   const getDayGroupLabel = (s: string) => {
     const d = new Date(s)
