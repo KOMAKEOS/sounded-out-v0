@@ -2510,7 +2510,7 @@ boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,10
         <MobileDetailSheet
           current={current}
           currentIndex={currentIndex}
-          filtered={filtered}
+          filtered={events}
           showAllGenres={showAllGenres}
           setShowAllGenres={setShowAllGenres}
           showDescription={showDescription}
