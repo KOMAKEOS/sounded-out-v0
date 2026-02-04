@@ -1014,7 +1014,7 @@ export default function Home() {
         alignItems: 'center',
       }}>
         <span style={{ fontSize: '13px', color: '#999' }}>
-          <span style={{ color: '#ab67f7', fontWeight: 700 }}>{filtered.length}</span> events {filterLabel}
+          <span style={{ color: '#ab67f7', fontWeight: 700 }}>{events.length}</span> events {filterLabel}
         </span>
       </div>
       
