@@ -815,7 +815,14 @@ const availableGenres = useMemo(() => {
     }
     return result
   }, [dateFiltered, activeGenre, showFreeOnly])
-  const grouped = useMemo(() => {
+  
+  const getDayGroupLabel = (s: string) => {
+    const d = new Date(s)
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()
+  }
+  
+
+const grouped = useMemo(() => {
     const g: Record<string, Event[]> = {}
     for (let i = 0; i < filtered.length; i++) {
       const e: Event = filtered[i]
@@ -832,12 +839,6 @@ const current = filtered[currentIndex] || null
   const nextEvent = filtered[currentIndex + 1] || null
   const prevEvent = filtered[currentIndex - 1] || null
 
-  const getDayGroupLabel = (s: string) => {
-    const d = new Date(s)
-    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()
-  }
-  
-  
   useEffect(() => {
     const keys = Object.keys(grouped)
     if (keys.length > 0 && !visibleDayLabel) {
