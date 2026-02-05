@@ -1254,7 +1254,7 @@ useEffect(() => {
     setIsAnimating(true)
     
     const newIndex: number = direction === 'next' 
-      ? Math.min(currentIndex + 1, events.length - 1)
+      ? Math.min(currentIndex + 1, filtered.length - 1)
       : Math.max(currentIndex - 1, 0)
     
     if (newIndex !== currentIndex) {
@@ -1381,7 +1381,7 @@ useEffect(() => {
   const peekProgress: number = Math.min(Math.abs(dragX) / GESTURE.swipeThreshold, 1)
   const dismissProgress: number = Math.min(dragY / GESTURE.dismissThreshold, 1)
   const showPrevPeek: boolean = dragX > 20 && currentIndex > 0
-  const showNextPeek: boolean = dragX < -20 && currentIndex < events.length - 1
+  const showNextPeek: boolean = dragX < -20 && currentIndex < filtered.length - 1
 
   // ============================================================================
   // MARKERS
@@ -1828,7 +1828,7 @@ el.style.cursor = 'pointer'  // ← MAKE SURE THIS EXISTS
         alignItems: 'center',
       }}>
         <span style={{ fontSize: '13px', color: '#999' }}>
-          <span style={{ color: '#ab67f7', fontWeight: 700 }}>{events.length}</span> events {filterLabel}
+          <span style={{ color: '#ab67f7', fontWeight: 700 }}>{filtered.length}</span> events {filterLabel}
         </span>
       </div>
       
@@ -1998,7 +1998,7 @@ el.style.cursor = 'pointer'  // ← MAKE SURE THIS EXISTS
           </div>
         ))}
 
-        {events.length === 0 && (
+        {filtered.length === 0 && (
           <EmptyStateNoEvents
             filterLabel={filterLabel}
             onReset={() => {
@@ -2366,7 +2366,7 @@ const DesktopDetailPanel: React.FC = () => {
     pointerEvents: 'auto',
     backdropFilter: 'blur(10px)',
   }}>
-    {currentIndex + 1} / {events.length}
+    {currentIndex + 1} / {filtered.length}
   </span>
   
   <button 
@@ -2374,20 +2374,20 @@ const DesktopDetailPanel: React.FC = () => {
       e.stopPropagation(); 
       navigate('next') 
     }} 
-disabled={currentIndex === events.length - 1}
+disabled={currentIndex === filtered.length - 1}
     style={{ 
       minHeight: '44px', 
       minWidth: '80px',
       padding: '10px 20px',
-      background: currentIndex === events.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', 
+      background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.9)', 
       border: 'none',
       borderRadius: '22px', 
-color: currentIndex === events.length - 1 ? '#444' : 'white',
+color: currentIndex === filtered.length - 1 ? '#444' : 'white',
       fontSize: '14px', 
       fontWeight: 600, 
-cursor: currentIndex === events.length - 1 ? 'default' : 'pointer',
+cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer',
   pointerEvents: 'auto',
-boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',
+boxShadow: currentIndex === filtered.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.4)',
   ...noSelectStyle 
     }}
   >
@@ -3065,7 +3065,7 @@ boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,10
             gap: '8px',
           }}
         >
-          <span style={{ color: '#ab67f7', fontWeight: 700 }}>{events.length}</span>
+          <span style={{ color: '#ab67f7', fontWeight: 700 }}>{filtered.length}</span>
           <span>events {filterLabel}</span>
         </button>
       )}
@@ -3128,7 +3128,7 @@ boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,10
                 Events {filterLabel}
               </h2>
               <p style={{ fontSize: '13px', color: '#999' }}>
-<span style={{ color: '#ab67f7', fontWeight: 700 }}>{events.length}</span> happening
+<span style={{ color: '#ab67f7', fontWeight: 700 }}>{filtered.length}</span> happening
               </p>
             </div>
             <button
@@ -3160,7 +3160,7 @@ boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,10
             padding: '16px 20px',
             paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
           }}>
-{events.length === 0 ? (
+{filtered.length === 0 ? (
             <EmptyStateNoEvents
                 filterLabel={filterLabel}
                 onReset={() => {
@@ -3171,7 +3171,7 @@ boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,10
               />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-{events.map((evt: Event) => (
+{filtered.map((evt: Event) => (
                   <div
                     key={evt.id}
                     onClick={(clickEv: React.MouseEvent) => {
@@ -3850,8 +3850,8 @@ function MobileDetailSheet({
           </span>
           <button 
             onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next') }} 
-disabled={currentIndex === events.length - 1}
-            style={{ padding: '10px 18px', background: currentIndex === events.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.2)', border: 'none', borderRadius: '10px', color: currentIndex === events.length - 1 ? '#444' : '#ab67f7', fontSize: '14px', fontWeight: 600, cursor: currentIndex === events.length - 1 ? 'default' : 'pointer', ...noSelectStyle }}
+disabled={currentIndex === filtered.length - 1}
+            style={{ padding: '10px 18px', background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(171,103,247,0.2)', border: 'none', borderRadius: '10px', color: currentIndex === filtered.length - 1 ? '#444' : '#ab67f7', fontSize: '14px', fontWeight: 600, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', ...noSelectStyle }}
           >
             Next →
           </button>
@@ -4021,9 +4021,9 @@ disabled={currentIndex === events.length - 1}
           ← Prev
         </button>
         <span style={{ fontSize: '14px', color: '#999', fontWeight: 600, padding: '10px 18px', background: 'rgba(0,0,0,0.6)', borderRadius: '20px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
-          {currentIndex + 1} / {events.length}
+          {currentIndex + 1} / {filtered.length}
         </span>
-        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next') }} disabled={currentIndex === events.length - 1} style={{ minHeight: '48px', minWidth: '90px', background: currentIndex === events.length - 1 ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #ab67f7, #c490ff)', border: 'none', borderRadius: '24px', padding: '12px 20px', color: currentIndex === events.length - 1 ? '#444' : 'white', fontSize: '15px', fontWeight: 700, cursor: currentIndex === events.length - 1 ? 'default' : 'pointer', boxShadow: currentIndex === events.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.5)', transition: 'all 200ms ease', ...noSelectStyle }}>
+        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); navigate('next') }} disabled={currentIndex === filtered.length - 1} style={{ minHeight: '48px', minWidth: '90px', background: currentIndex === filtered.length - 1 ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #ab67f7, #c490ff)', border: 'none', borderRadius: '24px', padding: '12px 20px', color: currentIndex === filtered.length - 1 ? '#444' : 'white', fontSize: '15px', fontWeight: 700, cursor: currentIndex === filtered.length - 1 ? 'default' : 'pointer', boxShadow: currentIndex === filtered.length - 1 ? 'none' : '0 4px 16px rgba(171,103,247,0.5)', transition: 'all 200ms ease', ...noSelectStyle }}>
           Next →
         </button>
       </div>
