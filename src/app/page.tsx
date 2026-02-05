@@ -955,6 +955,62 @@ const current = filtered[currentIndex] || null
     }
   }, [grouped])
 
+  useEffect(() => {
+  const loadEvents = async () => {
+    console.log('🔍 Loading events with brands...')
+    
+    // PRIMARY QUERY: Try loading with brands
+    const { data: eventsData, error: eventsError } = await supabase
+      .from('events')
+      .select(`
+        *,
+        venue:venues(*),
+        brand:brands(*)
+      `)
+      .eq('status', 'published')
+      .gte('start_time', new Date().toISOString().split('T')[0])
+      .order('start_time')
+    
+    if (eventsError) {
+      console.warn('⚠️ Events query with brands failed:', eventsError.message)
+      
+      // FALLBACK: Try without brands
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('events')
+        .select(`
+          *,
+          venue:venues(*)
+        `)
+        .eq('status', 'published')
+        .gte('start_time', new Date().toISOString().split('T')[0])
+        .order('start_time')
+      
+      if (fallbackError) {
+        console.error('❌ Fallback query failed:', fallbackError)
+        setLoading(false)
+        return
+      }
+      
+      if (fallbackData) {
+        console.log(`✅ Loaded ${fallbackData.length} events (without brands)`)
+        setEvents(fallbackData)
+        const venueIds = new Set(fallbackData.map(e => e.venue_id))
+        trackMapLoaded(fallbackData.length, venueIds.size)
+      }
+    } else if (eventsData) {
+      console.log(`✅ Loaded ${eventsData.length} events (with brands)`)
+      console.log('📊 Brand coverage:', eventsData.filter(e => e.brand).length, 'events have brands')
+      setEvents(eventsData)
+      const venueIds = new Set(eventsData.map(e => e.venue_id))
+      trackMapLoaded(eventsData.length, venueIds.size)
+    }
+    
+    setLoading(false)
+  }
+  
+  loadEvents()
+}, [])
+
     const completeOnboarding = useCallback((): void => {
     setShowOnboarding(false)
     localStorage.setItem('so_onboarding_complete', 'true')
@@ -3468,61 +3524,7 @@ disabled={currentIndex === events.length - 1}
 // ============================================================================
   // DATA LOADING
   // ============================================================================
-useEffect(() => {
-  const loadEvents = async () => {
-    console.log('🔍 Loading events with brands...')
-    
-    // PRIMARY QUERY: Try loading with brands
-    const { data: eventsData, error: eventsError } = await supabase
-      .from('events')
-      .select(`
-        *,
-        venue:venues(*),
-        brand:brands(*)
-      `)
-      .eq('status', 'published')
-      .gte('start_time', new Date().toISOString().split('T')[0])
-      .order('start_time')
-    
-    if (eventsError) {
-      console.warn('⚠️ Events query with brands failed:', eventsError.message)
-      
-      // FALLBACK: Try without brands
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('events')
-        .select(`
-          *,
-          venue:venues(*)
-        `)
-        .eq('status', 'published')
-        .gte('start_time', new Date().toISOString().split('T')[0])
-        .order('start_time')
-      
-      if (fallbackError) {
-        console.error('❌ Fallback query failed:', fallbackError)
-        setLoading(false)
-        return
-      }
-      
-      if (fallbackData) {
-        console.log(`✅ Loaded ${fallbackData.length} events (without brands)`)
-        setEvents(fallbackData)
-        const venueIds = new Set(fallbackData.map(e => e.venue_id))
-        trackMapLoaded(fallbackData.length, venueIds.size)
-      }
-    } else if (eventsData) {
-      console.log(`✅ Loaded ${eventsData.length} events (with brands)`)
-      console.log('📊 Brand coverage:', eventsData.filter(e => e.brand).length, 'events have brands')
-      setEvents(eventsData)
-      const venueIds = new Set(eventsData.map(e => e.venue_id))
-      trackMapLoaded(eventsData.length, venueIds.size)
-    }
-    
-    setLoading(false)
-  }
-  
-  loadEvents()
-}, [])
+
   // ============================================================================
   // MAP INITIALIZATION - P1 FIX: minZoom changed from 10 to 12
   // ============================================================================
