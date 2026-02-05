@@ -4004,7 +4004,7 @@ disabled={currentIndex === events.length - 1}
       {/* Rest of content... (keeping it short for brevity) */}
       <div style={{ marginBottom: '100px' }}>
         <EventActions 
-          event={{ id: current.id, title: current.title, start_time: current.start_time, event_url: current.event_url, sold_out: current.sold_out, price_min: current.price_min, price_max: current.price_max, venue: current.venue }} 
+          event={{ id: current.id, title: current.title, start_time: current.start_time, event_url: current.event_url, sold_out: current.sold_out, price_min: current.price_min, price_max: current.price_max, venue: current.venue, genres: current.genres, brand: current.brand }} 
           isSaved={isEventSaved(current.id)} 
           isLoggedIn={!!user} 
           onSave={toggleSaveEvent} 

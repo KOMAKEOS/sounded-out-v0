@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { trackTicketClick, trackDirectionsClick, trackShareClick, trackEventSave, trackEventUnsave } from '@/lib/analytics'
 
 // ============================================================================
 // EVENT ACTIONS - 2x3 GRID LAYOUT (Spotify/RA style)
@@ -22,6 +23,8 @@ interface EventActionsProps {
       lat: number
       lng: number
     }
+    genres?: string
+    brand?: { name: string } | null
   }
   isSaved: boolean
   isLoggedIn: boolean
@@ -54,16 +57,34 @@ export default function EventActions({
     ? `https://www.google.com/maps/dir/?api=1&destination=${event.venue.lat},${event.venue.lng}`
     : null
   
-  // Generate smart share text
   const getShareText = () => {
     const dateLabel = getDateLabel(event.start_time)
     const venue = event.venue?.name || ''
     return `Check out ${event.title} ${dateLabel.toLowerCase()} at ${venue} 🎵`
   }
   
+  const handleTicketClick = () => {
+    trackTicketClick(
+      event.id,
+      event.title,
+      event.venue?.name || '',
+      event.venue?.id || '',
+      event.genres?.split(',')[0]?.trim() || '',
+      event.genres || '',
+      'sounded_out',
+      event.brand?.name || '',
+      event.start_time,
+      event.price_min || 0,
+      event.event_url || '',
+      'detail_card'
+    )
+  }
+
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}/event/${event.id}`
     const shareText = getShareText()
+    
+    trackShareClick(event.id, event.title, navigator.share ? 'native_share' : 'clipboard', event.venue?.name)
     
     try {
       if (navigator.share) {
@@ -87,17 +108,27 @@ export default function EventActions({
       onShowLoginModal()
       return
     }
+    if (isSaved) {
+      trackEventUnsave(event.id, event.title, event.venue?.name)
+    } else {
+      trackEventSave(event.id, event.title, event.venue?.name)
+    }
     onSave(event.id)
+  }
+
+  const handleDirections = () => {
+    trackDirectionsClick(event.id, event.venue?.name || '', event.venue?.id, event.title)
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       {/* Primary CTA - Full width */}
       {ticketUrl && (
-        <a
+        
           href={`/event/${event.id}`}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={handleTicketClick}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -209,10 +240,11 @@ export default function EventActions({
         
         {/* Directions */}
         {mapsUrl && (
-          <a
+          
             href={mapsUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={handleDirections}
             style={{
               display: 'flex',
               flexDirection: 'column',
