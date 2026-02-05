@@ -1036,6 +1036,503 @@ const current = filtered[currentIndex] || null
     return savedEventIds.has(eventId)
   }, [savedEventIds])
 
+  
+  // ============================================================================
+  // MAP INITIALIZATION - P1 FIX: minZoom changed from 10 to 12
+  // ============================================================================
+  useEffect(() => {
+    if (!mapContainer.current) return
+
+     setMapReady(false)
+    
+    if (map.current) {
+      map.current.remove()
+      map.current = null
+    }
+    
+    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
+    
+    const m = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [-1.6131, 54.9695],
+      zoom: showIntro ? 2 : 14,
+      pitch: 0,
+      bearing: 0,
+      minZoom: 12, // P1 FIX: Changed from 10 to prevent globe view
+      maxZoom: 18,
+      pitchWithRotate: false,
+      dragRotate: false,
+      touchPitch: false,
+      renderWorldCopies: false,
+      dragPan: !showIntro,
+      scrollZoom: !showIntro,
+      doubleClickZoom: !showIntro,
+      touchZoomRotate: !showIntro,
+      fadeDuration: 0,
+    })
+    
+    m.on('load', () => {
+  console.log('🗺️ Map loaded')
+  setMapReady(true)
+  
+  // Enable interactions
+  const canvas = m.getCanvas()
+  if (canvas) {
+    canvas.style.touchAction = 'pan-x pan-y'
+  }
+  
+  m.dragPan.enable()
+  m.scrollZoom.enable()
+  m.doubleClickZoom.enable()
+  m.touchZoomRotate.enable()
+})
+    
+      map.current = m
+
+  return () => {
+    if (map.current) {
+      try {
+        map.current.remove()
+      } catch (error) {
+        // Ignore
+      }
+      map.current = null
+    }
+  }
+}, []) 
+
+// Intro animation - simplified
+useEffect(() => {
+  const hasSeenIntro = localStorage.getItem('so_intro_seen')
+  if (hasSeenIntro) {
+    setShowIntro(false)
+    return
+  }
+  
+  const timer = setTimeout(() => {
+    setShowIntro(false)
+    localStorage.setItem('so_intro_seen', 'true')
+  }, 1000)
+  
+  return () => clearTimeout(timer)
+}, [])
+
+  // ============================================================================
+  // USER LOCATION
+  // ============================================================================
+  const toggleUserLocation = useCallback(() => {
+    if (showUserLocation) {
+      setShowUserLocation(false)
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove()
+        userMarkerRef.current = null
+      }
+      trackLocationDenied()
+    } else {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords
+            setUserLocation({ lat: latitude, lng: longitude })
+            setShowUserLocation(true)
+            trackLocationEnabled()
+          },
+          (error) => {
+            console.log('Location error:', error)
+            alert('Unable to get your location. Please enable location services.')
+            trackLocationDenied()
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        )
+      } else {
+        alert('Geolocation is not supported by your browser.')
+      }
+    }
+  }, [showUserLocation])
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setShowMenu(false)
+  }
+
+  useEffect(() => {
+    if (!map.current || !mapReady || !showUserLocation || !userLocation) return
+    
+    if (userMarkerRef.current) {
+      userMarkerRef.current.remove()
+    }
+    
+    const el = document.createElement('div')
+    el.innerHTML = `
+      <div style="position: relative;">
+        <div style="width: 20px; height: 20px; background: #4285F4; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+        <div style="position: absolute; top: -4px; left: -4px; width: 28px; height: 28px; background: rgba(66,133,244,0.2); border-radius: 50%; animation: pulse 2s infinite;"></div>
+      </div>
+    `
+    
+    userMarkerRef.current = new mapboxgl.Marker({ element: el })
+      .setLngLat([userLocation.lng, userLocation.lat])
+      .addTo(map.current)
+    
+    return () => {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove()
+      }
+    }
+  }, [userLocation, showUserLocation, mapReady])
+
+  // ============================================================================
+  // MARKER HIGHLIGHT
+  // ============================================================================
+  const highlightMarker = useCallback((eventId: string | null) => {
+    markersRef.current.forEach((data, id) => {
+      const selected = eventId && id.includes(eventId)
+      if (data.inner) {
+        data.inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
+        data.inner.style.transform = selected ? 'scale(1.25)' : 'scale(1)'
+        data.inner.style.filter = selected 
+          ? 'drop-shadow(0 6px 10px rgba(0,0,0,0.5))' 
+          : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+      }
+      data.el.style.zIndex = selected ? '5' : '1'
+    })
+  }, [])
+
+  // ============================================================================
+  // SELECT EVENT
+  // ============================================================================
+  const selectEvent = useCallback((event: Event): void => {
+    let idx: number = -1
+    for (let i = 0; i < filtered.length; i++) {
+      if (filtered[i].id === event.id) {
+        idx = i
+        break
+      }
+    }
+    if (idx !== -1) {
+      setCurrentIndex(idx)
+      setViewMode('preview')
+      setSheetVisible(true)
+      setClusterEvents([])
+      highlightMarker(event.id)
+      
+      if (event.venue && map.current) {
+        const currentZoom: number = map.current.getZoom() || 14
+        map.current.easeTo({
+          center: [event.venue.lng, event.venue.lat],
+          zoom: Math.max(currentZoom, 14.5),
+          duration: 300,
+        })
+      }
+      
+      trackEventView(event.id, event.title, event.venue?.name || '', 'list')
+    }
+  }, [filtered, highlightMarker])
+
+  // ============================================================================
+  // NAVIGATE (Prev/Next)
+  // ============================================================================
+  const navigate = useCallback((direction: 'prev' | 'next'): void => {
+    if (isAnimating) return
+    
+    setIsAnimating(true)
+    
+    const newIndex: number = direction === 'next' 
+      ? Math.min(currentIndex + 1, events.length - 1)
+      : Math.max(currentIndex - 1, 0)
+    
+    if (newIndex !== currentIndex) {
+      setCurrentIndex(newIndex)
+      const newEvent: Event = filtered[newIndex]
+      highlightMarker(newEvent.id)
+      
+      if (newEvent.venue && map.current) {
+        map.current.easeTo({
+          center: [newEvent.venue.lng, newEvent.venue.lat],
+          zoom: 14.5,
+          duration: 300,
+        })
+      }
+    }
+    
+    setTimeout(() => setIsAnimating(false), 300)
+  }, [currentIndex, filtered, highlightMarker, isAnimating])
+
+  // ============================================================================
+  // SHEET CONTROLS
+  // ============================================================================
+  const openSheet = useCallback((mode: ViewMode): void => {
+    setViewMode(mode)
+    requestAnimationFrame(() => {
+      setSheetVisible(true)
+    })
+  }, [])
+
+  const closeSheet = useCallback((): void => {
+    setSheetVisible(false)
+    setTimeout(() => {
+      setViewMode('map')
+      setClusterEvents([])
+      highlightMarker(null)
+    }, SPRING.sheetDuration)
+  }, [highlightMarker])
+
+  // ============================================================================
+  // TOUCH/GESTURE HANDLERS
+  // ============================================================================
+  const onTouchStart = useCallback((e: React.TouchEvent): void => {
+    const touch = e.touches[0]
+    setStartX(touch.clientX)
+    setStartY(touch.clientY)
+    setDragX(0)
+    setDragY(0)
+    setIsDragging(true)
+    setDragDirection(null)
+    lastPos.current = { x: touch.clientX, y: touch.clientY, time: Date.now() }
+  }, [])
+
+  const onTouchMove = useCallback((e: React.TouchEvent): void => {
+    if (!isDragging) return
+    const touch = e.touches[0]
+    const dx = touch.clientX - startX
+    const dy = touch.clientY - startY
+    if (!dragDirection) {
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        setDragDirection(Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical')
+      }
+    }
+    if (dragDirection === 'horizontal') {
+      setDragX(dx)
+    } else if (dragDirection === 'vertical') {
+      setDragY(Math.max(0, dy))
+    }
+    const now = Date.now()
+    const dt = now - lastPos.current.time
+    if (dt > 0) {
+      setVelocity({
+        x: (touch.clientX - lastPos.current.x) / dt * 1000,
+        y: (touch.clientY - lastPos.current.y) / dt * 1000,
+      })
+    }
+    lastPos.current = { x: touch.clientX, y: touch.clientY, time: now }
+  }, [isDragging, startX, startY, dragDirection])
+
+  const onTouchEnd = useCallback((): void => {
+    setIsDragging(false)
+    if (dragDirection === 'vertical') {
+      if (dragY > GESTURE.dismissThreshold || velocity.y > GESTURE.dismissVelocity) {
+        closeSheet()
+      }
+    } else if (dragDirection === 'horizontal' && viewMode === 'preview') {
+      if (dragX < -GESTURE.swipeThreshold || velocity.x < -GESTURE.velocityThreshold) {
+        navigate('next')
+      } else if (dragX > GESTURE.swipeThreshold || velocity.x > GESTURE.velocityThreshold) {
+        navigate('prev')
+      }
+    }
+    setDragX(0)
+    setDragY(0)
+    setDragDirection(null)
+  }, [dragDirection, dragX, dragY, velocity, viewMode, closeSheet, navigate])
+
+  // ============================================================================
+  // TRANSFORM HELPERS
+  // ============================================================================
+  const getSheetStyle = (visible: boolean): React.CSSProperties => ({
+    transform: visible ? 'translateY(0)' : 'translateY(100%)',
+    transition: isDragging ? 'none' : `transform ${SPRING.sheetDuration}ms ${SPRING.sheet}`,
+  })
+
+  const getCardTransform = (): React.CSSProperties => ({
+    transform: `translateX(${dragX * 0.5}px)`,
+    transition: isDragging ? 'none' : `transform ${SPRING.springBackDuration}ms ${SPRING.springBack}`,
+  })
+
+  const getDismissTransform = (): React.CSSProperties => ({
+    transform: `translateY(${dragY}px) scale(${1 - dragY * 0.0005})`,
+    transition: isDragging ? 'none' : `transform ${SPRING.springBackDuration}ms ${SPRING.springBack}`,
+    opacity: 1 - dragY * 0.002,
+  })
+
+  // ============================================================================
+  // COMPUTED VALUES
+  // ============================================================================
+  const noSelectStyle: React.CSSProperties = {
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
+  }
+
+  const peekProgress: number = Math.min(Math.abs(dragX) / GESTURE.swipeThreshold, 1)
+  const dismissProgress: number = Math.min(dragY / GESTURE.dismissThreshold, 1)
+  const showPrevPeek: boolean = dragX > 20 && currentIndex > 0
+  const showNextPeek: boolean = dragX < -20 && currentIndex < events.length - 1
+
+  // ============================================================================
+  // MARKERS
+  // ============================================================================
+  useEffect(() => {
+    if (!map.current || !mapReady) return
+    
+    markersRef.current.forEach(d => d.marker.remove())
+    markersRef.current.clear()
+    
+    if (filtered.length === 0) {
+      map.current.flyTo({ 
+        center: [-1.6131, 54.9695], 
+        zoom: 14, 
+        duration: 500, 
+        easing: (t) => 1 - Math.pow(1 - t, 3) 
+      })
+      return
+    }
+
+    const byVenue: Record<string, Event[]> = {}
+    for (let i = 0; i < filtered.length; i++) {
+      const e: Event = filtered[i]
+      if (e.venue) {
+        const k = `${e.venue.lat.toFixed(6)},${e.venue.lng.toFixed(6)}`
+        if (!byVenue[k]) byVenue[k] = []
+        byVenue[k].push(e)
+      }
+    }
+
+    const venueKeys: string[] = Object.keys(byVenue)
+    for (let vi = 0; vi < venueKeys.length; vi++) {
+      const key: string = venueKeys[vi]
+      const evs: Event[] = byVenue[key]
+      const v: Venue = evs[0].venue!
+      const count: number = evs.length
+      const ids: string = evs.map((e: Event) => e.id).join(',')
+      let hasCurated = false
+      for (let i = 0; i < evs.length; i++) {
+        if (evs[i].so_pick) {
+          hasCurated = true
+          break
+        }
+      }
+
+      const el = document.createElement('div')
+      el.style.cursor = 'pointer'
+      el.style.zIndex = '1'
+      
+      const inner = document.createElement('div')
+      inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
+      inner.style.transformOrigin = 'center bottom'
+      inner.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+
+      if (count > 1) {
+        el.style.width = '44px'
+        el.style.height = '44px'
+        if (hasCurated) {
+          inner.innerHTML = `<div style="position:relative;width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}<img src="/so-icon.png" style="position:absolute;top:-6px;right:-6px;height:14px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));" /></div>`
+        } else {
+          inner.innerHTML = `<div style="width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}</div>`
+        }
+      } else {
+        el.style.width = '32px'
+        el.style.height = '42px'
+        if (hasCurated) {
+          inner.innerHTML = `<div style="position:relative;width:32px;height:42px;"><svg viewBox="0 0 24 36" width="32" height="42" style="position:absolute;top:0;left:0;"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="6" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg><img src="/so-icon.png" style="position:absolute;top:5px;left:50%;transform:translateX(-50%);height:10px;width:auto;" /></div>`
+        } else {
+          inner.innerHTML = `<svg viewBox="0 0 24 36" width="32" height="42"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="5" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg>`
+        }
+      }
+      
+      el.appendChild(inner)
+
+      el.onpointerdown = (e) => { 
+        e.stopPropagation()
+        inner.style.transform = 'scale(1.15)' 
+        inner.style.transition = 'transform 60ms ease-out'
+      }
+      el.onpointerup = () => { 
+        inner.style.transform = 'scale(1)'
+        inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
+      }
+      el.onpointerleave = () => { 
+        inner.style.transform = 'scale(1)'
+        inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
+      }
+
+const handleMarkerClick = (e: any) => {
+  e.preventDefault()
+  e.stopPropagation()
+  
+  console.log('🎯 Marker clicked!', { count, venueId: v.id }) // ← ADD THIS for debugging
+  
+  if (count > 1) {
+    setClusterEvents(evs)
+    setViewMode('cluster')
+    requestAnimationFrame(() => {
+      setSheetVisible(true)
+    })
+  } else {
+    let idx = -1
+    for (let i = 0; i < filtered.length; i++) {
+      if (filtered[i].id === evs[0].id) {
+        idx = i
+        break
+      }
+    }
+    if (idx !== -1) {  // ← ADD THIS CHECK
+      setCurrentIndex(idx)
+      setViewMode('preview')
+      trackMarkerClick(evs[0].id, evs[0].title, v.name)
+      trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
+      
+      requestAnimationFrame(() => {
+        setSheetVisible(true)
+        highlightMarker(evs[0].id)
+      })
+    }
+  }
+  
+  const currentZoom = map.current?.getZoom() || 14
+  map.current?.easeTo({
+    center: [v.lng, v.lat],
+    zoom: Math.max(currentZoom, 14.5),
+    duration: 300,
+    easing: (t: number) => 1 - Math.pow(1 - t, 2),
+  })
+}
+
+// ✅ ADD BOTH event listeners for mobile compatibility
+el.addEventListener('click', handleMarkerClick, { passive: false })
+el.addEventListener('touchend', handleMarkerClick, { passive: false }) // ← ADD THIS LINE
+el.style.pointerEvents = 'auto'  // ← MAKE SURE THIS EXISTS
+el.style.cursor = 'pointer'  // ← MAKE SURE THIS EXISTS
+
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([v.lng, v.lat])
+        .addTo(map.current!)
+      
+      markersRef.current.set(ids, { marker, el, inner })
+    }
+
+    if (filtered.length > 0) {
+      const bounds = new mapboxgl.LngLatBounds()
+      for (let i = 0; i < filtered.length; i++) {
+        const e: Event = filtered[i]
+        if (e.venue) bounds.extend([e.venue.lng, e.venue.lat])
+      }
+      
+      const padding = deviceType === 'desktop' 
+        ? { top: 100, bottom: 100, left: 420, right: 100 }
+        : deviceType === 'tablet'
+        ? { top: 100, bottom: 150, left: 350, right: 50 }
+        : { top: 180, bottom: 150, left: 40, right: 40 }
+      
+      map.current.fitBounds(bounds, { 
+        padding,
+        maxZoom: 15,
+        minZoom: 13,
+        duration: 600 
+      })
+    }
+  }, [filtered, mapReady, highlightMarker, deviceType])
+
   // ============================================================================
   // DESKTOP/TABLET SIDEBAR COMPONENT - P1 FIXES APPLIED
   // ============================================================================
@@ -3525,501 +4022,6 @@ disabled={currentIndex === events.length - 1}
   // DATA LOADING
   // ============================================================================
 
-  // ============================================================================
-  // MAP INITIALIZATION - P1 FIX: minZoom changed from 10 to 12
-  // ============================================================================
-  useEffect(() => {
-    if (!mapContainer.current) return
-
-     setMapReady(false)
-    
-    if (map.current) {
-      map.current.remove()
-      map.current = null
-    }
-    
-    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
-    
-    const m = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-1.6131, 54.9695],
-      zoom: showIntro ? 2 : 14,
-      pitch: 0,
-      bearing: 0,
-      minZoom: 12, // P1 FIX: Changed from 10 to prevent globe view
-      maxZoom: 18,
-      pitchWithRotate: false,
-      dragRotate: false,
-      touchPitch: false,
-      renderWorldCopies: false,
-      dragPan: !showIntro,
-      scrollZoom: !showIntro,
-      doubleClickZoom: !showIntro,
-      touchZoomRotate: !showIntro,
-      fadeDuration: 0,
-    })
-    
-    m.on('load', () => {
-  console.log('🗺️ Map loaded')
-  setMapReady(true)
-  
-  // Enable interactions
-  const canvas = m.getCanvas()
-  if (canvas) {
-    canvas.style.touchAction = 'pan-x pan-y'
-  }
-  
-  m.dragPan.enable()
-  m.scrollZoom.enable()
-  m.doubleClickZoom.enable()
-  m.touchZoomRotate.enable()
-})
-    
-      map.current = m
-
-  return () => {
-    if (map.current) {
-      try {
-        map.current.remove()
-      } catch (error) {
-        // Ignore
-      }
-      map.current = null
-    }
-  }
-}, []) 
-
-// Intro animation - simplified
-useEffect(() => {
-  const hasSeenIntro = localStorage.getItem('so_intro_seen')
-  if (hasSeenIntro) {
-    setShowIntro(false)
-    return
-  }
-  
-  const timer = setTimeout(() => {
-    setShowIntro(false)
-    localStorage.setItem('so_intro_seen', 'true')
-  }, 1000)
-  
-  return () => clearTimeout(timer)
-}, [])
-
-  // ============================================================================
-  // USER LOCATION
-  // ============================================================================
-  const toggleUserLocation = useCallback(() => {
-    if (showUserLocation) {
-      setShowUserLocation(false)
-      if (userMarkerRef.current) {
-        userMarkerRef.current.remove()
-        userMarkerRef.current = null
-      }
-      trackLocationDenied()
-    } else {
-      if ('geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords
-            setUserLocation({ lat: latitude, lng: longitude })
-            setShowUserLocation(true)
-            trackLocationEnabled()
-          },
-          (error) => {
-            console.log('Location error:', error)
-            alert('Unable to get your location. Please enable location services.')
-            trackLocationDenied()
-          },
-          { enableHighAccuracy: true, timeout: 10000 }
-        )
-      } else {
-        alert('Geolocation is not supported by your browser.')
-      }
-    }
-  }, [showUserLocation])
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setShowMenu(false)
-  }
-
-  useEffect(() => {
-    if (!map.current || !mapReady || !showUserLocation || !userLocation) return
-    
-    if (userMarkerRef.current) {
-      userMarkerRef.current.remove()
-    }
-    
-    const el = document.createElement('div')
-    el.innerHTML = `
-      <div style="position: relative;">
-        <div style="width: 20px; height: 20px; background: #4285F4; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
-        <div style="position: absolute; top: -4px; left: -4px; width: 28px; height: 28px; background: rgba(66,133,244,0.2); border-radius: 50%; animation: pulse 2s infinite;"></div>
-      </div>
-    `
-    
-    userMarkerRef.current = new mapboxgl.Marker({ element: el })
-      .setLngLat([userLocation.lng, userLocation.lat])
-      .addTo(map.current)
-    
-    return () => {
-      if (userMarkerRef.current) {
-        userMarkerRef.current.remove()
-      }
-    }
-  }, [userLocation, showUserLocation, mapReady])
-
-  // ============================================================================
-  // MARKER HIGHLIGHT
-  // ============================================================================
-  const highlightMarker = useCallback((eventId: string | null) => {
-    markersRef.current.forEach((data, id) => {
-      const selected = eventId && id.includes(eventId)
-      if (data.inner) {
-        data.inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
-        data.inner.style.transform = selected ? 'scale(1.25)' : 'scale(1)'
-        data.inner.style.filter = selected 
-          ? 'drop-shadow(0 6px 10px rgba(0,0,0,0.5))' 
-          : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-      }
-      data.el.style.zIndex = selected ? '5' : '1'
-    })
-  }, [])
-
-  // ============================================================================
-  // SELECT EVENT
-  // ============================================================================
-  const selectEvent = useCallback((event: Event): void => {
-    let idx: number = -1
-    for (let i = 0; i < filtered.length; i++) {
-      if (filtered[i].id === event.id) {
-        idx = i
-        break
-      }
-    }
-    if (idx !== -1) {
-      setCurrentIndex(idx)
-      setViewMode('preview')
-      setSheetVisible(true)
-      setClusterEvents([])
-      highlightMarker(event.id)
-      
-      if (event.venue && map.current) {
-        const currentZoom: number = map.current.getZoom() || 14
-        map.current.easeTo({
-          center: [event.venue.lng, event.venue.lat],
-          zoom: Math.max(currentZoom, 14.5),
-          duration: 300,
-        })
-      }
-      
-      trackEventView(event.id, event.title, event.venue?.name || '', 'list')
-    }
-  }, [filtered, highlightMarker])
-
-  // ============================================================================
-  // NAVIGATE (Prev/Next)
-  // ============================================================================
-  const navigate = useCallback((direction: 'prev' | 'next'): void => {
-    if (isAnimating) return
-    
-    setIsAnimating(true)
-    
-    const newIndex: number = direction === 'next' 
-      ? Math.min(currentIndex + 1, events.length - 1)
-      : Math.max(currentIndex - 1, 0)
-    
-    if (newIndex !== currentIndex) {
-      setCurrentIndex(newIndex)
-      const newEvent: Event = filtered[newIndex]
-      highlightMarker(newEvent.id)
-      
-      if (newEvent.venue && map.current) {
-        map.current.easeTo({
-          center: [newEvent.venue.lng, newEvent.venue.lat],
-          zoom: 14.5,
-          duration: 300,
-        })
-      }
-    }
-    
-    setTimeout(() => setIsAnimating(false), 300)
-  }, [currentIndex, filtered, highlightMarker, isAnimating])
-
-  // ============================================================================
-  // SHEET CONTROLS
-  // ============================================================================
-  const openSheet = useCallback((mode: ViewMode): void => {
-    setViewMode(mode)
-    requestAnimationFrame(() => {
-      setSheetVisible(true)
-    })
-  }, [])
-
-  const closeSheet = useCallback((): void => {
-    setSheetVisible(false)
-    setTimeout(() => {
-      setViewMode('map')
-      setClusterEvents([])
-      highlightMarker(null)
-    }, SPRING.sheetDuration)
-  }, [highlightMarker])
-
-  // ============================================================================
-  // TOUCH/GESTURE HANDLERS
-  // ============================================================================
-  const onTouchStart = useCallback((e: React.TouchEvent): void => {
-    const touch = e.touches[0]
-    setStartX(touch.clientX)
-    setStartY(touch.clientY)
-    setDragX(0)
-    setDragY(0)
-    setIsDragging(true)
-    setDragDirection(null)
-    lastPos.current = { x: touch.clientX, y: touch.clientY, time: Date.now() }
-  }, [])
-
-  const onTouchMove = useCallback((e: React.TouchEvent): void => {
-    if (!isDragging) return
-    const touch = e.touches[0]
-    const dx = touch.clientX - startX
-    const dy = touch.clientY - startY
-    if (!dragDirection) {
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-        setDragDirection(Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical')
-      }
-    }
-    if (dragDirection === 'horizontal') {
-      setDragX(dx)
-    } else if (dragDirection === 'vertical') {
-      setDragY(Math.max(0, dy))
-    }
-    const now = Date.now()
-    const dt = now - lastPos.current.time
-    if (dt > 0) {
-      setVelocity({
-        x: (touch.clientX - lastPos.current.x) / dt * 1000,
-        y: (touch.clientY - lastPos.current.y) / dt * 1000,
-      })
-    }
-    lastPos.current = { x: touch.clientX, y: touch.clientY, time: now }
-  }, [isDragging, startX, startY, dragDirection])
-
-  const onTouchEnd = useCallback((): void => {
-    setIsDragging(false)
-    if (dragDirection === 'vertical') {
-      if (dragY > GESTURE.dismissThreshold || velocity.y > GESTURE.dismissVelocity) {
-        closeSheet()
-      }
-    } else if (dragDirection === 'horizontal' && viewMode === 'preview') {
-      if (dragX < -GESTURE.swipeThreshold || velocity.x < -GESTURE.velocityThreshold) {
-        navigate('next')
-      } else if (dragX > GESTURE.swipeThreshold || velocity.x > GESTURE.velocityThreshold) {
-        navigate('prev')
-      }
-    }
-    setDragX(0)
-    setDragY(0)
-    setDragDirection(null)
-  }, [dragDirection, dragX, dragY, velocity, viewMode, closeSheet, navigate])
-
-  // ============================================================================
-  // TRANSFORM HELPERS
-  // ============================================================================
-  const getSheetStyle = (visible: boolean): React.CSSProperties => ({
-    transform: visible ? 'translateY(0)' : 'translateY(100%)',
-    transition: isDragging ? 'none' : `transform ${SPRING.sheetDuration}ms ${SPRING.sheet}`,
-  })
-
-  const getCardTransform = (): React.CSSProperties => ({
-    transform: `translateX(${dragX * 0.5}px)`,
-    transition: isDragging ? 'none' : `transform ${SPRING.springBackDuration}ms ${SPRING.springBack}`,
-  })
-
-  const getDismissTransform = (): React.CSSProperties => ({
-    transform: `translateY(${dragY}px) scale(${1 - dragY * 0.0005})`,
-    transition: isDragging ? 'none' : `transform ${SPRING.springBackDuration}ms ${SPRING.springBack}`,
-    opacity: 1 - dragY * 0.002,
-  })
-
-  // ============================================================================
-  // COMPUTED VALUES
-  // ============================================================================
-  const noSelectStyle: React.CSSProperties = {
-    userSelect: 'none',
-    WebkitUserSelect: 'none',
-  }
-
-  const peekProgress: number = Math.min(Math.abs(dragX) / GESTURE.swipeThreshold, 1)
-  const dismissProgress: number = Math.min(dragY / GESTURE.dismissThreshold, 1)
-  const showPrevPeek: boolean = dragX > 20 && currentIndex > 0
-  const showNextPeek: boolean = dragX < -20 && currentIndex < events.length - 1
-
-  // ============================================================================
-  // MARKERS
-  // ============================================================================
-  useEffect(() => {
-    if (!map.current || !mapReady) return
-    
-    markersRef.current.forEach(d => d.marker.remove())
-    markersRef.current.clear()
-    
-    if (filtered.length === 0) {
-      map.current.flyTo({ 
-        center: [-1.6131, 54.9695], 
-        zoom: 14, 
-        duration: 500, 
-        easing: (t) => 1 - Math.pow(1 - t, 3) 
-      })
-      return
-    }
-
-    const byVenue: Record<string, Event[]> = {}
-    for (let i = 0; i < filtered.length; i++) {
-      const e: Event = filtered[i]
-      if (e.venue) {
-        const k = `${e.venue.lat.toFixed(6)},${e.venue.lng.toFixed(6)}`
-        if (!byVenue[k]) byVenue[k] = []
-        byVenue[k].push(e)
-      }
-    }
-
-    const venueKeys: string[] = Object.keys(byVenue)
-    for (let vi = 0; vi < venueKeys.length; vi++) {
-      const key: string = venueKeys[vi]
-      const evs: Event[] = byVenue[key]
-      const v: Venue = evs[0].venue!
-      const count: number = evs.length
-      const ids: string = evs.map((e: Event) => e.id).join(',')
-      let hasCurated = false
-      for (let i = 0; i < evs.length; i++) {
-        if (evs[i].so_pick) {
-          hasCurated = true
-          break
-        }
-      }
-
-      const el = document.createElement('div')
-      el.style.cursor = 'pointer'
-      el.style.zIndex = '1'
-      
-      const inner = document.createElement('div')
-      inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}, filter ${SPRING.feedbackDuration}ms ease-out`
-      inner.style.transformOrigin = 'center bottom'
-      inner.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-
-      if (count > 1) {
-        el.style.width = '44px'
-        el.style.height = '44px'
-        if (hasCurated) {
-          inner.innerHTML = `<div style="position:relative;width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}<img src="/so-icon.png" style="position:absolute;top:-6px;right:-6px;height:14px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));" /></div>`
-        } else {
-          inner.innerHTML = `<div style="width:44px;height:44px;background:linear-gradient(135deg,#ab67f7,#d7b3ff);border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">${count}</div>`
-        }
-      } else {
-        el.style.width = '32px'
-        el.style.height = '42px'
-        if (hasCurated) {
-          inner.innerHTML = `<div style="position:relative;width:32px;height:42px;"><svg viewBox="0 0 24 36" width="32" height="42" style="position:absolute;top:0;left:0;"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="6" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg><img src="/so-icon.png" style="position:absolute;top:5px;left:50%;transform:translateX(-50%);height:10px;width:auto;" /></div>`
-        } else {
-          inner.innerHTML = `<svg viewBox="0 0 24 36" width="32" height="42"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z" fill="url(#g${ids.replace(/,/g, '')})"/><circle cx="12" cy="12" r="5" fill="white"/><defs><linearGradient id="g${ids.replace(/,/g, '')}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ab67f7"/><stop offset="100%" stop-color="#d7b3ff"/></linearGradient></defs></svg>`
-        }
-      }
-      
-      el.appendChild(inner)
-
-      el.onpointerdown = (e) => { 
-        e.stopPropagation()
-        inner.style.transform = 'scale(1.15)' 
-        inner.style.transition = 'transform 60ms ease-out'
-      }
-      el.onpointerup = () => { 
-        inner.style.transform = 'scale(1)'
-        inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
-      }
-      el.onpointerleave = () => { 
-        inner.style.transform = 'scale(1)'
-        inner.style.transition = `transform ${SPRING.feedbackDuration}ms ${SPRING.feedback}`
-      }
-
-const handleMarkerClick = (e: any) => {
-  e.preventDefault()
-  e.stopPropagation()
-  
-  console.log('🎯 Marker clicked!', { count, venueId: v.id }) // ← ADD THIS for debugging
-  
-  if (count > 1) {
-    setClusterEvents(evs)
-    setViewMode('cluster')
-    requestAnimationFrame(() => {
-      setSheetVisible(true)
-    })
-  } else {
-    let idx = -1
-    for (let i = 0; i < filtered.length; i++) {
-      if (filtered[i].id === evs[0].id) {
-        idx = i
-        break
-      }
-    }
-    if (idx !== -1) {  // ← ADD THIS CHECK
-      setCurrentIndex(idx)
-      setViewMode('preview')
-      trackMarkerClick(evs[0].id, evs[0].title, v.name)
-      trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
-      
-      requestAnimationFrame(() => {
-        setSheetVisible(true)
-        highlightMarker(evs[0].id)
-      })
-    }
-  }
-  
-  const currentZoom = map.current?.getZoom() || 14
-  map.current?.easeTo({
-    center: [v.lng, v.lat],
-    zoom: Math.max(currentZoom, 14.5),
-    duration: 300,
-    easing: (t: number) => 1 - Math.pow(1 - t, 2),
-  })
-}
-
-// ✅ ADD BOTH event listeners for mobile compatibility
-el.addEventListener('click', handleMarkerClick, { passive: false })
-el.addEventListener('touchend', handleMarkerClick, { passive: false }) // ← ADD THIS LINE
-el.style.pointerEvents = 'auto'  // ← MAKE SURE THIS EXISTS
-el.style.cursor = 'pointer'  // ← MAKE SURE THIS EXISTS
-
-      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([v.lng, v.lat])
-        .addTo(map.current!)
-      
-      markersRef.current.set(ids, { marker, el, inner })
-    }
-
-    if (filtered.length > 0) {
-      const bounds = new mapboxgl.LngLatBounds()
-      for (let i = 0; i < filtered.length; i++) {
-        const e: Event = filtered[i]
-        if (e.venue) bounds.extend([e.venue.lng, e.venue.lat])
-      }
-      
-      const padding = deviceType === 'desktop' 
-        ? { top: 100, bottom: 100, left: 420, right: 100 }
-        : deviceType === 'tablet'
-        ? { top: 100, bottom: 150, left: 350, right: 50 }
-        : { top: 180, bottom: 150, left: 40, right: 40 }
-      
-      map.current.fitBounds(bounds, { 
-        padding,
-        maxZoom: 15,
-        minZoom: 13,
-        duration: 600 
-      })
-    }
-  }, [filtered, mapReady, highlightMarker, deviceType])
 
 // ============================================================================
 // CLAIM MODAL COMPONENT
