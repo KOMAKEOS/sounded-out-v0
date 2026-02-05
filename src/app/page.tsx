@@ -1492,8 +1492,20 @@ const handleMarkerClick = (e: any) => {
       setCurrentIndex(idx)
       setViewMode('preview')
       trackMarkerClick(evs[0].id, evs[0].title, v.name)
-      trackEventView(evs[0].id, evs[0].title, v.name, 'map_pin')
-      
+trackEventView(
+  evs[0].id,
+  evs[0].title,
+  v.name,
+  'map_pin',
+  evs[0].start_time,
+  evs[0].genres || '',
+  evs[0].price_min?.toString() || '',
+  evs[0].price_max?.toString() || '',
+  evs[0].so_pick || false,
+  evs[0].sold_out || false,
+  evs[0].brand?.name || null,
+  v.id
+)      
       requestAnimationFrame(() => {
         setSheetVisible(true)
         highlightMarker(evs[0].id)
