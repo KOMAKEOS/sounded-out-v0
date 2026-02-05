@@ -135,7 +135,7 @@ export default function EventsPage() {
         </div>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', overflowX: 'auto' }}>
           {([['all', 'All'], ['today', 'Tonight'], ['tomorrow', 'Tomorrow'], ['weekend', 'Weekend']] as [DateFilter, string][]).map(([key, label]) => (
-            <button key={key} onClick={() => { setDateFilter(key); setActiveGenre(null) }} style={{ padding: '7px 14px', borderRadius: '20px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', background: dateFilter === key ? '#ab67f7' : 'rgba(255,255,255,0.08)', color: dateFilter === key ? '#fff' : '#9ca3af', transition: 'all 0.15s ease' }}>
+            <button key={key} onClick={() => { setDateFilter(key); setActiveGenre(null) }} style={{ padding: '7px 14px', borderRadius: '20px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', background: dateFilter === key ? '#ab67f7' : 'rgba(255,255,255,0.08)', color: dateFilter === key ? '#fff' : '#9ca3af' }}>
               {label}
             </button>
           ))}
@@ -143,7 +143,7 @@ export default function EventsPage() {
         {availableGenres.length > 0 && (
           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
             {availableGenres.map((g: string) => (
-              <button key={g} onClick={() => setActiveGenre(activeGenre === g ? null : g)} style={{ padding: '5px 12px', borderRadius: '16px', border: activeGenre === g ? '1px solid #ab67f7' : '1px solid rgba(255,255,255,0.1)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', background: activeGenre === g ? 'rgba(171,103,247,0.15)' : 'transparent', color: activeGenre === g ? '#ab67f7' : '#6b7280', transition: 'all 0.15s ease' }}>
+              <button key={g} onClick={() => setActiveGenre(activeGenre === g ? null : g)} style={{ padding: '5px 12px', borderRadius: '16px', border: activeGenre === g ? '1px solid #ab67f7' : '1px solid rgba(255,255,255,0.1)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', background: activeGenre === g ? 'rgba(171,103,247,0.15)' : 'transparent', color: activeGenre === g ? '#ab67f7' : '#6b7280' }}>
                 {formatGenre(g)}
               </button>
             ))}
@@ -166,9 +166,7 @@ export default function EventsPage() {
           dateKeys.map((dk: string) => (
             <div key={dk} style={{ marginBottom: '28px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#fff', letterSpacing: '-0.2px' }}>
-                  {formatDateHeading(grouped[dk][0].start_time)}
-                </h2>
+                <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#fff' }}>{formatDateHeading(grouped[dk][0].start_time)}</h2>
                 <span style={{ fontSize: '12px', color: '#6b7280' }}>{grouped[dk].length} events</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
