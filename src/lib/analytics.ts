@@ -386,8 +386,8 @@ export const trackMapLoaded = (eventCount: number, bounds?: any): void => {
       bounds: bounds,
       created_at: new Date().toISOString()
     })
-    .catch(error => console.error('Map interaction error:', error))
 }
+
 
 export const trackMarkerClick = (
   eventId: string,
@@ -414,7 +414,6 @@ export const trackMarkerClick = (
       venue_id: venueId,
       created_at: new Date().toISOString()
     })
-    .catch(error => console.error('Map marker error:', error))
 }
 
 export const trackMapMove = (newBounds?: any, zoomLevel?: number): void => {
@@ -435,7 +434,6 @@ export const trackMapMove = (newBounds?: any, zoomLevel?: number): void => {
       zoom_level: zoomLevel,
       created_at: new Date().toISOString()
     })
-    .catch(error => console.error('Map move error:', error))
 }
 
 // ============================================================================
@@ -505,7 +503,6 @@ export const trackClaimStart = (
       conversion_stage: 'interest',
       created_at: new Date().toISOString()
     })
-    .catch(error => console.error('Claim start error:', error))
 }
 
 export const trackClaimSubmit = (
@@ -538,7 +535,6 @@ export const trackClaimSubmit = (
       conversion_stage: 'action',
       created_at: new Date().toISOString()
     })
-    .catch(error => console.error('Claim submit error:', error))
 }
 
 // Alias for backward compatibility
@@ -591,7 +587,6 @@ export const trackSignup = (method: string): void => {
       conversion_stage: 'action',
       created_at: new Date().toISOString()
     })
-    .catch(error => console.error('Signup tracking error:', error))
 }
 
 export const trackLogin = (method: string): void => {

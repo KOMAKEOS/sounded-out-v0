@@ -1233,11 +1233,11 @@ useEffect(() => {
   'list',
   event.start_time,
   event.genres || '',
-  event.price_min,
-  event.price_max,
-  event.so_pick || false,
-  event.sold_out || false,
-  event.brand?.name || null,
+  event.price_min?.toString() ?? '',
+  event.price_max?.toString() ?? '',
+  (event.so_pick || false).toString(),
+  event.sold_out ? 1 : 0,
+  event.brand?.name || '',
   event.venue?.id || ''
 )
     }
@@ -1491,7 +1491,7 @@ const handleMarkerClick = (e: any) => {
     if (idx !== -1) {  // ← ADD THIS CHECK
       setCurrentIndex(idx)
       setViewMode('preview')
-      trackMarkerClick(evs[0].id, evs[0].title, v.name)
+      trackMarkerClick(evs[0].id, evs[0].title, v.name, v.id)
 trackEventView(
   evs[0].id,
   evs[0].title,
@@ -1501,9 +1501,9 @@ trackEventView(
   evs[0].genres || '',
   evs[0].price_min?.toString() || '',
   evs[0].price_max?.toString() || '',
-  evs[0].so_pick || false,
-  evs[0].sold_out || false,
-  evs[0].brand?.name || null,
+  (evs[0].so_pick || false).toString(),
+  evs[0].sold_out ? 1 : 0,
+  evs[0].brand?.name || '',
   v.id
 )      
       requestAnimationFrame(() => {
