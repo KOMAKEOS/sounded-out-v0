@@ -1,0 +1,815 @@
+import { useState } from "react";
+
+const P = "#AB67F7";
+const PD = "rgba(171,103,247,0.15)";
+const PG = "rgba(171,103,247,0.3)";
+const BG = "#0A0A0F";
+const C = "rgba(255,255,255,0.04)";
+const CH = "rgba(255,255,255,0.07)";
+const B = "rgba(255,255,255,0.06)";
+const T1 = "rgba(255,255,255,0.92)";
+const T2 = "rgba(255,255,255,0.5)";
+const T3 = "rgba(255,255,255,0.3)";
+const G = "#34D399";
+const R = "#F87171";
+const A = "#FBBF24";
+
+const venueData = [
+  {
+    id: 1, name: "Quayside", city: "Newcastle", status: "strong", trend: "up",
+    weeklyRev: 38200, weeklyCost: 14800, weeklyProfit: 23400,
+    nights: [
+      { day: "Tue", event: "Open Mic", barTake: 1200, doorRev: 0, djCost: 0, staffCost: 480, promoCost: 0, adSpend: 0 },
+      { day: "Wed", event: "Student Night", barTake: 4800, doorRev: 640, djCost: 300, staffCost: 820, promoCost: 150, adSpend: 80 },
+      { day: "Thu", event: "R&B Rewind", barTake: 3200, doorRev: 480, djCost: 500, staffCost: 780, promoCost: 200, adSpend: 120 },
+      { day: "Fri", event: "FOMO Fridays", barTake: 8400, doorRev: 2100, djCost: 1500, staffCost: 1020, promoCost: 400, adSpend: 250 },
+      { day: "Sat", event: "Warehouse Sessions", barTake: 9200, doorRev: 3800, djCost: 3000, staffCost: 1180, promoCost: 600, adSpend: 320 },
+      { day: "Sun", event: "Sunday Social", barTake: 2400, doorRev: 0, djCost: 150, staffCost: 620, promoCost: 0, adSpend: 0 },
+    ],
+    insight: { type: "cut", text: "Tuesday Open Mic nets £720 after costs. Closing saves £480/week in staffing alone. Recommend shutting it.", impact: "Save £25k/yr" },
+  },
+  {
+    id: 2, name: "Deansgate", city: "Manchester", status: "strong", trend: "up",
+    weeklyRev: 34600, weeklyCost: 13200, weeklyProfit: 21400,
+    nights: [
+      { day: "Tue", event: "Taco Tuesday", barTake: 2400, doorRev: 0, djCost: 0, staffCost: 720, promoCost: 0, adSpend: 0 },
+      { day: "Wed", event: "Mid-Week Rave", barTake: 4200, doorRev: 640, djCost: 400, staffCost: 880, promoCost: 120, adSpend: 100 },
+      { day: "Thu", event: "Throwback", barTake: 3800, doorRev: 480, djCost: 350, staffCost: 780, promoCost: 100, adSpend: 80 },
+      { day: "Fri", event: "House Devotion", barTake: 9600, doorRev: 2200, djCost: 1800, staffCost: 1100, promoCost: 500, adSpend: 300 },
+      { day: "Sat", event: "Saturday Sessions", barTake: 7800, doorRev: 1800, djCost: 1200, staffCost: 1040, promoCost: 400, adSpend: 200 },
+      { day: "Sun", event: "Recovery Brunch", barTake: 1600, doorRev: 0, djCost: 0, staffCost: 580, promoCost: 0, adSpend: 0 },
+    ],
+    insight: { type: "grow", text: "Friday House Devotion generating £8,500 revenue — your highest single-night take in Manchester. Test £2 door price increase.", impact: "+£35k/yr" },
+  },
+  {
+    id: 3, name: "Bold St", city: "Liverpool", status: "watch", trend: "down",
+    weeklyRev: 24800, weeklyCost: 12400, weeklyProfit: 12400,
+    nights: [
+      { day: "Wed", event: "Quiz Night", barTake: 1800, doorRev: 0, djCost: 0, staffCost: 620, promoCost: 0, adSpend: 0 },
+      { day: "Thu", event: "Indie Night", barTake: 2400, doorRev: 320, djCost: 800, staffCost: 780, promoCost: 100, adSpend: 80 },
+      { day: "Fri", event: "Friday Lates", barTake: 6200, doorRev: 1600, djCost: 1000, staffCost: 980, promoCost: 300, adSpend: 180 },
+      { day: "Sat", event: "Scouse House", barTake: 8000, doorRev: 2400, djCost: 1500, staffCost: 1100, promoCost: 400, adSpend: 240 },
+      { day: "Sun", event: "Sunday Roast", barTake: 2000, doorRev: 0, djCost: 0, staffCost: 680, promoCost: 0, adSpend: 0 },
+    ],
+    insight: { type: "warning", text: "Thursday Indie Night: £2,720 revenue vs £1,760 costs. ROI of 0.54x — the DJ fee alone (£800) eats most of the margin. Swap to a £200 resident.", impact: "Save £31k/yr" },
+  },
+  {
+    id: 4, name: "Headrow", city: "Leeds", status: "strong", trend: "stable",
+    weeklyRev: 31200, weeklyCost: 11800, weeklyProfit: 19400,
+    nights: [
+      { day: "Wed", event: "Student Wednesdays", barTake: 3600, doorRev: 420, djCost: 250, staffCost: 780, promoCost: 100, adSpend: 60 },
+      { day: "Thu", event: "Cocktail Night", barTake: 3800, doorRev: 0, djCost: 0, staffCost: 720, promoCost: 80, adSpend: 40 },
+      { day: "Fri", event: "Kick Off Fridays", barTake: 8200, doorRev: 1800, djCost: 1200, staffCost: 1040, promoCost: 350, adSpend: 220 },
+      { day: "Sat", event: "Bassline Therapy", barTake: 9400, doorRev: 2400, djCost: 1600, staffCost: 1120, promoCost: 500, adSpend: 280 },
+      { day: "Sun", event: "Acoustic Sunday", barTake: 1800, doorRev: 0, djCost: 100, staffCost: 520, promoCost: 0, adSpend: 0 },
+    ],
+    insight: { type: "grow", text: "Bassline Therapy has the highest bar take per event (£9,400) in the chain. Lock in the DJ for a quarterly residency before fees increase.", impact: "Protect margin" },
+  },
+  {
+    id: 5, name: "Broad St", city: "Birmingham", status: "watch", trend: "down",
+    weeklyRev: 26400, weeklyCost: 14200, weeklyProfit: 12200,
+    nights: [
+      { day: "Wed", event: "Brum Bass", barTake: 2200, doorRev: 320, djCost: 400, staffCost: 780, promoCost: 100, adSpend: 80 },
+      { day: "Thu", event: "Latin Groove", barTake: 1800, doorRev: 240, djCost: 600, staffCost: 720, promoCost: 80, adSpend: 60 },
+      { day: "Fri", event: "UKG Revival", barTake: 7800, doorRev: 1800, djCost: 1400, staffCost: 1060, promoCost: 400, adSpend: 240 },
+      { day: "Sat", event: "Saturday Kick", barTake: 7200, doorRev: 1800, djCost: 1200, staffCost: 1100, promoCost: 400, adSpend: 220 },
+      { day: "Sun", event: "Day Party", barTake: 2600, doorRev: 400, djCost: 300, staffCost: 680, promoCost: 100, adSpend: 60 },
+    ],
+    insight: { type: "cut", text: "Thursday Latin Groove: £2,040 revenue, £1,460 costs. Third week below £600 profit. This night is dying — pause before it goes negative.", impact: "Save £18k/yr" },
+  },
+  {
+    id: 6, name: "Cowgate", city: "Edinburgh", status: "strong", trend: "up",
+    weeklyRev: 29800, weeklyCost: 11400, weeklyProfit: 18400,
+    nights: [
+      { day: "Tue", event: "Pub Quiz", barTake: 1400, doorRev: 0, djCost: 0, staffCost: 480, promoCost: 0, adSpend: 0 },
+      { day: "Wed", event: "Warehouse Weds", barTake: 3800, doorRev: 480, djCost: 350, staffCost: 780, promoCost: 100, adSpend: 80 },
+      { day: "Thu", event: "Techno Thursdays", barTake: 4200, doorRev: 640, djCost: 500, staffCost: 820, promoCost: 150, adSpend: 100 },
+      { day: "Fri", event: "Fringe Fridays", barTake: 8400, doorRev: 2200, djCost: 1200, staffCost: 1040, promoCost: 400, adSpend: 240 },
+      { day: "Sat", event: "Auld Reekie Rave", barTake: 6200, doorRev: 1400, djCost: 800, staffCost: 920, promoCost: 300, adSpend: 180 },
+      { day: "Sun", event: "Vinyl Sundays", barTake: 1000, doorRev: 0, djCost: 100, staffCost: 420, promoCost: 0, adSpend: 0 },
+    ],
+    insight: { type: "grow", text: "Edinburgh has the best margin in the chain (62%) — outperforms venues with larger footprints. Replicate Techno Thursdays format in Leeds.", impact: "Revenue opp" },
+  },
+  {
+    id: 7, name: "Osborne Rd", city: "Newcastle", status: "stable", trend: "stable",
+    weeklyRev: 22400, weeklyCost: 9800, weeklyProfit: 12600,
+    nights: [
+      { day: "Tue", event: "Wine Night", barTake: 1600, doorRev: 0, djCost: 0, staffCost: 420, promoCost: 0, adSpend: 0 },
+      { day: "Wed", event: "Hump Day", barTake: 2800, doorRev: 0, djCost: 200, staffCost: 680, promoCost: 80, adSpend: 40 },
+      { day: "Thu", event: "Cocktail Club", barTake: 3000, doorRev: 0, djCost: 200, staffCost: 720, promoCost: 80, adSpend: 40 },
+      { day: "Fri", event: "Osborne Social", barTake: 5400, doorRev: 800, djCost: 600, staffCost: 880, promoCost: 250, adSpend: 140 },
+      { day: "Sat", event: "Jesmond Lates", barTake: 6000, doorRev: 1000, djCost: 800, staffCost: 940, promoCost: 300, adSpend: 160 },
+      { day: "Sun", event: "Sunday Session", barTake: 1200, doorRev: 0, djCost: 0, staffCost: 380, promoCost: 0, adSpend: 0 },
+    ],
+    insight: { type: "warning", text: "Osborne Rd and Quayside cannibalise each other on Wednesdays. Differentiate — one student night, one date-night positioning.", impact: "+£1.2k/wk" },
+  },
+  {
+    id: 8, name: "Wharf", city: "Leeds", status: "new", trend: "up",
+    weeklyRev: 16800, weeklyCost: 9200, weeklyProfit: 7600,
+    nights: [
+      { day: "Wed", event: "Open Decks", barTake: 1200, doorRev: 0, djCost: 0, staffCost: 520, promoCost: 0, adSpend: 40 },
+      { day: "Thu", event: "Vinyl Only", barTake: 2400, doorRev: 200, djCost: 200, staffCost: 620, promoCost: 80, adSpend: 60 },
+      { day: "Fri", event: "Friday at the Wharf", barTake: 4800, doorRev: 800, djCost: 600, staffCost: 880, promoCost: 250, adSpend: 160 },
+      { day: "Sat", event: "Dock Sessions", barTake: 5400, doorRev: 1000, djCost: 800, staffCost: 940, promoCost: 300, adSpend: 180 },
+    ],
+    insight: { type: "grow", text: "New venue ramping — up 18% WoW. Cross-promote with Headrow on alternating nights to capture full Leeds market.", impact: "+£4k/wk potential" },
+  },
+  {
+    id: 9, name: "Sauchiehall", city: "Glasgow", status: "strong", trend: "up",
+    weeklyRev: 32400, weeklyCost: 12600, weeklyProfit: 19800,
+    nights: [
+      { day: "Tue", event: "Cheap Tuesdays", barTake: 2200, doorRev: 0, djCost: 0, staffCost: 580, promoCost: 0, adSpend: 0 },
+      { day: "Wed", event: "Sub Club Spill", barTake: 4000, doorRev: 520, djCost: 350, staffCost: 780, promoCost: 100, adSpend: 80 },
+      { day: "Thu", event: "Pints & Decks", barTake: 3400, doorRev: 400, djCost: 300, staffCost: 720, promoCost: 100, adSpend: 60 },
+      { day: "Fri", event: "Neon Fridays", barTake: 7600, doorRev: 1800, djCost: 1200, staffCost: 1040, promoCost: 400, adSpend: 240 },
+      { day: "Sat", event: "Glasgow Underground", barTake: 8800, doorRev: 2200, djCost: 1400, staffCost: 1100, promoCost: 400, adSpend: 280 },
+      { day: "Sun", event: "Chill Sundays", barTake: 1400, doorRev: 0, djCost: 0, staffCost: 480, promoCost: 0, adSpend: 0 },
+    ],
+    insight: { type: "grow", text: "Glasgow is #2 by profit margin (61%). This is your template — replicate the programming structure in Birmingham and Liverpool.", impact: "Chain-wide" },
+  },
+];
+
+const integrations = [
+  { name: "Tevalis POS", status: "connected", icon: "⚡", data: "Live till data across all 9 sites", pulls: "Bar revenue, transaction count, avg spend" },
+  { name: "Skiddle", status: "connected", icon: "🎫", data: "Advance ticket sales", pulls: "Door revenue, ticket tiers, buyer data" },
+  { name: "DICE", status: "connected", icon: "🎲", data: "Door revenue — 4 venues", pulls: "Walk-up + advance, refund rate" },
+  { name: "S4Labour", status: "connected", icon: "👥", data: "Staff rotas — all sites", pulls: "Shift hours, hourly rates, cost per night" },
+  { name: "Meta Ads", status: "connected", icon: "📱", data: "Ad spend attribution", pulls: "Spend per campaign, CPA, reach" },
+  { name: "Fatsoma", status: "pending", icon: "🎪", data: "Promoter ticketing", pulls: "Promoter sales, commission tracking" },
+  { name: "Sounded Out", status: "connected", icon: "🔊", data: "Auto-publish to discovery", pulls: "Events feed live to consumer app" },
+];
+
+const getNightProfit = (n) => (n.barTake + n.doorRev) - (n.djCost + n.staffCost + n.promoCost + n.adSpend);
+const getNightRev = (n) => n.barTake + n.doorRev;
+const getNightCost = (n) => n.djCost + n.staffCost + n.promoCost + n.adSpend;
+
+const totalChainRev = venueData.reduce((s, v) => s + v.weeklyRev, 0);
+const totalChainCost = venueData.reduce((s, v) => s + v.weeklyCost, 0);
+const totalChainProfit = venueData.reduce((s, v) => s + v.weeklyProfit, 0);
+const chainMargin = Math.round((totalChainProfit / totalChainRev) * 100);
+const bestVenue = venueData.reduce((a, b) => a.weeklyProfit > b.weeklyProfit ? a : b);
+const worstVenue = venueData.reduce((a, b) => a.weeklyProfit < b.weeklyProfit ? a : b);
+
+const Glass = ({ children, style, onClick }) => (
+  <div onClick={onClick} style={{
+    background: C, backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)",
+    border: `1px solid ${B}`, borderRadius: 16, padding: 20,
+    cursor: onClick ? "pointer" : "default", transition: "all 0.25s ease", ...style,
+  }}
+    onMouseEnter={e => { if (onClick) { e.currentTarget.style.background = CH; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; } }}
+    onMouseLeave={e => { if (onClick) { e.currentTarget.style.background = C; e.currentTarget.style.borderColor = B; } }}
+  >{children}</div>
+);
+
+const Metric = ({ label, value, sub, color }) => (
+  <div style={{ flex: 1, minWidth: 130 }}>
+    <div style={{ fontSize: 10, fontWeight: 500, color: T3, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 6 }}>{label}</div>
+    <div style={{ fontSize: 26, fontWeight: 600, color: color || T1, letterSpacing: -0.5 }}>{value}</div>
+    {sub && <div style={{ fontSize: 11, color: T2, marginTop: 2 }}>{sub}</div>}
+  </div>
+);
+
+const NavItem = ({ label, active, icon, onClick, badge }) => (
+  <div onClick={onClick} style={{
+    padding: "10px 14px", borderRadius: 10,
+    background: active ? PD : "transparent",
+    color: active ? P : T2,
+    fontSize: 13, fontWeight: active ? 600 : 400,
+    cursor: "pointer", transition: "all 0.2s ease",
+    display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap",
+  }}>
+    <span style={{ fontSize: 15, opacity: active ? 1 : 0.6 }}>{icon}</span>
+    {label}
+    {badge && <span style={{ marginLeft: "auto", fontSize: 9, padding: "2px 6px", borderRadius: 4, background: `${R}20`, color: R, fontWeight: 600 }}>{badge}</span>}
+  </div>
+);
+
+const StatusDot = ({ s }) => (
+  <div style={{
+    width: 6, height: 6, borderRadius: 3,
+    background: s === "connected" ? G : s === "pending" ? A : T3,
+    boxShadow: s === "connected" ? `0 0 8px ${G}` : "none",
+  }} />
+);
+
+const StatusBadge = ({ status }) => {
+  const colors = { strong: G, watch: A, stable: T2, new: P };
+  return (
+    <span style={{
+      padding: "3px 10px", borderRadius: 6, fontSize: 10, fontWeight: 600,
+      background: `${colors[status] || T3}15`, color: colors[status] || T3,
+      textTransform: "uppercase", letterSpacing: 0.8,
+    }}>{status}</span>
+  );
+};
+
+export default function KickAssOps() {
+  const [tab, setTab] = useState("overview");
+  const [selectedVenueId, setSelectedVenueId] = useState(null);
+  const [expandedNight, setExpandedNight] = useState(null);
+
+  const activeVenue = selectedVenueId ? venueData.find(v => v.id === selectedVenueId) : null;
+  const isChainView = !selectedVenueId;
+
+  const chainAlerts = [
+    { type: "cut", msg: "3 venues have nights below £600 profit threshold — closing them saves ~£145k/year across the chain.", venue: "Chain-wide" },
+    { type: "grow", msg: `${bestVenue.name} (${bestVenue.city}) is top performer at £${(bestVenue.weeklyProfit/1000).toFixed(1)}k/week. Replicate its programming model in underperformers.`, venue: bestVenue.city },
+    { type: "warning", msg: `${worstVenue.name} (${worstVenue.city}) trending down — £${(worstVenue.weeklyProfit/1000).toFixed(1)}k profit on £${(worstVenue.weeklyCost/1000).toFixed(1)}k costs. Needs programming overhaul.`, venue: worstVenue.city },
+    { type: "grow", msg: "Friday is strongest night chain-wide (avg 87% of weekly peak). Standardise dynamic door pricing across all 9 venues.", venue: "Chain-wide" },
+    { type: "warning", msg: "Newcastle venues (Quayside + Osborne Rd) cannibalising each other mid-week. Differentiate Wednesday programming.", venue: "Newcastle" },
+  ];
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: BG, color: T1,
+      fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
+      position: "relative", overflow: "hidden",
+    }}>
+      <div style={{ position: "fixed", top: -200, right: -200, width: 600, height: 600, background: `radial-gradient(circle, rgba(171,103,247,0.06) 0%, transparent 70%)`, pointerEvents: "none" }} />
+      <div style={{ position: "fixed", bottom: -300, left: -100, width: 500, height: 500, background: `radial-gradient(circle, rgba(171,103,247,0.04) 0%, transparent 70%)`, pointerEvents: "none" }} />
+
+      {/* Header */}
+      <div style={{
+        padding: "14px 24px", borderBottom: `1px solid ${B}`,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        backdropFilter: "blur(40px)", position: "sticky", top: 0, zIndex: 100, background: "rgba(10,10,15,0.85)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: `linear-gradient(135deg, ${P}, #7C3AED)`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 13, fontWeight: 700, boxShadow: `0 0 20px ${PG}`,
+          }}>SO</div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: -0.3 }}>Sounded Out <span style={{ color: T3, fontWeight: 400 }}>×</span> Kick Ass Bars</div>
+            <div style={{ fontSize: 10, color: T3, letterSpacing: 2, textTransform: "uppercase" }}>Venue Operations</div>
+          </div>
+        </div>
+
+        {/* Venue selector */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", maxWidth: 560 }}>
+          <div onClick={() => { setSelectedVenueId(null); setExpandedNight(null); }} style={{
+            padding: "6px 14px", borderRadius: 8, fontSize: 11, fontWeight: !selectedVenueId ? 600 : 400, cursor: "pointer",
+            background: !selectedVenueId ? PD : "transparent",
+            color: !selectedVenueId ? P : T2,
+            border: `1px solid ${!selectedVenueId ? P : "transparent"}`,
+            whiteSpace: "nowrap", flexShrink: 0,
+          }}>All 9 Sites</div>
+          {venueData.map(v => (
+            <div key={v.id} onClick={() => { setSelectedVenueId(v.id); setExpandedNight(null); }} style={{
+              padding: "6px 12px", borderRadius: 8, fontSize: 11, cursor: "pointer",
+              fontWeight: selectedVenueId === v.id ? 600 : 400,
+              background: selectedVenueId === v.id ? PD : "transparent",
+              color: selectedVenueId === v.id ? P : T3,
+              border: `1px solid ${selectedVenueId === v.id ? P : "transparent"}`,
+              whiteSpace: "nowrap", flexShrink: 0,
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: 3, background: v.status === "strong" ? G : v.status === "watch" ? A : v.status === "new" ? P : T3 }} />
+              {v.name}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ fontSize: 11, color: T3, flexShrink: 0 }}>W/C 27 Jan 2025</div>
+      </div>
+
+      <div style={{ display: "flex" }}>
+        {/* Sidebar */}
+        <div style={{
+          width: 200, padding: "20px 12px", borderRight: `1px solid ${B}`,
+          display: "flex", flexDirection: "column", gap: 4,
+          position: "sticky", top: 57, height: "calc(100vh - 57px)",
+        }}>
+          <NavItem icon="◉" label="Overview" active={tab === "overview"} onClick={() => setTab("overview")} />
+          <NavItem icon="◫" label="Nightly P&L" active={tab === "nightly"} onClick={() => setTab("nightly")} />
+          <NavItem icon="⊘" label="Integrations" active={tab === "integrations"} onClick={() => setTab("integrations")} />
+          <NavItem icon="◎" label="How It Works" active={tab === "flow"} onClick={() => setTab("flow")} />
+          <NavItem icon="◈" label="Insights" active={tab === "insights"} onClick={() => setTab("insights")} badge={isChainView ? "5" : "1"} />
+
+          <div style={{ flex: 1 }} />
+          <div style={{ padding: 14, borderRadius: 12, background: PD, border: `1px solid rgba(171,103,247,0.2)` }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: P, marginBottom: 4 }}>Sounded Out Link</div>
+            <div style={{ fontSize: 10, color: T2, lineHeight: 1.5 }}>Events auto-publish to your discovery listing</div>
+            <div style={{ marginTop: 8, padding: "5px 10px", borderRadius: 6, background: P, color: "#fff", fontSize: 10, fontWeight: 600, textAlign: "center", cursor: "pointer" }}>Live ↗</div>
+          </div>
+        </div>
+
+        {/* Main */}
+        <div style={{ flex: 1, padding: 24, maxWidth: 960 }}>
+
+          {/* ==================== OVERVIEW ==================== */}
+          {tab === "overview" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div>
+                <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.5, margin: 0 }}>
+                  {isChainView ? "Chain Overview" : `${activeVenue.name}`}
+                  {activeVenue && <span style={{ color: T3, fontWeight: 400 }}> · {activeVenue.city}</span>}
+                </h2>
+                <p style={{ fontSize: 13, color: T2, margin: "4px 0 0" }}>
+                  {isChainView ? "9 venues · 6 cities · Weekly performance" : "Weekly performance"}
+                </p>
+              </div>
+
+              {/* KPIs */}
+              <Glass>
+                <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+                  {isChainView ? (
+                    <>
+                      <Metric label="Chain Revenue" value={`£${(totalChainRev/1000).toFixed(1)}k`} sub="+9% vs last week" />
+                      <Metric label="Chain Costs" value={`£${(totalChainCost/1000).toFixed(1)}k`} sub={`${Math.round(totalChainCost/totalChainRev*100)}% of revenue`} color={T2} />
+                      <Metric label="Chain Profit" value={`£${(totalChainProfit/1000).toFixed(1)}k`} sub="+7% vs last week" color={G} />
+                      <Metric label="Avg Margin" value={`${chainMargin}%`} color={P} />
+                    </>
+                  ) : (
+                    <>
+                      <Metric label="Revenue" value={`£${(activeVenue.weeklyRev/1000).toFixed(1)}k`} sub={`${activeVenue.trend === "up" ? "↑ Trending up" : activeVenue.trend === "down" ? "↓ Trending down" : "— Stable"}`} />
+                      <Metric label="Costs" value={`£${(activeVenue.weeklyCost/1000).toFixed(1)}k`} sub={`${Math.round(activeVenue.weeklyCost/activeVenue.weeklyRev*100)}% of revenue`} color={T2} />
+                      <Metric label="Profit" value={`£${(activeVenue.weeklyProfit/1000).toFixed(1)}k`} color={G} />
+                      <Metric label="Margin" value={`${Math.round(activeVenue.weeklyProfit/activeVenue.weeklyRev*100)}%`} sub={`Chain avg: ${chainMargin}%`} color={P} />
+                      <Metric label="Best Night" value={activeVenue.bestNight} sub={activeVenue.bestEvent} color={G} />
+                    </>
+                  )}
+                </div>
+              </Glass>
+
+              {/* Profit chart */}
+              {!isChainView && activeVenue && (
+                <Glass>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>Nightly Profit</div>
+                    <div style={{ fontSize: 11, color: T3 }}>Revenue − All Costs</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 120 }}>
+                    {activeVenue.nights.map((n, i) => {
+                      const profit = getNightProfit(n);
+                      const maxP = Math.max(...activeVenue.nights.map(x => getNightProfit(x)));
+                      const h = profit <= 0 ? 3 : Math.max(6, (profit / maxP) * 105);
+                      const isTop = profit === maxP;
+                      return (
+                        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                          <div style={{ fontSize: 10, color: T3 }}>£{profit > 999 ? (profit/1000).toFixed(1)+"k" : profit}</div>
+                          <div style={{
+                            width: "100%", maxWidth: 52, height: h, borderRadius: 6,
+                            background: isTop ? `linear-gradient(180deg, ${P}, rgba(171,103,247,0.3))` : profit > 3000 ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.08)",
+                            boxShadow: isTop ? `0 0 16px ${PG}` : "none",
+                          }} />
+                          <div style={{ fontSize: 11, color: isTop ? P : T3, fontWeight: isTop ? 600 : 400 }}>{n.day}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Glass>
+              )}
+
+              {/* Venue ranking (chain view) */}
+              {isChainView && (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Venues by Profit</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {[...venueData].sort((a, b) => b.weeklyProfit - a.weeklyProfit).map((v, i) => {
+                      const margin = Math.round(v.weeklyProfit / v.weeklyRev * 100);
+                      const barW = (v.weeklyProfit / bestVenue.weeklyProfit) * 100;
+                      return (
+                        <Glass key={v.id} onClick={() => { setSelectedVenueId(v.id); }} style={{
+                          padding: "14px 18px",
+                          borderLeft: `3px solid ${v.status === "strong" ? G : v.status === "watch" ? A : v.status === "new" ? P : T2}`,
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                            <div style={{ width: 22, fontSize: 12, fontWeight: 700, color: T3, textAlign: "center" }}>{i + 1}</div>
+                            <div style={{ minWidth: 120 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>{v.name}</div>
+                              <div style={{ fontSize: 10, color: T3, marginTop: 2 }}>{v.city}</div>
+                            </div>
+                            <div style={{ flex: 1, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.04)" }}>
+                              <div style={{ width: `${barW}%`, height: "100%", borderRadius: 3, background: i === 0 ? `linear-gradient(90deg, ${P}, rgba(171,103,247,0.3))` : "rgba(255,255,255,0.1)", transition: "width 0.6s ease" }} />
+                            </div>
+                            <div style={{ textAlign: "right", minWidth: 65 }}>
+                              <div style={{ fontSize: 10, color: T3 }}>Revenue</div>
+                              <div style={{ fontSize: 12, fontWeight: 600 }}>£{(v.weeklyRev / 1000).toFixed(1)}k</div>
+                            </div>
+                            <div style={{ textAlign: "right", minWidth: 60 }}>
+                              <div style={{ fontSize: 10, color: T3 }}>Profit</div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: G }}>£{(v.weeklyProfit / 1000).toFixed(1)}k</div>
+                            </div>
+                            <div style={{ textAlign: "right", minWidth: 45 }}>
+                              <div style={{ fontSize: 10, color: T3 }}>Margin</div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: margin > 55 ? G : margin > 45 ? T1 : A }}>{margin}%</div>
+                            </div>
+                            <StatusBadge status={v.status} />
+                            <div style={{ color: T3, fontSize: 13 }}>→</div>
+                          </div>
+                        </Glass>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Alerts */}
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Smart Alerts</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {(isChainView ? chainAlerts.slice(0, 3) : [activeVenue?.insight].filter(Boolean).map(ins => ({ type: ins.type, msg: ins.text, venue: activeVenue.city }))).map((a, i) => (
+                    <Glass key={i} style={{
+                      padding: "14px 16px",
+                      borderLeft: `3px solid ${a.type === "cut" ? R : a.type === "warning" ? A : G}`,
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div style={{ fontSize: 12, color: T1, lineHeight: 1.6, flex: 1 }}>{a.msg}</div>
+                        <div style={{ fontSize: 10, color: T3, marginLeft: 12, flexShrink: 0 }}>{a.venue}</div>
+                      </div>
+                    </Glass>
+                  ))}
+                </div>
+              </div>
+
+              {/* City breakdown (chain view) */}
+              {isChainView && (
+                <Glass>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 16 }}>Revenue by City</div>
+                  {["Newcastle", "Manchester", "Glasgow", "Edinburgh", "Leeds", "Liverpool", "Birmingham"].map(city => {
+                    const cv = venueData.filter(v => v.city === city);
+                    const rev = cv.reduce((s, v) => s + v.weeklyRev, 0);
+                    const prof = cv.reduce((s, v) => s + v.weeklyProfit, 0);
+                    const pct = (rev / totalChainRev) * 100;
+                    return (
+                      <div key={city} style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
+                        <div style={{ width: 95, fontSize: 12, fontWeight: 500, color: T2 }}>{city} <span style={{ color: T3, fontSize: 10 }}>({cv.length})</span></div>
+                        <div style={{ flex: 1, height: 5, borderRadius: 3, background: "rgba(255,255,255,0.04)" }}>
+                          <div style={{ width: `${pct}%`, height: "100%", borderRadius: 3, background: `linear-gradient(90deg, ${P}, rgba(171,103,247,0.3))` }} />
+                        </div>
+                        <div style={{ width: 55, fontSize: 12, fontWeight: 600, textAlign: "right" }}>£{(rev / 1000).toFixed(1)}k</div>
+                        <div style={{ width: 55, fontSize: 11, color: G, textAlign: "right" }}>£{(prof / 1000).toFixed(1)}k</div>
+                      </div>
+                    );
+                  })}
+                </Glass>
+              )}
+            </div>
+          )}
+
+          {/* ==================== NIGHTLY P&L ==================== */}
+          {tab === "nightly" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div>
+                <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.5, margin: 0 }}>Nightly P&L</h2>
+                <p style={{ fontSize: 13, color: T2, margin: "4px 0 0" }}>
+                  {isChainView ? "Select a venue to see night-by-night breakdown" : `${activeVenue.name} · ${activeVenue.city} · W/C 27 Jan 2025`}
+                </p>
+              </div>
+
+              {isChainView ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ padding: "16px 20px", borderRadius: 12, background: PD, border: `1px solid rgba(171,103,247,0.2)`, display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 16 }}>☝</span>
+                    <div style={{ fontSize: 12, color: T2 }}>Select a venue from the header to see individual night-by-night P&L with full cost breakdowns.</div>
+                  </div>
+                  {[...venueData].sort((a, b) => b.weeklyProfit - a.weeklyProfit).map(v => {
+                    const margin = Math.round(v.weeklyProfit / v.weeklyRev * 100);
+                    return (
+                      <Glass key={v.id} onClick={() => setSelectedVenueId(v.id)} style={{ padding: "14px 18px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 600 }}>{v.name} <span style={{ color: T3, fontWeight: 400, fontSize: 12 }}>· {v.city}</span></div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                            <span style={{ fontSize: 12, color: T2 }}>£{(v.weeklyRev/1000).toFixed(1)}k rev</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: G }}>£{(v.weeklyProfit/1000).toFixed(1)}k profit</span>
+                            <span style={{ fontSize: 12, color: margin > 55 ? G : A }}>{margin}%</span>
+                            <span style={{ color: T3 }}>→</span>
+                          </div>
+                        </div>
+                      </Glass>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {activeVenue.nights.map((n, i) => {
+                    const rev = getNightRev(n);
+                    const cost = getNightCost(n);
+                    const profit = getNightProfit(n);
+                    const isOpen = expandedNight === i;
+                    return (
+                      <Glass key={i} onClick={() => setExpandedNight(isOpen ? null : i)} style={{
+                        padding: "14px 18px",
+                        borderLeft: `3px solid ${profit > 5000 ? G : profit > 2000 ? P : profit > 500 ? T3 : R}`,
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                            <div style={{ width: 34, textAlign: "center" }}>
+                              <div style={{ fontSize: 15, fontWeight: 600, color: P }}>{n.day}</div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 500 }}>{n.event}</div>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                            <div style={{ textAlign: "right", minWidth: 65 }}>
+                              <div style={{ fontSize: 10, color: T3 }}>Revenue</div>
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>£{rev.toLocaleString()}</div>
+                            </div>
+                            <div style={{ textAlign: "right", minWidth: 55 }}>
+                              <div style={{ fontSize: 10, color: T3 }}>Costs</div>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: T2 }}>£{cost.toLocaleString()}</div>
+                            </div>
+                            <div style={{ textAlign: "right", minWidth: 65 }}>
+                              <div style={{ fontSize: 10, color: T3 }}>Profit</div>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: profit > 3000 ? G : profit > 1000 ? T1 : R }}>£{profit.toLocaleString()}</div>
+                            </div>
+                            <div style={{ fontSize: 11, color: T3, width: 14 }}>{isOpen ? "−" : "+"}</div>
+                          </div>
+                        </div>
+
+                        {isOpen && (
+                          <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${B}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                            <div>
+                              <div style={{ fontSize: 10, color: T3, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Revenue Breakdown</div>
+                              {[
+                                { label: "Bar takings", value: n.barTake, source: "POS auto" },
+                                { label: "Door / tickets", value: n.doorRev, source: "Skiddle auto" },
+                              ].map((r, j) => (
+                                <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                                  <span style={{ fontSize: 12, color: T2 }}>{r.label}</span>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 500 }}>£{r.value.toLocaleString()}</span>
+                                    <span style={{ fontSize: 9, color: G, padding: "2px 6px", borderRadius: 4, background: "rgba(52,211,153,0.08)" }}>{r.source}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 10, color: T3, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Cost Breakdown</div>
+                              {[
+                                { label: "DJ / Artist", value: n.djCost, source: "Manual" },
+                                { label: "Staffing", value: n.staffCost, source: "S4Labour auto" },
+                                { label: "Promoter costs", value: n.promoCost, source: "Manual" },
+                                { label: "Ad spend", value: n.adSpend, source: "Meta auto" },
+                              ].map((c, j) => (
+                                <div key={j} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                                  <span style={{ fontSize: 12, color: T2 }}>{c.label}</span>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 500 }}>£{c.value.toLocaleString()}</span>
+                                    <span style={{ fontSize: 9, color: c.source === "Manual" ? A : G, padding: "2px 6px", borderRadius: 4, background: c.source === "Manual" ? "rgba(251,191,36,0.08)" : "rgba(52,211,153,0.08)" }}>{c.source}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div style={{ gridColumn: "1/-1" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
+                                <div style={{ fontSize: 11, color: T2 }}>Margin: <span style={{ color: rev > 0 ? (profit/rev > 0.6 ? G : profit/rev > 0.4 ? T1 : A) : T3, fontWeight: 600 }}>{rev > 0 ? Math.round(profit/rev*100) : 0}%</span></div>
+                                <div style={{ fontSize: 11, color: T2 }}>vs chain avg: <span style={{ color: T1, fontWeight: 500 }}>{chainMargin}%</span></div>
+                                <div style={{ marginLeft: "auto", fontSize: 10, color: T3 }}>
+                                  <span style={{ color: G }}>●</span> Auto-synced <span style={{ marginLeft: 8, color: A }}>●</span> Quick manual input
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </Glass>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==================== INTEGRATIONS ==================== */}
+          {tab === "integrations" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div>
+                <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.5, margin: 0 }}>Integrations</h2>
+                <p style={{ fontSize: 13, color: T2, margin: "4px 0 0" }}>Connected data sources powering your P&L across all 9 venues</p>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {integrations.map((int, i) => (
+                  <Glass key={i} style={{
+                    display: "flex", alignItems: "flex-start", gap: 14, padding: "18px 20px",
+                    border: int.name === "Sounded Out" ? `1px solid rgba(171,103,247,0.3)` : `1px solid ${B}`,
+                    background: int.name === "Sounded Out" ? PD : C,
+                  }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 12, background: "rgba(255,255,255,0.05)",
+                      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0,
+                    }}>{int.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{int.name}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <StatusDot s={int.status} />
+                          <span style={{ fontSize: 10, color: int.status === "connected" ? G : A, fontWeight: 500 }}>{int.status === "connected" ? "Live" : "Setup"}</span>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 11, color: T2, marginBottom: 6 }}>{int.data}</div>
+                      <div style={{ fontSize: 10, color: T3 }}>{int.pulls}</div>
+                    </div>
+                  </Glass>
+                ))}
+              </div>
+
+              {/* Auto vs Manual breakdown */}
+              <Glass style={{ background: "rgba(171,103,247,0.04)", border: `1px solid rgba(171,103,247,0.12)` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                  <span style={{ fontSize: 16 }}>🔌</span>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>What gets automated vs what needs manual input?</div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: G, fontWeight: 600, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: 3, background: G }} /> AUTO-SYNCED
+                    </div>
+                    {[
+                      "Bar / till revenue — Tevalis POS",
+                      "Ticket sales — Skiddle, DICE, Fatsoma",
+                      "Staff hours & costs — S4Labour rotas",
+                      "Ad spend & attribution — Meta Ads API",
+                      "Event listings → Sounded Out discovery",
+                    ].map((item, i) => (
+                      <div key={i} style={{ fontSize: 12, color: T2, lineHeight: 2.2, paddingLeft: 12, borderLeft: `1px solid rgba(52,211,153,0.15)` }}>{item}</div>
+                    ))}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: A, fontWeight: 600, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: 3, background: A }} /> QUICK MANUAL INPUT
+                    </div>
+                    {[
+                      "DJ / artist fees — 30 sec per event",
+                      "Promoter guarantees — when applicable",
+                      "One-off production costs — rare",
+                      "Baseline overheads — set once per venue",
+                    ].map((item, i) => (
+                      <div key={i} style={{ fontSize: 12, color: T2, lineHeight: 2.2, paddingLeft: 12, borderLeft: `1px solid rgba(251,191,36,0.15)` }}>{item}</div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.02)", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 13 }}>⏱</span>
+                  <div style={{ fontSize: 12, color: T2 }}>Estimated manual input: <strong style={{ color: T1 }}>~5 minutes per venue per week</strong>. Everything else is automatic.</div>
+                </div>
+              </Glass>
+            </div>
+          )}
+
+          {/* ==================== HOW IT WORKS ==================== */}
+          {tab === "flow" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div>
+                <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.5, margin: 0 }}>How It Works</h2>
+                <p style={{ fontSize: 13, color: T2, margin: "4px 0 0" }}>Data flows in automatically, decisions flow out</p>
+              </div>
+
+              <Glass>
+                <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+                  {/* Inbound */}
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: G, marginBottom: 12 }}>① Data Sources — Auto-Synced</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {["POS / Tills", "Skiddle", "DICE", "Fatsoma", "S4Labour Rotas", "Meta Ads"].map((s, i) => (
+                        <div key={i} style={{
+                          padding: "8px 14px", borderRadius: 8,
+                          background: "rgba(52,211,153,0.06)", border: `1px solid rgba(52,211,153,0.15)`,
+                          fontSize: 11, fontWeight: 500, color: G,
+                        }}>{s}</div>
+                      ))}
+                      <div style={{
+                        padding: "8px 14px", borderRadius: 8,
+                        background: "rgba(251,191,36,0.06)", border: `1px solid rgba(251,191,36,0.15)`,
+                        fontSize: 11, fontWeight: 500, color: A,
+                      }}>+ Quick manual (DJ fees)</div>
+                    </div>
+                  </div>
+
+                  {/* Engine */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 20px" }}>
+                    <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${P}, transparent)` }} />
+                    <div style={{ padding: "8px 20px", borderRadius: 20, background: PD, border: `1px solid ${P}`, fontSize: 12, fontWeight: 600, color: P }}>Sounded Out Engine</div>
+                    <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${P}, transparent)` }} />
+                  </div>
+
+                  {/* Outputs */}
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: P, marginBottom: 12 }}>② What You Get</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                      {[
+                        { title: "Nightly P&L", desc: "Automatic profit per event, per venue, per night", icon: "📊" },
+                        { title: "Chain Dashboard", desc: "All 9 venues compared in one view — spot the weak links", icon: "◫" },
+                        { title: "Smart Alerts", desc: "Kill underperformers, double down on winners", icon: "⚡" },
+                        { title: "Cost Breakdown", desc: "See exactly where money goes — DJ, staff, promo, ads", icon: "💰" },
+                        { title: "DJ ROI Tracker", desc: "Which artists actually drive bar revenue?", icon: "🎧" },
+                        { title: "→ Sounded Out", desc: "Events auto-publish to discovery platform — free distribution", icon: "🔊", highlight: true },
+                      ].map((o, i) => (
+                        <Glass key={i} style={{
+                          padding: 14,
+                          background: o.highlight ? PD : C,
+                          border: o.highlight ? `1px solid rgba(171,103,247,0.25)` : `1px solid ${B}`,
+                        }}>
+                          <div style={{ fontSize: 18, marginBottom: 8 }}>{o.icon}</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: o.highlight ? P : T1 }}>{o.title}</div>
+                          <div style={{ fontSize: 10, color: T2, lineHeight: 1.5 }}>{o.desc}</div>
+                        </Glass>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </Glass>
+
+              {/* Business model */}
+              <Glass style={{
+                background: `linear-gradient(135deg, rgba(171,103,247,0.06), rgba(171,103,247,0.02))`,
+                border: `1px solid rgba(171,103,247,0.18)`,
+              }}>
+                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>The Model</div>
+                <div style={{ fontSize: 12, color: T2, lineHeight: 1.8, marginBottom: 16 }}>
+                  Venues get ops tools that save real money → their events auto-feed into Sounded Out → consumers discover better nightlife → more footfall back to venues → venues see ROI → they pay for the tools.
+                </div>
+                <div style={{ display: "flex", gap: 12 }}>
+                  {[
+                    { val: "£500–1k", sub: "per venue / month" },
+                    { val: "£54–108k", sub: "ARR for 9-venue chain", color: G },
+                    { val: "5 chains", sub: "= £300–600k ARR" },
+                  ].map((m, i) => (
+                    <div key={i} style={{ flex: 1, padding: 14, borderRadius: 10, background: "rgba(255,255,255,0.03)", textAlign: "center" }}>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: m.color || P }}>{m.val}</div>
+                      <div style={{ fontSize: 10, color: T3, marginTop: 4 }}>{m.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              </Glass>
+            </div>
+          )}
+
+          {/* ==================== INSIGHTS ==================== */}
+          {tab === "insights" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div>
+                <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.5, margin: 0 }}>
+                  {isChainView ? "Chain-Wide Insights" : `Insights · ${activeVenue.name}`}
+                </h2>
+                <p style={{ fontSize: 13, color: T2, margin: "4px 0 0" }}>
+                  {isChainView ? "Patterns detected across all 9 venues this week" : `${activeVenue.city} · Patterns and recommendations`}
+                </p>
+              </div>
+
+              {(isChainView ? [
+                { title: "Kill 3 dead nights across the chain", body: "Tuesday at Quayside (£520 profit), Thursday at Liverpool (£1,100), Thursday at Birmingham (£300). All consistently below the £1,500 viability threshold. Closing them saves £2,800/week in combined staffing, DJ, and promo costs.", impact: "Save £145k/yr", type: "cut" },
+                { title: "Glasgow is your blueprint", body: `Sauchiehall St runs at 61% margin — highest in the chain — on a straightforward programming model. Their Techno Thursdays and structured Fri/Sat format works. Roll this model into Birmingham (currently 46% margin) and Liverpool (50%).`, impact: "Revenue opp", type: "grow" },
+                { title: "Birmingham needs intervention", body: "Third consecutive week of decline. Latin Groove Thursday is near loss-making. Saturday underperforming vs comparable venues. Either overhaul the programming or reduce to 3 operating nights and cut overhead.", impact: "At risk", type: "warning" },
+                { title: "Newcastle cannibalisation", body: "Quayside and Osborne Rd both run Wednesday nights targeting similar demographics. Data shows combined Wednesday revenue is flat while costs doubled since Osborne opened. Differentiate — make one student-focused, one premium cocktail positioning.", impact: "+£62k/yr", type: "warning" },
+                { title: "Standardise Friday dynamic pricing", body: "Friday is consistently the strongest night at every venue (avg 82% of weekly peak revenue). Currently only Deansgate uses dynamic door pricing. Rolling this out chain-wide at £2 incremental increase during peak could add £4,200/week across 9 sites.", impact: "+£218k/yr", type: "grow" },
+                { title: "Lock in DJ residencies at top venues", body: "Quayside's Saturday and Leeds Headrow's Bassline Therapy both have DJs generating 3.5x+ ROI. Secure quarterly residency contracts at current rates before they increase. Losing these bookings would cost £6k+ in weekly profit.", impact: "Protect £312k/yr", type: "grow" },
+                { title: "Staff efficiency: stagger shift patterns", body: "POS data shows 88% of transactions at peak venues happen between 10:30pm–2am. Current rotas start full-strength at 8pm. Staggering start times saves 2–3 hours per staff member per night with zero impact on service.", impact: "Save £48k/yr", type: "cut" },
+              ] : [
+                { title: activeVenue.insight.text, body: `Based on the last 4 weeks of P&L data for ${activeVenue.name}. Best performing night is ${activeVenue.bestNight} with ${activeVenue.bestEvent}.`, impact: activeVenue.insight.impact || "Action needed", type: activeVenue.insight.type },
+              ]).map((ins, i) => (
+                <Glass key={i} style={{
+                  borderLeft: `3px solid ${ins.type === "cut" ? R : ins.type === "grow" ? G : A}`,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{ins.title}</div>
+                    <div style={{
+                      padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 600, flexShrink: 0, marginLeft: 12,
+                      background: ins.type === "cut" ? "rgba(248,113,113,0.1)" : ins.type === "grow" ? "rgba(52,211,153,0.1)" : "rgba(251,191,36,0.1)",
+                      color: ins.type === "cut" ? R : ins.type === "grow" ? G : A,
+                    }}>{ins.impact}</div>
+                  </div>
+                  <div style={{ fontSize: 12, color: T2, lineHeight: 1.7 }}>{ins.body}</div>
+                </Glass>
+              ))}
+
+              {isChainView && (
+                <Glass style={{ background: "rgba(52,211,153,0.04)", border: `1px solid rgba(52,211,153,0.12)` }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: G, marginBottom: 8 }}>Total Identified Savings & Opportunities</div>
+                  <div style={{ display: "flex", gap: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 10, color: T3, marginBottom: 4 }}>Cost Savings</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: R }}>£193k<span style={{ fontSize: 12, fontWeight: 400, color: T3 }}>/yr</span></div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: T3, marginBottom: 4 }}>Revenue Opportunities</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: G }}>£280k+<span style={{ fontSize: 12, fontWeight: 400, color: T3 }}>/yr</span></div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: T3, marginBottom: 4 }}>Revenue Protected</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: P }}>£312k<span style={{ fontSize: 12, fontWeight: 400, color: T3 }}>/yr</span></div>
+                    </div>
+                  </div>
+                </Glass>
+              )}
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      <style>{`
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+      `}</style>
+    </div>
+  );
+}
