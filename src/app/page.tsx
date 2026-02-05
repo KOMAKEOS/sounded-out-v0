@@ -916,6 +916,31 @@ const current = filtered[currentIndex] || null
   const [velocity, setVelocity] = useState({ x: 0, y: 0 })
   const lastPos = useRef({ x: 0, y: 0, time: 0 })
 
+    const completeOnboarding = useCallback((): void => {
+    setShowOnboarding(false)
+    localStorage.setItem('so_onboarding_complete', 'true')
+  }, [])
+
+  const toggleSaveEvent = useCallback((eventId: string, e?: React.MouseEvent): void => {
+    if (e) {
+      e.stopPropagation()
+      e.preventDefault()
+    }
+    setSavedEventIds((prev: Set<string>) => {
+      const next: Set<string> = new Set(prev)
+      if (next.has(eventId)) {
+        next.delete(eventId)
+      } else {
+        next.add(eventId)
+      }
+      return next
+    })
+  }, [])
+
+  const isEventSaved = useCallback((eventId: string): boolean => {
+    return savedEventIds.has(eventId)
+  }, [savedEventIds])
+
   // ============================================================================
   // DESKTOP/TABLET SIDEBAR COMPONENT - P1 FIXES APPLIED
   // ============================================================================
@@ -3391,30 +3416,7 @@ disabled={currentIndex === events.length - 1}
   // ============================================================================
   // P1 FIX: ONBOARDING & SAVE FUNCTIONS
   // ============================================================================
-  const completeOnboarding = useCallback((): void => {
-    setShowOnboarding(false)
-    localStorage.setItem('so_onboarding_complete', 'true')
-  }, [])
 
-  const toggleSaveEvent = useCallback((eventId: string, e?: React.MouseEvent): void => {
-    if (e) {
-      e.stopPropagation()
-      e.preventDefault()
-    }
-    setSavedEventIds((prev: Set<string>) => {
-      const next: Set<string> = new Set(prev)
-      if (next.has(eventId)) {
-        next.delete(eventId)
-      } else {
-        next.add(eventId)
-      }
-      return next
-    })
-  }, [])
-
-  const isEventSaved = useCallback((eventId: string): boolean => {
-    return savedEventIds.has(eventId)
-  }, [savedEventIds])
 
   // ============================================================================
   // LOGO TAP HANDLER (Admin access)
