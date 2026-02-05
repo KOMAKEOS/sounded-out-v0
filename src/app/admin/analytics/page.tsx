@@ -52,7 +52,15 @@ const CircularProgress = ({
   color = '#AB67F7',
   label,
   sublabel 
-}: any) => {
+}: {
+  value: number
+  max: number
+  size?: number
+  strokeWidth?: number
+  color?: string
+  label?: string
+  sublabel?: string
+}) => {
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
   const percent = max > 0 ? (value / max) * 100 : 0
@@ -100,7 +108,15 @@ const MetricCard = ({
   icon: Icon,
   color,
   size = 'default'
-}: any) => {
+}: {
+  title: string
+  value: number
+  change?: number
+  subtitle?: string
+  icon: React.ComponentType
+  color: string
+  size?: 'small' | 'default' | 'large'
+}) => {
   const sizes = {
     small: 'col-span-1',
     default: 'col-span-1 md:col-span-1',
