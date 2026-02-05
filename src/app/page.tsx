@@ -916,6 +916,26 @@ const current = filtered[currentIndex] || null
   const [velocity, setVelocity] = useState({ x: 0, y: 0 })
   const lastPos = useRef({ x: 0, y: 0, time: 0 })
 
+    const handleLogoTap = useCallback((): void => {
+    if (logoTapTimer.current) {
+      clearTimeout(logoTapTimer.current)
+    }
+    
+    const newCount: number = logoTapCount + 1
+    setLogoTapCount(newCount)
+    
+    if (newCount >= 5) {
+      setShowAdminMenu(true)
+      setLogoTapCount(0)
+      return
+    }
+    
+    logoTapTimer.current = setTimeout(() => {
+      setLogoTapCount(0)
+    }, 2000)
+  }, [logoTapCount])
+
+
     const completeOnboarding = useCallback((): void => {
     setShowOnboarding(false)
     localStorage.setItem('so_onboarding_complete', 'true')
@@ -3421,25 +3441,7 @@ disabled={currentIndex === events.length - 1}
   // ============================================================================
   // LOGO TAP HANDLER (Admin access)
   // ============================================================================
-   const handleLogoTap = useCallback((): void => {
-    if (logoTapTimer.current) {
-      clearTimeout(logoTapTimer.current)
-    }
-    
-    const newCount: number = logoTapCount + 1
-    setLogoTapCount(newCount)
-    
-    if (newCount >= 5) {
-      setShowAdminMenu(true)
-      setLogoTapCount(0)
-      return
-    }
-    
-    logoTapTimer.current = setTimeout(() => {
-      setLogoTapCount(0)
-    }, 2000)
-  }, [logoTapCount])
-
+ 
   // ============================================================================
   // LIST SCROLL HANDLER (Day label tracking)
   // ============================================================================
