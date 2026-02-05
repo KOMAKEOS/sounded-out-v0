@@ -38,7 +38,7 @@ export default function EventActions({ event, isSaved, isLoggedIn, onSave, onSho
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}/event/${event.id}`
     const shareText = `Check out ${event.title} at ${event.venue?.name || ''}`
-    trackShareClick(event.id, event.title, navigator.share ? 'native_share' : 'clipboard', event.venue?.name)
+    trackShareClick(event.id, event.title, typeof navigator.share === 'function' ? 'native_share' : 'clipboard', event.venue?.name)
     try {
       if (navigator.share) { await navigator.share({ title: event.title, text: shareText, url: shareUrl }) }
       else { await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`); setCopied(true); setTimeout(() => setCopied(false), 2000) }
