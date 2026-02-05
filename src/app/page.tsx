@@ -1226,8 +1226,20 @@ useEffect(() => {
           duration: 300,
         })
       }
-      
-      trackEventView(   event.id,   event.title,   event.venue?.name || '',   'list',   event.start_time,   event.genres || '',   event.price_min,   event.price_max,   event.so_pick || false,   event.sold_out || false,   event.brand?.name || null,   event.venue?.id || '' )
+      trackEventView(
+  event.id,
+  event.title,
+  event.venue?.name || '',
+  'list',
+  event.start_time,
+  event.genres || '',
+  event.price_min,
+  event.price_max,
+  event.so_pick || false,
+  event.sold_out || false,
+  event.brand?.name || null,
+  event.venue?.id || ''
+)
     }
   }, [filtered, highlightMarker])
 
