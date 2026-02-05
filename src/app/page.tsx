@@ -839,6 +839,7 @@ const current = filtered[currentIndex] || null
   const nextEvent = filtered[currentIndex + 1] || null
   const prevEvent = filtered[currentIndex - 1] || null
 
+  useEffect(() => { initAnalytics() }, [])
   useEffect(() => {
     const keys = Object.keys(grouped)
     if (keys.length > 0 && !visibleDayLabel) {
