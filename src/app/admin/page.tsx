@@ -1,107 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
+import AdminLoginGate, { AdminLockButton } from '@/components/AdminLoginGate'
 
 // ============================================================================
-// ADMIN HUB
+// ADMIN HUB — SECURED
+// No passwords in this file. Auth handled server-side.
 // ============================================================================
-const ADMIN_PASSCODE = '6521'
 
 export default function AdminHubPage() {
-  const [passcodeEntered, setPasscodeEntered] = useState(false)
-  const [passcodeInput, setPasscodeInput] = useState('')
-  const [passcodeError, setPasscodeError] = useState(false)
+  return (
+    <AdminLoginGate>
+      <AdminHubContent />
+    </AdminLoginGate>
+  )
+}
 
-  useEffect(() => {
-    const savedAccess = sessionStorage.getItem('so_admin_access')
-    if (savedAccess === 'granted') {
-      setPasscodeEntered(true)
-    }
-  }, [])
-
-  const handlePasscodeSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (passcodeInput === ADMIN_PASSCODE) {
-      setPasscodeEntered(true)
-      setPasscodeError(false)
-      sessionStorage.setItem('so_admin_access', 'granted')
-    } else {
-      setPasscodeError(true)
-      setPasscodeInput('')
-    }
-  }
-
-  // Passcode screen
-  if (!passcodeEntered) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#000',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px'
-      }}>
-        <form onSubmit={handlePasscodeSubmit} style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '16px',
-          padding: '40px',
-          maxWidth: '320px',
-          width: '100%',
-          textAlign: 'center'
-        }}>
-          <h1 style={{ color: '#fff', fontSize: '24px', marginBottom: '8px' }}>
-            🔐 Admin Access
-          </h1>
-          <p style={{ color: '#888', fontSize: '14px', marginBottom: '24px' }}>
-            Enter passcode to continue
-          </p>
-          <input
-            type="password"
-            value={passcodeInput}
-            onChange={(e) => setPasscodeInput(e.target.value)}
-            placeholder="Enter passcode"
-            maxLength={4}
-            style={{
-              width: '100%',
-              padding: '16px',
-              fontSize: '24px',
-              textAlign: 'center',
-              letterSpacing: '8px',
-              background: 'rgba(255,255,255,0.05)',
-              border: passcodeError ? '2px solid #f87171' : '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px',
-              color: '#fff',
-              marginBottom: '16px',
-              outline: 'none'
-            }}
-          />
-          {passcodeError && (
-            <p style={{ color: '#f87171', fontSize: '14px', marginBottom: '16px' }}>
-              Incorrect passcode
-            </p>
-          )}
-          <button type="submit" style={{
-            width: '100%',
-            padding: '14px',
-            background: '#ab67f7',
-            border: 'none',
-            borderRadius: '10px',
-            color: '#fff',
-            fontSize: '16px',
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}>
-            Enter
-          </button>
-        </form>
-      </div>
-    )
-  }
-
-  // Admin sections
+function AdminHubContent() {
   const sections = [
     {
       title: 'Events',
@@ -151,23 +67,7 @@ export default function AdminHubPage() {
         <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0 }}>
           Admin Dashboard
         </h1>
-        <button
-          onClick={() => {
-            sessionStorage.removeItem('so_admin_access')
-            setPasscodeEntered(false)
-          }}
-          style={{
-            padding: '8px 16px',
-            background: 'rgba(255,255,255,0.05)',
-            border: 'none',
-            borderRadius: '6px',
-            color: '#888',
-            fontSize: '13px',
-            cursor: 'pointer'
-          }}
-        >
-          Lock
-        </button>
+        <AdminLockButton />
       </header>
 
       {/* Main */}
@@ -228,7 +128,7 @@ export default function AdminHubPage() {
           ))}
         </div>
 
-        {/* Quick Stats */}
+        {/* Quick Actions */}
         <div style={{
           marginTop: '40px',
           padding: '24px',
