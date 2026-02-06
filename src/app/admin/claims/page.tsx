@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import AdminLoginGate from '@/components/AdminLoginGate'
 
 interface ClaimRequest {
   id: string
@@ -21,43 +22,22 @@ interface ClaimRequest {
   brand?: { name: string } | null
 }
 
-const ADMIN_PASSCODE = '1234'
-
 export default function AdminClaimsPage() {
-  const [passcodeEntered, setPasscodeEntered] = useState(false)
-  const [passcodeInput, setPasscodeInput] = useState('')
-  const [passcodeError, setPasscodeError] = useState(false)
+  return (
+    <AdminLoginGate>
+      <AdminClaimsContent />
+    </AdminLoginGate>
+  )
+}
 
+function AdminClaimsContent() {
   const [claims, setClaims] = useState<ClaimRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending')
 
   useEffect(() => {
-    const savedAccess = sessionStorage.getItem('so_admin_access')
-    if (savedAccess === 'granted') {
-      setPasscodeEntered(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (passcodeEntered) {
-      loadClaims()
-    } else {
-      setLoading(false)
-    }
-  }, [passcodeEntered, filterStatus])
-
-  const handlePasscodeSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (passcodeInput === ADMIN_PASSCODE) {
-      setPasscodeEntered(true)
-      setPasscodeError(false)
-      sessionStorage.setItem('so_admin_access', 'granted')
-    } else {
-      setPasscodeError(true)
-      setPasscodeInput('')
-    }
-  }
+    loadClaims()
+  }, [filterStatus])
 
   const loadClaims = async () => {
     setLoading(true)
@@ -78,9 +58,7 @@ export default function AdminClaimsPage() {
 
     const { data, error } = await query.limit(100)
 
-    if (error) {
-      console.error('Error loading claims:', error)
-    } else {
+    if (!error) {
       setClaims((data || []) as ClaimRequest[])
     }
     setLoading(false)
@@ -142,76 +120,6 @@ export default function AdminClaimsPage() {
     }
   }
 
-  // PASSCODE SCREEN
-  if (!passcodeEntered) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#000',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px'
-      }}>
-        <form onSubmit={handlePasscodeSubmit} style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '16px',
-          padding: '40px',
-          maxWidth: '320px',
-          width: '100%',
-          textAlign: 'center'
-        }}>
-          <h1 style={{ color: '#fff', fontSize: '24px', marginBottom: '8px' }}>
-            🔐 Admin Access
-          </h1>
-          <p style={{ color: '#888', fontSize: '14px', marginBottom: '24px' }}>
-            Enter passcode to continue
-          </p>
-          <input
-            type="password"
-            value={passcodeInput}
-            onChange={(e) => setPasscodeInput(e.target.value)}
-            placeholder="Enter passcode"
-            maxLength={4}
-            style={{
-              width: '100%',
-              padding: '16px',
-              fontSize: '24px',
-              textAlign: 'center',
-              letterSpacing: '8px',
-              background: 'rgba(255,255,255,0.05)',
-              border: passcodeError ? '2px solid #f87171' : '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px',
-              color: '#fff',
-              marginBottom: '16px',
-              outline: 'none'
-            }}
-          />
-          {passcodeError && (
-            <p style={{ color: '#f87171', fontSize: '14px', marginBottom: '16px' }}>
-              Incorrect passcode
-            </p>
-          )}
-          <button type="submit" style={{
-            width: '100%',
-            padding: '14px',
-            background: '#ab67f7',
-            border: 'none',
-            borderRadius: '10px',
-            color: '#fff',
-            fontSize: '16px',
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}>
-            Enter
-          </button>
-        </form>
-      </div>
-    )
-  }
-
-  // MAIN UI
   return (
     <div style={{ minHeight: '100vh', background: '#000', color: '#fff' }}>
       <header style={{
@@ -355,7 +263,7 @@ export default function AdminClaimsPage() {
                     <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                       <span style={{ color: '#666', fontSize: '13px' }}>Message:</span>
                       <p style={{ color: '#aaa', fontSize: '13px', marginTop: '4px', lineHeight: 1.5 }}>
-                        "{claim.message}"
+                        &quot;{claim.message}&quot;
                       </p>
                     </div>
                   )}
