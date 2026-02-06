@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef, CSSProperties } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import AdminLoginGate from '@/components/AdminLoginGate'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -66,6 +67,14 @@ function Hours({ hrs }: { hrs: number[] }) {
 }
 
 export default function AnalyticsDashboard() {
+  return (
+    <AdminLoginGate>
+      <AnalyticsDashboardContent />
+    </AdminLoginGate>
+  )
+}
+
+function AnalyticsDashboardContent() {
   const ref = useRef<HTMLDivElement>(null)
   const [tr, setTr] = useState('7days')
   const [loading, setLoading] = useState(true)
@@ -94,24 +103,20 @@ export default function AnalyticsDashboard() {
       const now = new Date()
       const db = tr === 'today' ? 0 : tr === '7days' ? 7 : tr === '30days' ? 30 : 365
       
-      // Get start date for current period
       const sd = new Date(now)
       if (tr === 'today') {
-        sd.setHours(0, 0, 0, 0) // Start of today
+        sd.setHours(0, 0, 0, 0)
       } else {
         sd.setDate(sd.getDate() - db)
       }
       const si = sd.toISOString()
       
-      // Get previous period for comparison
       const ps = new Date(sd)
       ps.setDate(ps.getDate() - Math.max(db, 1))
       
-      // Get end date for "today" filter
       const ed = tr === 'today' ? new Date(now) : null
       if (ed) ed.setHours(23, 59, 59, 999)
 
-      // Fetch with higher limits + proper counts
       const [sR, sCount, iR, uR, bR, mR, shR, pR, pvR] = await Promise.all([
         supabase.from('analytics_events').select('*').eq('event_name', 'session_start').gte('created_at', si).limit(50000),
         supabase.from('analytics_events').select('*', { count: 'exact', head: true }).eq('event_name', 'session_start').gte('created_at', si),
@@ -132,26 +137,21 @@ export default function AnalyticsDashboard() {
       const shs = shR.data || []
       const prev = pvR.data || []
 
-      // Use count for total sessions (avoids 1000 cap)
       const ts = sCount.count || 0
       
-      // Today's sessions - fix timezone comparison
       const todayStart = new Date()
       todayStart.setHours(0, 0, 0, 0)
       const tds = sess.filter(s => new Date(s.created_at) >= todayStart).length
       
-      // Unique users
       const uids = new Set(sess.map(s => s.user_id || s.session_id))
       const uu = uids.size
       const tu = new Set(sess.filter(s => new Date(s.created_at) >= todayStart).map(s => s.user_id || s.session_id)).size
       const reg = pR.count || 0
 
-      // Returning users
       const uc: Record<string, number> = {}
       sess.forEach(s => { const u = s.user_id || s.session_id; uc[u] = (uc[u]||0)+1 })
       const ret = Object.values(uc).filter(c => c > 1).length
 
-      // Event interactions
       const ev = ints.filter(i => i.interaction_type === 'view').length
       const tc = ints.filter(i => i.interaction_type === 'ticket_click').length
       const dir = ints.filter(i => i.interaction_type === 'directions').length
@@ -160,7 +160,6 @@ export default function AnalyticsDashboard() {
       const cvr = ev > 0 ? (tc/ev)*100 : 0
       const eps = ts > 0 ? ev/ts : 0
 
-      // Session depth
       const vd = uSess.filter(s => s.duration_seconds > 0)
       const ad = vd.length > 0 ? vd.reduce((a,s) => a + s.duration_seconds, 0) / vd.length : 0
       const vp = uSess.filter(s => s.page_views > 0)
@@ -168,20 +167,16 @@ export default function AnalyticsDashboard() {
       const ve = uSess.filter(s => s.events_viewed > 0)
       const ae = ve.length > 0 ? ve.reduce((a,s) => a + s.events_viewed, 0) / ve.length : 0
 
-      // Devices
       const devs = { mobile: 0, tablet: 0, desktop: 0 }
       sess.forEach(s => { const t = (s.device_type||'desktop') as keyof typeof devs; if (devs[t]!==undefined) devs[t]++ })
 
-      // Discovery sources
       const srcs = { map: 0, list: 0, search: 0, direct: 0, swipe: 0 }
       ints.filter(i => i.interaction_type === 'view').forEach(i => { const s = (i.source||'direct') as keyof typeof srcs; if (srcs[s]!==undefined) srcs[s]++ })
 
-      // Genres
       const gc: Record<string,number> = {}
       ints.filter(i => i.genre_primary).forEach(i => { gc[i.genre_primary] = (gc[i.genre_primary]||0)+1 })
       const genres = Object.entries(gc).sort((a,b) => b[1]-a[1]).slice(0,6).map(([l,v]) => ({l,v}))
 
-      // Top events
       const em: Record<string,any> = {}
       ints.filter(i => i.interaction_type === 'view').forEach(i => {
         const k = `${i.event_id}-${i.event_title}`
@@ -191,23 +186,19 @@ export default function AnalyticsDashboard() {
       ints.filter(i => i.interaction_type === 'ticket_click').forEach(i => { const k = `${i.event_id}-${i.event_title}`; if (em[k]) em[k].clicks++ })
       const topEv = Object.values(em).sort((a:any,b:any) => b.views-a.views).slice(0,5)
 
-      // Top venues
       const vm: Record<string,any> = {}
       ints.forEach(i => { if (i.venue_name) { if (!vm[i.venue_name]) vm[i.venue_name] = { n: i.venue_name, v: 0 }; vm[i.venue_name].v++ } })
       const topVn = Object.values(vm).sort((a:any,b:any) => b.v-a.v).slice(0,5)
 
-      // Business metrics
       const cs = biz.filter(b => b.metric_type === 'claim_start').length
       const csb = biz.filter(b => b.metric_type === 'claim_submit').length
       const su = biz.filter(b => b.metric_type === 'signup').length
       const ml = maps.filter(m => m.interaction_type === 'load').length
       const mc = maps.filter(m => m.interaction_type === 'marker_click').length
 
-      // Peak hours
       const ph = Array(24).fill(0)
       sess.forEach(s => { ph[new Date(s.created_at).getHours()]++ })
 
-      // Daily breakdown
       const nd = Math.max(db,1), dB: Record<string,number>={}, vB: Record<string,number>={}
       for (let i=0;i<nd;i++) { const dt = new Date(now); dt.setDate(dt.getDate()-(nd-1-i)); const k=dt.toISOString().split('T')[0]; dB[k]=0; vB[k]=0 }
       sess.forEach(s => { const k=new Date(s.created_at).toISOString().split('T')[0]; if(dB[k]!==undefined) dB[k]++ })
@@ -224,7 +215,7 @@ export default function AnalyticsDashboard() {
         prevS:prev.length, prevU:new Set(prev.map(s=>s.user_id||s.session_id)).size,
       })
     } catch(e) { 
-      console.error('Analytics error:',e) 
+      // Error loading analytics data
     }
     finally { setLoading(false) }
   }
@@ -313,7 +304,6 @@ export default function AnalyticsDashboard() {
 
         {/* ROW 2 */}
         <div className="bento4" style={g('repeat(4,1fr)')}>
-          {/* Session Depth */}
           <div style={card}>
             <div style={{...lbl,marginBottom:20}}>Session Depth</div>
             {[{l:'Avg Duration',v:fd(d.avgDuration)},{l:'Pages / Session',v:String(d.avgPages)},{l:'Events Explored',v:String(d.avgEvents)}].map(m=>(
@@ -324,7 +314,6 @@ export default function AnalyticsDashboard() {
             ))}
           </div>
 
-          {/* Devices */}
           <div style={card}>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
               <span style={lbl}>Devices</span><span style={{fontSize:10,color:C.t4,fontWeight:500}}>{tot} total</span>
@@ -346,7 +335,6 @@ export default function AnalyticsDashboard() {
             ))}
           </div>
 
-          {/* Peak Hours */}
           <div style={card}>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
               <span style={lbl}>Peak Hours</span><span style={{fontSize:10,color:C.t4,fontWeight:500}}>24h</span>
@@ -362,7 +350,6 @@ export default function AnalyticsDashboard() {
             </div>}
           </div>
 
-          {/* Engagement */}
           <div style={card}>
             <div style={{...lbl,marginBottom:16}}>Engagement</div>
             {[{i:'◈',l:'Directions',v:d.directions,c:C.blue},{i:'◉',l:'Shares',v:d.shares,c:C.purple},{i:'♡',l:'Saves',v:d.saves,c:C.red},{i:'◎',l:'Ticket Clicks',v:d.ticketClicks,c:C.amber},{i:'◇',l:'Map Loads',v:d.mapLoads,c:C.green},{i:'◆',l:'Marker Taps',v:d.markerClicks,c:C.green}].map(m=>(
@@ -379,7 +366,6 @@ export default function AnalyticsDashboard() {
 
         {/* ROW 3 */}
         <div className="bento3" style={g('1fr 1fr 1fr')}>
-          {/* Source */}
           <div style={card}>
             <div style={{...lbl,marginBottom:20}}>Discovery Source</div>
             {[{l:'Map',v:d.sources.map,c:C.purple},{l:'List / Feed',v:d.sources.list,c:C.blue},{l:'Search',v:d.sources.search,c:C.green},{l:'Direct Link',v:d.sources.direct,c:C.amber},{l:'Swipe',v:d.sources.swipe,c:C.orange}].map((x,i)=>{
@@ -389,7 +375,6 @@ export default function AnalyticsDashboard() {
             <div style={{fontSize:10,color:C.t4,marginTop:8,fontWeight:500}}>{totSrc} total views</div>
           </div>
 
-          {/* Genres */}
           <div style={card}>
             <div style={{...lbl,marginBottom:20}}>Genre Popularity</div>
             {d.genres.length>0?d.genres.map((x,i)=>{
@@ -398,7 +383,6 @@ export default function AnalyticsDashboard() {
             }):<div style={{padding:'48px 0',textAlign:'center',fontSize:13,color:C.t4}}>No genre data yet</div>}
           </div>
 
-          {/* Funnel */}
           <div style={card}>
             <div style={{...lbl,marginBottom:20}}>Conversion Funnel</div>
             {[{l:'Sessions',v:d.totalSessions,c:C.blue,s:''},{l:'Event Views',v:d.eventViews,c:C.purple,s:`${d.evPerSession}/session`},{l:'Ticket Clicks',v:d.ticketClicks,c:C.green,s:`${d.cvr}% CVR`}].map((st,i,arr)=>(
@@ -423,7 +407,6 @@ export default function AnalyticsDashboard() {
 
         {/* ROW 4 */}
         <div className="bentoB" style={g('5fr 4fr 3fr')}>
-          {/* Top Events */}
           <div style={card}>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
               <span style={lbl}>Top Events</span><span style={{fontSize:10,color:C.t4,fontWeight:500}}>{tl[tr]}</span>
@@ -444,7 +427,6 @@ export default function AnalyticsDashboard() {
             )):<div style={{padding:'48px 0',textAlign:'center',fontSize:13,color:C.t4}}>No event data yet</div>}
           </div>
 
-          {/* Top Venues */}
           <div style={card}>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
               <span style={lbl}>Top Venues</span><span style={{fontSize:10,color:C.t4,fontWeight:500}}>{d.topVenues.length} venues</span>
@@ -460,7 +442,6 @@ export default function AnalyticsDashboard() {
             }):<div style={{padding:'48px 0',textAlign:'center',fontSize:13,color:C.t4}}>No venue data yet</div>}
           </div>
 
-          {/* Business */}
           <div style={card}>
             <div style={{...lbl,marginBottom:20}}>Business</div>
             {[{l:'Venue Claims Started',v:d.claimStarts,c:'#fff'},{l:'Claims Submitted',v:d.claimSubmits,c:C.green},{l:'User Sign-ups',v:d.signups,c:C.purple},{l:'Registered Accounts',v:d.registeredUsers,c:'#fff'}].map(m=>(
