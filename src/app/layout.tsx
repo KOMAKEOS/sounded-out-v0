@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     description: 'Discover the best nights out in Newcastle. Find gigs, clubs & events happening tonight and beyond.',
     images: [
       {
-        url: 'https://img.sanishtech.com/u/127ede17a1c32f4640393e99026b6dfb.png',
+        url: 'https://freeimage.host/i/fbeuqPV',
         width: 1200,
         height: 630,
         alt: 'Sounded Out - Newcastle Nightlife',
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Sounded Out | Newcastle Nightlife',
     description: 'Discover the best nights out in Newcastle.',
-    images: ['/og-image.png'],
+    images: ['https://freeimage.host/i/fbeuqPV'],
   },
   robots: {
     index: true,
