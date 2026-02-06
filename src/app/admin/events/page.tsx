@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import AdminLoginGate from '@/components/AdminLoginGate'
 
 // ============================================================================
 // TYPES
@@ -48,8 +49,6 @@ interface Event {
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-const PASSCODE = '1234'
-
 const PRESET_GENRES = [
   'techno', 'house', 'tech_house', 'disco', 'dnb', 'garage', 'bass', 
   'afrobeats', 'hip_hop', 'rnb', 'indie', 'rock', 'live', 'jazz',
@@ -103,13 +102,20 @@ const combineDateAndTime = (date: string, time: string): string => {
 }
 
 // ============================================================================
-// MAIN COMPONENT
+// WRAPPER WITH AUTH GATE
 // ============================================================================
 export default function AdminEventsPage() {
-  // Auth state
-  const [authenticated, setAuthenticated] = useState(false)
-  const [passcodeInput, setPasscodeInput] = useState('')
-  
+  return (
+    <AdminLoginGate>
+      <AdminEventsContent />
+    </AdminLoginGate>
+  )
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+function AdminEventsContent() {
   // Data state
   const [events, setEvents] = useState<Event[]>([])
   const [venues, setVenues] = useState<Venue[]>([])
@@ -172,19 +178,10 @@ export default function AdminEventsPage() {
   // Image upload state
   const [uploading, setUploading] = useState(false)
 
-  // Check session auth
+  // Load data on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('so_admin_auth')
-      if (saved === 'true') setAuthenticated(true)
-    }
-  }, [])
-
-  // Load data
-  useEffect(() => {
-    if (!authenticated) return
     loadData()
-  }, [authenticated])
+  }, [])
 
   // Save custom genres/vibes to localStorage
   useEffect(() => {
@@ -198,19 +195,16 @@ export default function AdminEventsPage() {
   const loadData = async () => {
     setLoading(true)
     
-    // Load events with venue and brand
     const { data: eventsData } = await supabase
       .from('events')
       .select('*, venue:venues(id, name), brand:brands(id, name, slug, is_verified)')
       .order('start_time', { ascending: false })
     
-    // Load venues
     const { data: venuesData } = await supabase
       .from('venues')
       .select('id, name')
       .order('name')
     
-    // Load brands
     const { data: brandsData } = await supabase
       .from('brands')
       .select('id, name, slug, is_verified')
@@ -221,16 +215,6 @@ export default function AdminEventsPage() {
     if (brandsData) setBrands(brandsData)
     
     setLoading(false)
-  }
-
-  const handlePasscode = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (passcodeInput === PASSCODE) {
-      setAuthenticated(true)
-      sessionStorage.setItem('so_admin_auth', 'true')
-    } else {
-      setError('Incorrect passcode')
-    }
   }
 
   const resetForm = () => {
@@ -324,7 +308,6 @@ export default function AdminEventsPage() {
       
       setForm({ ...form, image_url: urlData.publicUrl })
     } catch (err: any) {
-      console.error('Upload error:', err)
       setError('Image upload failed: ' + err.message)
     }
     
@@ -383,12 +366,10 @@ export default function AdminEventsPage() {
       return
     }
 
-    // Build start/end times
     let startTime = combineDateAndTime(form.start_date, form.start_time)
     let endTime = null
     
     if (form.end_time) {
-      // If end time is before start time, assume next day
       let endDate = form.end_date || form.start_date
       if (form.end_time < form.start_time && endDate === form.start_date) {
         const nextDay = new Date(form.start_date)
@@ -398,7 +379,6 @@ export default function AdminEventsPage() {
       endTime = combineDateAndTime(endDate, form.end_time)
     }
 
-    // Build event data
     const eventData = {
       venue_id: form.venue_id,
       brand_id: form.brand_id || null,
@@ -420,8 +400,6 @@ export default function AdminEventsPage() {
       sold_out: form.sold_out,
       no_phones: form.no_phones,
     }
-
-    console.log('Saving event:', eventData)
 
     try {
       if (editingEvent) {
@@ -445,13 +423,11 @@ export default function AdminEventsPage() {
       setShowForm(false)
       resetForm()
     } catch (err: any) {
-      console.error('Save error:', err)
       setError('Failed to save: ' + err.message)
     }
   }
 
   const handleDuplicate = async (event: Event) => {
-    // Create duplicate with +7 days
     const newStart = new Date(event.start_time)
     newStart.setDate(newStart.getDate() + 7)
     
@@ -510,7 +486,6 @@ export default function AdminEventsPage() {
     }
   }
 
-  // Filter events
   const filteredEvents = events.filter(event => {
     const now = new Date()
     const eventDate = new Date(event.start_time)
@@ -529,94 +504,6 @@ export default function AdminEventsPage() {
     
     return true
   })
-
-  // ============================================================================
-  // PASSCODE SCREEN
-  // ============================================================================
-  if (!authenticated) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#0a0a0b',
-        color: 'white',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-      }}>
-        <div style={{
-          width: '100%',
-          maxWidth: '340px',
-          background: '#141416',
-          borderRadius: '20px',
-          padding: '32px',
-        }}>
-          <h1 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px', textAlign: 'center' }}>
-            🔐 Admin Access
-          </h1>
-          <p style={{ fontSize: '13px', color: '#888', marginBottom: '24px', textAlign: 'center' }}>
-            Enter passcode to continue
-          </p>
-          
-          {error && (
-            <div style={{
-              padding: '12px',
-              background: 'rgba(248,113,113,0.15)',
-              borderRadius: '10px',
-              marginBottom: '16px',
-              fontSize: '13px',
-              color: '#f87171',
-              textAlign: 'center',
-            }}>
-              {error}
-            </div>
-          )}
-          
-          <form onSubmit={handlePasscode}>
-            <input
-              type="password"
-              value={passcodeInput}
-              onChange={(e) => setPasscodeInput(e.target.value)}
-              placeholder="Enter passcode"
-              autoFocus
-              style={{
-                width: '100%',
-                padding: '14px',
-                background: '#1e1e24',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '10px',
-                color: 'white',
-                fontSize: '16px',
-                textAlign: 'center',
-                letterSpacing: '4px',
-                marginBottom: '16px',
-              }}
-            />
-            <button
-              type="submit"
-              style={{
-                width: '100%',
-                padding: '14px',
-                background: '#ab67f7',
-                border: 'none',
-                borderRadius: '10px',
-                color: 'white',
-                fontSize: '15px',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Enter
-            </button>
-          </form>
-          
-          <Link href="/admin" style={{ display: 'block', textAlign: 'center', marginTop: '16px', fontSize: '13px', color: '#666' }}>
-            ← Back to Hub
-          </Link>
-        </div>
-      </div>
-    )
-  }
 
   // ============================================================================
   // MAIN ADMIN UI
@@ -758,7 +645,6 @@ export default function AdminEventsPage() {
                   gap: '16px',
                 }}
               >
-                {/* Thumbnail */}
                 {event.image_url ? (
                   <img
                     src={event.image_url}
@@ -781,7 +667,6 @@ export default function AdminEventsPage() {
                   </div>
                 )}
                 
-                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '15px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -792,7 +677,6 @@ export default function AdminEventsPage() {
                     {event.is_verified && <span style={{ fontSize: '10px', background: '#22c55e', padding: '2px 6px', borderRadius: '4px' }}>VERIFIED</span>}
                   </div>
                   
-                  {/* Brand attribution */}
                   {event.brand && (
                     <p style={{ fontSize: '12px', color: '#ab67f7', marginBottom: '2px' }}>
                       by {event.brand.name} {event.brand.is_verified && '✓'}
@@ -828,7 +712,6 @@ export default function AdminEventsPage() {
                   </div>
                 </div>
                 
-                {/* Actions */}
                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                   <button
                     onClick={() => openEditForm(event)}
@@ -941,565 +824,175 @@ export default function AdminEventsPage() {
             <form onSubmit={handleSubmit}>
               {/* Venue Selection */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                  Venue *
-                </label>
-                <select
-                  required
-                  value={form.venue_id}
-                  onChange={(e) => setForm({ ...form, venue_id: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: '#141416',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    fontSize: '14px',
-                  }}
-                >
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>Venue *</label>
+                <select required value={form.venue_id} onChange={(e) => setForm({ ...form, venue_id: e.target.value })} style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px' }}>
                   <option value="">Select venue...</option>
-                  {venues.map((v) => (
-                    <option key={v.id} value={v.id}>{v.name}</option>
-                  ))}
+                  {venues.map((v) => (<option key={v.id} value={v.id}>{v.name}</option>))}
                 </select>
               </div>
 
-              {/* ============================================ */}
-              {/* BRAND SELECTION - KEY FEATURE */}
-              {/* ============================================ */}
+              {/* Brand Selection */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#ab67f7', marginBottom: '6px', fontWeight: 600 }}>
-                  🎵 Brand / Promoter
-                </label>
-                <select
-                  value={form.brand_id}
-                  onChange={(e) => setForm({ ...form, brand_id: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: '#141416',
-                    border: '1px solid rgba(171,103,247,0.3)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    fontSize: '14px',
-                  }}
-                >
+                <label style={{ display: 'block', fontSize: '12px', color: '#ab67f7', marginBottom: '6px', fontWeight: 600 }}>🎵 Brand / Promoter</label>
+                <select value={form.brand_id} onChange={(e) => setForm({ ...form, brand_id: e.target.value })} style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(171,103,247,0.3)', borderRadius: '10px', color: 'white', fontSize: '14px' }}>
                   <option value="">No brand (venue event)</option>
-                  {brands.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} {b.is_verified ? '✓' : ''}
-                    </option>
-                  ))}
+                  {brands.map((b) => (<option key={b.id} value={b.id}>{b.name} {b.is_verified ? '✓' : ''}</option>))}
                 </select>
-                <p style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                  Shows "by Underground Sound" on event cards
-                </p>
+                <p style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>Shows &quot;by Underground Sound&quot; on event cards</p>
               </div>
 
               {/* Title */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                  Event Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder="SHINDIG"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: '#141416',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    fontSize: '14px',
-                  }}
-                />
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>Event Title *</label>
+                <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="SHINDIG" style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px' }} />
               </div>
 
-              {/* Date/Time - FULLY EDITABLE */}
+              {/* Date/Time */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                    Start Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={form.start_date}
-                    onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: '#141416',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '10px',
-                      color: 'white',
-                      fontSize: '14px',
-                    }}
-                  />
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>Start Date *</label>
+                  <input type="date" required value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px' }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                    Start Time *
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={form.start_time}
-                    onChange={(e) => setForm({ ...form, start_time: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: '#141416',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '10px',
-                      color: 'white',
-                      fontSize: '14px',
-                    }}
-                  />
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>Start Time *</label>
+                  <input type="time" required value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px' }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                    End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={form.end_date}
-                    onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: '#141416',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '10px',
-                      color: 'white',
-                      fontSize: '14px',
-                    }}
-                  />
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>End Date</label>
+                  <input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px' }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                    End Time
-                  </label>
-                  <input
-                    type="time"
-                    value={form.end_time}
-                    onChange={(e) => setForm({ ...form, end_time: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: '#141416',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '10px',
-                      color: 'white',
-                      fontSize: '14px',
-                    }}
-                  />
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>End Time</label>
+                  <input type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px' }} />
                 </div>
               </div>
 
-              {/* ============================================ */}
-              {/* PRICE TYPE SYSTEM */}
-              {/* ============================================ */}
+              {/* Price Type */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px' }}>
-                  Price Type
-                </label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px' }}>Price Type</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   {PRICE_TYPES.map((pt) => (
-                    <button
-                      key={pt.value}
-                      type="button"
-                      onClick={() => setForm({ ...form, price_type: pt.value })}
-                      style={{
-                        padding: '12px',
-                        background: form.price_type === pt.value ? 'rgba(171,103,247,0.2)' : '#141416',
-                        border: form.price_type === pt.value ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '10px',
-                        color: form.price_type === pt.value ? '#ab67f7' : '#888',
-                        fontSize: '13px',
-                        fontWeight: form.price_type === pt.value ? 600 : 400,
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                    >
+                    <button key={pt.value} type="button" onClick={() => setForm({ ...form, price_type: pt.value })} style={{ padding: '12px', background: form.price_type === pt.value ? 'rgba(171,103,247,0.2)' : '#141416', border: form.price_type === pt.value ? '2px solid #ab67f7' : '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: form.price_type === pt.value ? '#ab67f7' : '#888', fontSize: '13px', fontWeight: form.price_type === pt.value ? 600 : 400, cursor: 'pointer', textAlign: 'left' }}>
                       {pt.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Price inputs (conditional) */}
               {form.price_type === 'paid' && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                      Min Price (£)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={form.price_min}
-                      onChange={(e) => setForm({ ...form, price_min: e.target.value })}
-                      placeholder="5.00"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        background: '#141416',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '10px',
-                        color: 'white',
-                        fontSize: '14px',
-                      }}
-                    />
+                    <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>Min Price (£)</label>
+                    <input type="number" step="0.01" value={form.price_min} onChange={(e) => setForm({ ...form, price_min: e.target.value })} placeholder="5.00" style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px' }} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                      Max Price (£)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={form.price_max}
-                      onChange={(e) => setForm({ ...form, price_max: e.target.value })}
-                      placeholder="15.00"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        background: '#141416',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '10px',
-                        color: 'white',
-                        fontSize: '14px',
-                      }}
-                    />
+                    <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>Max Price (£)</label>
+                    <input type="number" step="0.01" value={form.price_max} onChange={(e) => setForm({ ...form, price_max: e.target.value })} placeholder="15.00" style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px' }} />
                   </div>
                 </div>
               )}
 
-              {/* Free before time (conditional) */}
               {form.price_type === 'free_before' && (
                 <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                    Free Before Time
-                  </label>
-                  <input
-                    type="text"
-                    value={form.free_before_time}
-                    onChange={(e) => setForm({ ...form, free_before_time: e.target.value })}
-                    placeholder="11pm"
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: '#141416',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '10px',
-                      color: 'white',
-                      fontSize: '14px',
-                    }}
-                  />
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>Free Before Time</label>
+                  <input type="text" value={form.free_before_time} onChange={(e) => setForm({ ...form, free_before_time: e.target.value })} placeholder="11pm" style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px' }} />
                 </div>
               )}
 
               {/* Ticket URL & Source */}
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                    Ticket URL
-                  </label>
-                  <input
-                    type="url"
-                    value={form.event_url}
-                    onChange={(e) => setForm({ ...form, event_url: e.target.value })}
-                    placeholder="https://ra.co/events/..."
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: '#141416',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '10px',
-                      color: 'white',
-                      fontSize: '14px',
-                    }}
-                  />
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>Ticket URL</label>
+                  <input type="url" value={form.event_url} onChange={(e) => setForm({ ...form, event_url: e.target.value })} placeholder="https://ra.co/events/..." style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px' }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                    🎫 Source
-                  </label>
-                  <select
-                    value={form.ticket_source}
-                    onChange={(e) => setForm({ ...form, ticket_source: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: '#141416',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '10px',
-                      color: 'white',
-                      fontSize: '14px',
-                    }}
-                  >
-                    {TICKET_SOURCES.map((ts) => (
-                      <option key={ts.value} value={ts.value}>{ts.label}</option>
-                    ))}
+                  <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>🎫 Source</label>
+                  <select value={form.ticket_source} onChange={(e) => setForm({ ...form, ticket_source: e.target.value })} style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px' }}>
+                    {TICKET_SOURCES.map((ts) => (<option key={ts.value} value={ts.value}>{ts.label}</option>))}
                   </select>
                 </div>
               </div>
 
               {/* Image Upload */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                  Event Image
-                </label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>Event Image</label>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={uploading}
-                    style={{ flex: 1 }}
-                  />
+                  <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} style={{ flex: 1 }} />
                   {form.image_url && (
                     <>
                       <img src={form.image_url} alt="" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px' }} />
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, image_url: '' })}
-                        style={{
-                          padding: '8px',
-                          background: 'rgba(248,113,113,0.15)',
-                          border: 'none',
-                          borderRadius: '6px',
-                          color: '#f87171',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ✕
-                      </button>
+                      <button type="button" onClick={() => setForm({ ...form, image_url: '' })} style={{ padding: '8px', background: 'rgba(248,113,113,0.15)', border: 'none', borderRadius: '6px', color: '#f87171', cursor: 'pointer' }}>✕</button>
                     </>
                   )}
                 </div>
                 {uploading && <p style={{ fontSize: '12px', color: '#ab67f7', marginTop: '6px' }}>Uploading...</p>}
               </div>
 
-              {/* Genres - Multi-select */}
+              {/* Genres */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px' }}>
-                  Genres (click to select)
-                </label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px' }}>Genres (click to select)</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
                   {[...PRESET_GENRES, ...customGenres].map((genre) => (
-                    <button
-                      key={genre}
-                      type="button"
-                      onClick={() => toggleGenre(genre)}
-                      style={{
-                        padding: '8px 12px',
-                        background: form.genres.includes(genre) ? '#ab67f7' : '#141416',
-                        border: form.genres.includes(genre) ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '6px',
-                        color: form.genres.includes(genre) ? 'white' : '#888',
-                        fontSize: '12px',
-                        fontWeight: form.genres.includes(genre) ? 600 : 400,
-                        cursor: 'pointer',
-                      }}
-                    >
+                    <button key={genre} type="button" onClick={() => toggleGenre(genre)} style={{ padding: '8px 12px', background: form.genres.includes(genre) ? '#ab67f7' : '#141416', border: form.genres.includes(genre) ? 'none' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: form.genres.includes(genre) ? 'white' : '#888', fontSize: '12px', fontWeight: form.genres.includes(genre) ? 600 : 400, cursor: 'pointer' }}>
                       {formatGenre(genre)}
                     </button>
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    value={newGenre}
-                    onChange={(e) => setNewGenre(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomGenre())}
-                    placeholder="Add custom genre..."
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      background: '#141416',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '6px',
-                      color: 'white',
-                      fontSize: '12px',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={addCustomGenre}
-                    style={{
-                      padding: '8px 16px',
-                      background: 'rgba(171,103,247,0.15)',
-                      border: 'none',
-                      borderRadius: '6px',
-                      color: '#ab67f7',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Add
-                  </button>
+                  <input type="text" value={newGenre} onChange={(e) => setNewGenre(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomGenre())} placeholder="Add custom genre..." style={{ flex: 1, padding: '8px 12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: 'white', fontSize: '12px' }} />
+                  <button type="button" onClick={addCustomGenre} style={{ padding: '8px 16px', background: 'rgba(171,103,247,0.15)', border: 'none', borderRadius: '6px', color: '#ab67f7', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Add</button>
                 </div>
               </div>
 
-              {/* Vibes - Multi-select */}
+              {/* Vibes */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px' }}>
-                  Vibes (click to select)
-                </label>
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px' }}>Vibes (click to select)</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
                   {[...PRESET_VIBES, ...customVibes].map((vibe) => (
-                    <button
-                      key={vibe}
-                      type="button"
-                      onClick={() => toggleVibe(vibe)}
-                      style={{
-                        padding: '8px 12px',
-                        background: form.vibes.includes(vibe) ? '#3b82f6' : '#141416',
-                        border: form.vibes.includes(vibe) ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '6px',
-                        color: form.vibes.includes(vibe) ? 'white' : '#888',
-                        fontSize: '12px',
-                        fontWeight: form.vibes.includes(vibe) ? 600 : 400,
-                        cursor: 'pointer',
-                      }}
-                    >
+                    <button key={vibe} type="button" onClick={() => toggleVibe(vibe)} style={{ padding: '8px 12px', background: form.vibes.includes(vibe) ? '#3b82f6' : '#141416', border: form.vibes.includes(vibe) ? 'none' : '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: form.vibes.includes(vibe) ? 'white' : '#888', fontSize: '12px', fontWeight: form.vibes.includes(vibe) ? 600 : 400, cursor: 'pointer' }}>
                       {vibe.replace(/-/g, ' ')}
                     </button>
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    value={newVibe}
-                    onChange={(e) => setNewVibe(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomVibe())}
-                    placeholder="Add custom vibe..."
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      background: '#141416',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '6px',
-                      color: 'white',
-                      fontSize: '12px',
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={addCustomVibe}
-                    style={{
-                      padding: '8px 16px',
-                      background: 'rgba(59,130,246,0.15)',
-                      border: 'none',
-                      borderRadius: '6px',
-                      color: '#3b82f6',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Add
-                  </button>
+                  <input type="text" value={newVibe} onChange={(e) => setNewVibe(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomVibe())} placeholder="Add custom vibe..." style={{ flex: 1, padding: '8px 12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: 'white', fontSize: '12px' }} />
+                  <button type="button" onClick={addCustomVibe} style={{ padding: '8px 16px', background: 'rgba(59,130,246,0.15)', border: 'none', borderRadius: '6px', color: '#3b82f6', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Add</button>
                 </div>
               </div>
 
               {/* Description */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                  Description
-                </label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  rows={4}
-                  placeholder="Event description..."
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: '#141416',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    fontSize: '14px',
-                    resize: 'vertical',
-                  }}
-                />
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>Description</label>
+                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} placeholder="Event description..." style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px', resize: 'vertical' }} />
               </div>
 
               {/* Toggles */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={form.so_pick}
-                    onChange={(e) => setForm({ ...form, so_pick: e.target.checked })}
-                  />
+                  <input type="checkbox" checked={form.so_pick} onChange={(e) => setForm({ ...form, so_pick: e.target.checked })} />
                   <span style={{ fontSize: '13px', color: '#ab67f7' }}>⭐ SO Pick</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={form.sold_out}
-                    onChange={(e) => setForm({ ...form, sold_out: e.target.checked })}
-                  />
+                  <input type="checkbox" checked={form.sold_out} onChange={(e) => setForm({ ...form, sold_out: e.target.checked })} />
                   <span style={{ fontSize: '13px', color: '#f87171' }}>🎟️ Sold Out</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={form.no_phones}
-                    onChange={(e) => setForm({ ...form, no_phones: e.target.checked })}
-                  />
+                  <input type="checkbox" checked={form.no_phones} onChange={(e) => setForm({ ...form, no_phones: e.target.checked })} />
                   <span style={{ fontSize: '13px', color: '#ffc832' }}>📵 No Cameras</span>
                 </label>
               </div>
 
               {/* Status */}
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                  Status
-                </label>
-                <select
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: '#141416',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    fontSize: '14px',
-                  }}
-                >
+                <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '6px' }}>Status</label>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} style={{ width: '100%', padding: '12px', background: '#141416', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: 'white', fontSize: '14px' }}>
                   <option value="published">Published</option>
                   <option value="draft">Draft</option>
                 </select>
               </div>
 
               {/* Submit */}
-              <button
-                type="submit"
-                style={{
-                  width: '100%',
-                  padding: '16px',
-                  background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  color: 'white',
-                  fontSize: '16px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
+              <button type="submit" style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #ab67f7, #d7b3ff)', border: 'none', borderRadius: '12px', color: 'white', fontSize: '16px', fontWeight: 700, cursor: 'pointer' }}>
                 {editingEvent ? 'Update Event' : 'Create Event'}
               </button>
             </form>
