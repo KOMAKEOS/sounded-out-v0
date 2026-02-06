@@ -93,34 +93,65 @@ export default function AnalyticsDashboard() {
     try {
       const now = new Date()
       const db = tr === 'today' ? 0 : tr === '7days' ? 7 : tr === '30days' ? 30 : 365
-      const sd = new Date(now); sd.setDate(sd.getDate() - db); const si = sd.toISOString()
-      const ps = new Date(sd); ps.setDate(ps.getDate() - Math.max(db, 1))
+      
+      // Get start date for current period
+      const sd = new Date(now)
+      if (tr === 'today') {
+        sd.setHours(0, 0, 0, 0) // Start of today
+      } else {
+        sd.setDate(sd.getDate() - db)
+      }
+      const si = sd.toISOString()
+      
+      // Get previous period for comparison
+      const ps = new Date(sd)
+      ps.setDate(ps.getDate() - Math.max(db, 1))
+      
+      // Get end date for "today" filter
+      const ed = tr === 'today' ? new Date(now) : null
+      if (ed) ed.setHours(23, 59, 59, 999)
 
-      const [sR, iR, uR, bR, mR, shR, pR, pvR] = await Promise.all([
-        supabase.from('analytics_events').select('*').eq('event_name', 'session_start').gte('created_at', si),
-        supabase.from('event_interactions').select('*').gte('created_at', si),
-        supabase.from('user_sessions').select('*').gte('created_at', si),
-        supabase.from('business_metrics').select('*').gte('created_at', si),
-        supabase.from('map_interactions').select('*').gte('created_at', si),
-        supabase.from('analytics_events').select('*').eq('event_name', 'share_click').gte('created_at', si),
+      // Fetch with higher limits + proper counts
+      const [sR, sCount, iR, uR, bR, mR, shR, pR, pvR] = await Promise.all([
+        supabase.from('analytics_events').select('*').eq('event_name', 'session_start').gte('created_at', si).limit(50000),
+        supabase.from('analytics_events').select('*', { count: 'exact', head: true }).eq('event_name', 'session_start').gte('created_at', si),
+        supabase.from('event_interactions').select('*').gte('created_at', si).limit(50000),
+        supabase.from('user_sessions').select('*').gte('created_at', si).limit(50000),
+        supabase.from('business_metrics').select('*').gte('created_at', si).limit(50000),
+        supabase.from('map_interactions').select('*').gte('created_at', si).limit(50000),
+        supabase.from('analytics_events').select('*').eq('event_name', 'share_click').gte('created_at', si).limit(50000),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
-        supabase.from('analytics_events').select('session_id,user_id').eq('event_name', 'session_start').gte('created_at', ps.toISOString()).lt('created_at', si),
+        supabase.from('analytics_events').select('session_id,user_id,created_at').eq('event_name', 'session_start').gte('created_at', ps.toISOString()).lt('created_at', si).limit(50000),
       ])
 
-      const sess = sR.data||[], ints = iR.data||[], uSess = uR.data||[], biz = bR.data||[]
-      const maps = mR.data||[], shs = shR.data||[], prev = pvR.data||[]
+      const sess = sR.data || []
+      const ints = iR.data || []
+      const uSess = uR.data || []
+      const biz = bR.data || []
+      const maps = mR.data || []
+      const shs = shR.data || []
+      const prev = pvR.data || []
 
-      const ts = sess.length, td = new Date().toDateString()
-      const tds = sess.filter(s => new Date(s.created_at).toDateString() === td).length
+      // Use count for total sessions (avoids 1000 cap)
+      const ts = sCount.count || 0
+      
+      // Today's sessions - fix timezone comparison
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+      const tds = sess.filter(s => new Date(s.created_at) >= todayStart).length
+      
+      // Unique users
       const uids = new Set(sess.map(s => s.user_id || s.session_id))
       const uu = uids.size
-      const tu = new Set(sess.filter(s => new Date(s.created_at).toDateString() === td).map(s => s.user_id || s.session_id)).size
+      const tu = new Set(sess.filter(s => new Date(s.created_at) >= todayStart).map(s => s.user_id || s.session_id)).size
       const reg = pR.count || 0
 
+      // Returning users
       const uc: Record<string, number> = {}
       sess.forEach(s => { const u = s.user_id || s.session_id; uc[u] = (uc[u]||0)+1 })
       const ret = Object.values(uc).filter(c => c > 1).length
 
+      // Event interactions
       const ev = ints.filter(i => i.interaction_type === 'view').length
       const tc = ints.filter(i => i.interaction_type === 'ticket_click').length
       const dir = ints.filter(i => i.interaction_type === 'directions').length
@@ -129,6 +160,7 @@ export default function AnalyticsDashboard() {
       const cvr = ev > 0 ? (tc/ev)*100 : 0
       const eps = ts > 0 ? ev/ts : 0
 
+      // Session depth
       const vd = uSess.filter(s => s.duration_seconds > 0)
       const ad = vd.length > 0 ? vd.reduce((a,s) => a + s.duration_seconds, 0) / vd.length : 0
       const vp = uSess.filter(s => s.page_views > 0)
@@ -136,16 +168,20 @@ export default function AnalyticsDashboard() {
       const ve = uSess.filter(s => s.events_viewed > 0)
       const ae = ve.length > 0 ? ve.reduce((a,s) => a + s.events_viewed, 0) / ve.length : 0
 
+      // Devices
       const devs = { mobile: 0, tablet: 0, desktop: 0 }
       sess.forEach(s => { const t = (s.device_type||'desktop') as keyof typeof devs; if (devs[t]!==undefined) devs[t]++ })
 
+      // Discovery sources
       const srcs = { map: 0, list: 0, search: 0, direct: 0, swipe: 0 }
       ints.filter(i => i.interaction_type === 'view').forEach(i => { const s = (i.source||'direct') as keyof typeof srcs; if (srcs[s]!==undefined) srcs[s]++ })
 
+      // Genres
       const gc: Record<string,number> = {}
       ints.filter(i => i.genre_primary).forEach(i => { gc[i.genre_primary] = (gc[i.genre_primary]||0)+1 })
       const genres = Object.entries(gc).sort((a,b) => b[1]-a[1]).slice(0,6).map(([l,v]) => ({l,v}))
 
+      // Top events
       const em: Record<string,any> = {}
       ints.filter(i => i.interaction_type === 'view').forEach(i => {
         const k = `${i.event_id}-${i.event_title}`
@@ -155,18 +191,23 @@ export default function AnalyticsDashboard() {
       ints.filter(i => i.interaction_type === 'ticket_click').forEach(i => { const k = `${i.event_id}-${i.event_title}`; if (em[k]) em[k].clicks++ })
       const topEv = Object.values(em).sort((a:any,b:any) => b.views-a.views).slice(0,5)
 
+      // Top venues
       const vm: Record<string,any> = {}
       ints.forEach(i => { if (i.venue_name) { if (!vm[i.venue_name]) vm[i.venue_name] = { n: i.venue_name, v: 0 }; vm[i.venue_name].v++ } })
       const topVn = Object.values(vm).sort((a:any,b:any) => b.v-a.v).slice(0,5)
 
+      // Business metrics
       const cs = biz.filter(b => b.metric_type === 'claim_start').length
       const csb = biz.filter(b => b.metric_type === 'claim_submit').length
       const su = biz.filter(b => b.metric_type === 'signup').length
       const ml = maps.filter(m => m.interaction_type === 'load').length
       const mc = maps.filter(m => m.interaction_type === 'marker_click').length
 
-      const ph = Array(24).fill(0); sess.forEach(s => { ph[new Date(s.created_at).getHours()]++ })
+      // Peak hours
+      const ph = Array(24).fill(0)
+      sess.forEach(s => { ph[new Date(s.created_at).getHours()]++ })
 
+      // Daily breakdown
       const nd = Math.max(db,1), dB: Record<string,number>={}, vB: Record<string,number>={}
       for (let i=0;i<nd;i++) { const dt = new Date(now); dt.setDate(dt.getDate()-(nd-1-i)); const k=dt.toISOString().split('T')[0]; dB[k]=0; vB[k]=0 }
       sess.forEach(s => { const k=new Date(s.created_at).toISOString().split('T')[0]; if(dB[k]!==undefined) dB[k]++ })
@@ -182,7 +223,9 @@ export default function AnalyticsDashboard() {
         peakHours:ph, dailyS:Object.values(dB), dailyV:Object.values(vB),
         prevS:prev.length, prevU:new Set(prev.map(s=>s.user_id||s.session_id)).size,
       })
-    } catch(e) { console.error('Analytics error:',e) }
+    } catch(e) { 
+      console.error('Analytics error:',e) 
+    }
     finally { setLoading(false) }
   }
 
@@ -259,7 +302,7 @@ export default function AnalyticsDashboard() {
                 {h.growth!==undefined && <span style={{fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:8,background:h.growth>0?'rgba(52,211,153,0.12)':h.growth<0?'rgba(248,113,113,0.12)':'rgba(255,255,255,0.05)',color:h.growth>0?C.green:h.growth<0?C.red:C.t3}}>{h.growth>0?'↑':h.growth<0?'↓':'–'} {Math.abs(h.growth)}%</span>}
               </div>
               <div>
-                <div style={{fontSize:48,fontWeight:800,letterSpacing:'-0.04em',lineHeight:1}}>{h.val}{h.suffix && <span style={{fontSize:22,fontWeight:700,color:'rgba(255,255,255,0.3)',marginLeft:4}}>{h.suffix}</span>}</div>
+                <div style={{fontSize:48,fontWeight:800,letterSpacing:'-0.04em',lineHeight:1}}>{h.val.toLocaleString()}{h.suffix && <span style={{fontSize:22,fontWeight:700,color:'rgba(255,255,255,0.3)',marginLeft:4}}>{h.suffix}</span>}</div>
                 <div style={{fontSize:11,color:C.t3,marginTop:8,fontWeight:500}}>{h.sub}</div>
               </div>
             </div>
