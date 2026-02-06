@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import AdminLoginGate from '@/components/AdminLoginGate'
 
 interface Venue {
   id: string
@@ -21,13 +22,15 @@ interface Venue {
   created_at: string
 }
 
-const ADMIN_PASSCODE = '6521'
-
 export default function AdminVenuesPage() {
-  const [passcodeEntered, setPasscodeEntered] = useState(false)
-  const [passcodeInput, setPasscodeInput] = useState('')
-  const [passcodeError, setPasscodeError] = useState(false)
+  return (
+    <AdminLoginGate>
+      <AdminVenuesContent />
+    </AdminLoginGate>
+  )
+}
 
+function AdminVenuesContent() {
   const [venues, setVenues] = useState<Venue[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -54,31 +57,8 @@ export default function AdminVenuesPage() {
   })
 
   useEffect(() => {
-    const savedAccess = sessionStorage.getItem('so_admin_access')
-    if (savedAccess === 'granted') {
-      setPasscodeEntered(true)
-    }
+    loadVenues()
   }, [])
-
-  useEffect(() => {
-    if (passcodeEntered) {
-      loadVenues()
-    } else {
-      setLoading(false)
-    }
-  }, [passcodeEntered])
-
-  const handlePasscodeSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (passcodeInput === ADMIN_PASSCODE) {
-      setPasscodeEntered(true)
-      setPasscodeError(false)
-      sessionStorage.setItem('so_admin_access', 'granted')
-    } else {
-      setPasscodeError(true)
-      setPasscodeInput('')
-    }
-  }
 
   const loadVenues = async () => {
     setLoading(true)
@@ -252,76 +232,6 @@ export default function AdminVenuesPage() {
     }
   }
 
-  // PASSCODE SCREEN
-  if (!passcodeEntered) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#000',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px'
-      }}>
-        <form onSubmit={handlePasscodeSubmit} style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '16px',
-          padding: '40px',
-          maxWidth: '320px',
-          width: '100%',
-          textAlign: 'center'
-        }}>
-          <h1 style={{ color: '#fff', fontSize: '24px', marginBottom: '8px' }}>
-            🔐 Admin Access
-          </h1>
-          <p style={{ color: '#888', fontSize: '14px', marginBottom: '24px' }}>
-            Enter passcode to continue
-          </p>
-          <input
-            type="password"
-            value={passcodeInput}
-            onChange={(e) => setPasscodeInput(e.target.value)}
-            placeholder="Enter passcode"
-            maxLength={4}
-            style={{
-              width: '100%',
-              padding: '16px',
-              fontSize: '24px',
-              textAlign: 'center',
-              letterSpacing: '8px',
-              background: 'rgba(255,255,255,0.05)',
-              border: passcodeError ? '2px solid #f87171' : '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px',
-              color: '#fff',
-              marginBottom: '16px',
-              outline: 'none'
-            }}
-          />
-          {passcodeError && (
-            <p style={{ color: '#f87171', fontSize: '14px', marginBottom: '16px' }}>
-              Incorrect passcode
-            </p>
-          )}
-          <button type="submit" style={{
-            width: '100%',
-            padding: '14px',
-            background: '#ab67f7',
-            border: 'none',
-            borderRadius: '10px',
-            color: '#fff',
-            fontSize: '16px',
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}>
-            Enter
-          </button>
-        </form>
-      </div>
-    )
-  }
-
-  // MAIN UI
   return (
     <div style={{ minHeight: '100vh', background: '#000', color: '#fff' }}>
       <header style={{
@@ -647,167 +557,51 @@ export default function AdminVenuesPage() {
               {/* Coordinates */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                    Latitude
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.lat}
-                    onChange={(e) => setFormData(prev => ({ ...prev, lat: e.target.value }))}
-                    placeholder="e.g. 54.9783"
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
-                    }}
-                  />
+                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Latitude</label>
+                  <input type="text" value={formData.lat} onChange={(e) => setFormData(prev => ({ ...prev, lat: e.target.value }))} placeholder="e.g. 54.9783" style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '14px' }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                    Longitude
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.lng}
-                    onChange={(e) => setFormData(prev => ({ ...prev, lng: e.target.value }))}
-                    placeholder="e.g. -1.6178"
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
-                    }}
-                  />
+                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Longitude</label>
+                  <input type="text" value={formData.lng} onChange={(e) => setFormData(prev => ({ ...prev, lng: e.target.value }))} placeholder="e.g. -1.6178" style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '14px' }} />
                 </div>
               </div>
 
               {/* Description */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  rows={3}
-                  placeholder="About this venue..."
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px',
-                    resize: 'vertical'
-                  }}
-                />
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Description</label>
+                <textarea value={formData.description} onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} rows={3} placeholder="About this venue..." style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '14px', resize: 'vertical' }} />
               </div>
 
               {/* Deals */}
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                  Current Deals
-                </label>
-                <input
-                  type="text"
-                  value={formData.deals}
-                  onChange={(e) => setFormData(prev => ({ ...prev, deals: e.target.value }))}
-                  placeholder="e.g. £3 drinks before 11pm"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px'
-                  }}
-                />
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Current Deals</label>
+                <input type="text" value={formData.deals} onChange={(e) => setFormData(prev => ({ ...prev, deals: e.target.value }))} placeholder="e.g. £3 drinks before 11pm" style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '14px' }} />
               </div>
 
               {/* Social Links */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                    Instagram URL
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.instagram_url}
-                    onChange={(e) => setFormData(prev => ({ ...prev, instagram_url: e.target.value }))}
-                    placeholder="https://instagram.com/..."
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
-                    }}
-                  />
+                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Instagram URL</label>
+                  <input type="url" value={formData.instagram_url} onChange={(e) => setFormData(prev => ({ ...prev, instagram_url: e.target.value }))} placeholder="https://instagram.com/..." style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '14px' }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                    Website URL
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.website_url}
-                    onChange={(e) => setFormData(prev => ({ ...prev, website_url: e.target.value }))}
-                    placeholder="https://..."
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                      fontSize: '14px'
-                    }}
-                  />
+                  <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Website URL</label>
+                  <input type="url" value={formData.website_url} onChange={(e) => setFormData(prev => ({ ...prev, website_url: e.target.value }))} placeholder="https://..." style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '14px' }} />
                 </div>
               </div>
 
               {/* No Phones Toggle */}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={formData.no_phones}
-                    onChange={(e) => setFormData(prev => ({ ...prev, no_phones: e.target.checked }))}
-                    style={{ width: '18px', height: '18px' }}
-                  />
+                  <input type="checkbox" checked={formData.no_phones} onChange={(e) => setFormData(prev => ({ ...prev, no_phones: e.target.checked }))} style={{ width: '18px', height: '18px' }} />
                   <span style={{ fontSize: '14px' }}>📵 No Phones Policy</span>
                 </label>
               </div>
 
               {/* Status */}
               <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>
-                  Status
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    fontSize: '14px'
-                  }}
-                >
+                <label style={{ display: 'block', fontSize: '13px', color: '#888', marginBottom: '6px' }}>Status</label>
+                <select value={formData.status} onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))} style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', fontSize: '14px' }}>
                   <option value="active" style={{ background: '#111' }}>Active</option>
                   <option value="inactive" style={{ background: '#111' }}>Inactive</option>
                   <option value="pending" style={{ background: '#111' }}>Pending</option>
@@ -816,38 +610,11 @@ export default function AdminVenuesPage() {
 
               {/* Actions */}
               <div style={{ display: 'flex', gap: '12px' }}>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  style={{
-                    flex: 1,
-                    padding: '14px',
-                    background: saving ? '#444' : '#22c55e',
-                    border: 'none',
-                    borderRadius: '10px',
-                    color: '#fff',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    cursor: saving ? 'not-allowed' : 'pointer'
-                  }}
-                >
+                <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '14px', background: saving ? '#444' : '#22c55e', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '14px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
                   {saving ? 'Saving...' : (isCreating ? 'Create Venue' : 'Save Changes')}
                 </button>
                 {!isCreating && (
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    style={{
-                      padding: '14px 16px',
-                      background: 'rgba(248,113,113,0.15)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      color: '#f87171',
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      cursor: 'pointer'
-                    }}
-                  >
+                  <button type="button" onClick={handleDelete} style={{ padding: '14px 16px', background: 'rgba(248,113,113,0.15)', border: 'none', borderRadius: '10px', color: '#f87171', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
                     🗑️
                   </button>
                 )}
