@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 // ==========================================================================
 // /app/api/admin/auth/route.ts
 // SERVER-SIDE ADMIN AUTHENTICATION
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
 
     const correctHash = process.env.ADMIN_CODE_HASH
     if (!correctHash) {
-      console.error('[ADMIN AUTH] ADMIN_CODE_HASH not set in environment variables')
+      console.error("[ADMIN AUTH] ENV KEYS:", JSON.stringify(Object.keys(process.env).filter(k => k.includes("ADMIN"))))
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
     }
 

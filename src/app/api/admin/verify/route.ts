@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 // ==========================================================================
 // /app/api/admin/verify/route.ts
 // Verifies whether the current admin session is valid.
