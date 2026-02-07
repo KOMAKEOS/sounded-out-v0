@@ -10,7 +10,7 @@ import { createHash } from 'crypto'
 
 export async function GET() {
   try {
-    const cookieStore = await cookies()
+    const cookieStore = cookies()
     const session = cookieStore.get('admin_session')
     const expiry = cookieStore.get('admin_session_expiry')
     const sig = cookieStore.get('admin_session_sig')

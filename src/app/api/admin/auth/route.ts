@@ -111,7 +111,7 @@ export async function POST(request: Request) {
       .update(sessionToken + sessionExpiry.toString() + sessionSecret)
       .digest('hex')
 
-    const cookieStore = await cookies()
+    const cookieStore = cookies()
 
     cookieStore.set('admin_session', sessionToken, {
       httpOnly: true,
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
 
 // ── DELETE: Logout ──────────────────────────────────────────────────────
 export async function DELETE() {
-  const cookieStore = await cookies()
+  const cookieStore = cookies()
   cookieStore.delete('admin_session')
   cookieStore.delete('admin_session_expiry')
   cookieStore.delete('admin_session_sig')
