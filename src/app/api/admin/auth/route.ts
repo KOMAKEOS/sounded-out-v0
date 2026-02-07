@@ -87,7 +87,7 @@ export async function POST(request: Request) {
 
     const correctHash = process.env.ADMIN_CODE_HASH
     if (!correctHash) {
-      console.error("[ADMIN AUTH] ENV KEYS:", JSON.stringify(Object.keys(process.env).filter(k => k.includes("ADMIN"))))
+      console.error("[ADMIN AUTH] FIRST 10 ENV:", JSON.stringify(Object.keys(process.env).slice(0,10)))
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
