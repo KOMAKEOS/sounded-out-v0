@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase';
 
 interface UseEmailCapturePopupProps {
   userId: string | null;
@@ -10,7 +10,6 @@ interface UseEmailCapturePopupProps {
 export function useEmailCapturePopup({ userId }: UseEmailCapturePopupProps) {
   const [showPopup, setShowPopup] = useState(false);
   const [eventClickCount, setEventClickCount] = useState(0);
-  const supabase = createClientComponentClient();
 
   // Check if user has already seen the popup
   useEffect(() => {
