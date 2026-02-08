@@ -266,13 +266,13 @@ export default function EventPage() {
       const map = new mapboxgl.Map({
         container: mapRef.current,
         style: 'mapbox://styles/mapbox/dark-v11',
-        center: [event.venue.lng, event.venue.lat],
+        center: [event.venue!.lng, event.venue!.lat],
         zoom: 15,
         interactive: false,
       });
 
       new mapboxgl.Marker({ color: '#ab67f7' })
-        .setLngLat([event.venue.lng, event.venue.lat])
+        .setLngLat([event.venue!.lng, event.venue!.lat])
         .addTo(map);
 
       setMapReady(true);
