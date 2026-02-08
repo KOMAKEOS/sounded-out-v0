@@ -164,7 +164,7 @@ export function ClaimFlow({ type, targetId, targetName, onSuccess, onCancel }: C
     } catch (err) {
       setError('Something went wrong. Please try again.');
       setStep('proof');
-      console.error(err);
+      // log stripped;
     }
   }
 

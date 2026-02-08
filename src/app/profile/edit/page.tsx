@@ -219,7 +219,7 @@ export default function EditProfilePage() {
         })
 
       if (uploadError) {
-        console.error('Upload error:', uploadError)
+        // log stripped
         throw uploadError
       }
 
@@ -231,7 +231,7 @@ export default function EditProfilePage() {
       setUploadingAvatar(false)
       return publicUrl
     } catch (err) {
-      console.error('Avatar upload failed:', err)
+      // log stripped
       setUploadingAvatar(false)
       return avatarUrl // Return existing URL if upload fails
     }
@@ -274,7 +274,7 @@ export default function EditProfilePage() {
         })
 
       if (profileError) {
-        console.error('Profile update error:', profileError)
+        // log stripped
         throw profileError
       }
 

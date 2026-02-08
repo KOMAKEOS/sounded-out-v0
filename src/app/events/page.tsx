@@ -57,7 +57,7 @@ export default function EventsPage() {
         .gte('start_time', today.toISOString())
         .order('start_time', { ascending: true })
         .limit(200)
-      if (error) console.error('Error loading events:', error)
+      if (error) // log stripped
       if (data) {
         const cleaned: Event[] = []
         for (let i = 0; i < data.length; i++) {

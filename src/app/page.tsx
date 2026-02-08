@@ -959,7 +959,7 @@ const current = filtered[currentIndex] || null
 
   useEffect(() => {
   const loadEvents = async () => {
-    console.log('🔍 Loading events with brands...')
+    // log stripped
     
     // PRIMARY QUERY: Try loading with brands
     const { data: eventsData, error: eventsError } = await supabase
@@ -988,20 +988,20 @@ const current = filtered[currentIndex] || null
         .order('start_time')
       
       if (fallbackError) {
-        console.error('❌ Fallback query failed:', fallbackError)
+        // log stripped
         setLoading(false)
         return
       }
       
       if (fallbackData) {
-        console.log(`✅ Loaded ${fallbackData.length} events (without brands)`)
+        // log stripped
         setEvents(fallbackData)
         const venueIds = new Set(fallbackData.map(e => e.venue_id))
         trackMapLoaded(fallbackData.length, venueIds.size)
       }
     } else if (eventsData) {
-      console.log(`✅ Loaded ${eventsData.length} events (with brands)`)
-      console.log('📊 Brand coverage:', eventsData.filter(e => e.brand).length, 'events have brands')
+      // log stripped
+      // log stripped
       setEvents(eventsData)
       const venueIds = new Set(eventsData.map(e => e.venue_id))
       trackMapLoaded(eventsData.length, venueIds.size)
@@ -1075,7 +1075,7 @@ const current = filtered[currentIndex] || null
     })
     
     m.on('load', () => {
-  console.log('🗺️ Map loaded')
+  // log stripped
   setMapReady(true)
   
   // Enable interactions
@@ -1141,7 +1141,7 @@ useEffect(() => {
             trackLocationEnabled()
           },
           (error) => {
-            console.log('Location error:', error)
+            // log stripped
             alert('Unable to get your location. Please enable location services.')
             trackLocationDenied()
           },
@@ -1474,7 +1474,7 @@ const handleMarkerClick = (e: any) => {
   e.preventDefault()
   e.stopPropagation()
   
-  console.log('🎯 Marker clicked!', { count, venueId: v.id }) // ← ADD THIS for debugging
+  // log stripped // ← ADD THIS for debugging
   
   if (count > 1) {
     setClusterEvents(evs)
@@ -4083,7 +4083,7 @@ function ClaimModal({
       trackClaimSubmit(claimType, current.title, current.id)
       
     } catch (err: any) {
-      console.error('Claim submission error:', err)
+      // log stripped
       setClaimError(err.message || 'Something went wrong. Please try again.')
     } finally {
       setClaimSubmitting(false)

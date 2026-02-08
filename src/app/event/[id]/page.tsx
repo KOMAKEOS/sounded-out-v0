@@ -242,7 +242,7 @@ export default function EventPage() {
           }
         }
       } catch (error) {
-        console.error('Error loading event:', error);
+        // log stripped;
       } finally {
         setLoading(false);
       }

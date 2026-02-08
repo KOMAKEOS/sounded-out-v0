@@ -72,7 +72,7 @@ export function PromotionTierCards({ eventId, eventName, onSelectTier }: Promoti
         setTiers(tiersWithAvailability);
       } catch (err) {
         setError('Failed to load promotion options');
-        console.error(err);
+        // log stripped;
       } finally {
         setLoading(false);
       }

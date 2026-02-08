@@ -94,7 +94,7 @@ export function PromotionResultsCard({ promotionId }: PromotionResultsCardProps)
         setPromotion(data.promotion);
       } catch (err) {
         setError('Failed to load promotion results');
-        console.error(err);
+        // log stripped;
       } finally {
         setLoading(false);
       }
@@ -306,7 +306,7 @@ export function PromotionsList() {
           setPromotions(data.promotions);
         }
       } catch (err) {
-        console.error('Failed to fetch promotions:', err);
+        // log stripped;
       } finally {
         setLoading(false);
       }

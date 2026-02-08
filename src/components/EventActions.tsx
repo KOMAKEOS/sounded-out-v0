@@ -42,7 +42,7 @@ export default function EventActions({ event, isSaved, isLoggedIn, onSave, onSho
     try {
       if (navigator.share) { await navigator.share({ title: event.title, text: shareText, url: shareUrl }) }
       else { await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`); setCopied(true); setTimeout(() => setCopied(false), 2000) }
-    } catch (err) { console.log('Share failed:', err) }
+    } catch (err) { // log stripped }
   }
 
   const handleSave = () => {
