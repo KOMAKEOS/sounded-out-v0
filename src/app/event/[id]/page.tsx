@@ -256,24 +256,29 @@ export default function EventPage() {
   // ============================================================================
 
   useEffect(() => {
-    if (!event?.venue || mapReady || !mapRef.current) return;
+    if (!event?.venue || mapReady) return;
 
-    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+    const timer = setTimeout(() => {
+      if (!mapRef.current) return;
 
-    const map = new mapboxgl.Map({
-      container: mapRef.current,
-      style: 'mapbox://styles/mapbox/dark-v11',
-      center: [event.venue.lng, event.venue.lat],
-      zoom: 15,
-      interactive: false,
-    });
+      mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
-    new mapboxgl.Marker({ color: '#ab67f7' })
-      .setLngLat([event.venue.lng, event.venue.lat])
-      .addTo(map);
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [event.venue.lng, event.venue.lat],
+        zoom: 15,
+        interactive: false,
+      });
 
-    setMapReady(true);
-    return () => map.remove();
+      new mapboxgl.Marker({ color: '#ab67f7' })
+        .setLngLat([event.venue.lng, event.venue.lat])
+        .addTo(map);
+
+      setMapReady(true);
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [event, mapReady]);
 
   // ============================================================================
@@ -393,7 +398,7 @@ export default function EventPage() {
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '200px', background: 'linear-gradient(transparent, #0a0a0b)' }} />
 
         {/* Back button */}
-        <button onClick={() => router.back()} style={{ position: 'absolute', top: '16px', left: '16px', padding: '8px 16px', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <button onClick={() => window.history.length > 1 ? router.back() : router.push('/')} style={{ position: 'absolute', top: '16px', left: '16px', padding: '8px 16px', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', gap: '4px' }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
           Back
         </button>
