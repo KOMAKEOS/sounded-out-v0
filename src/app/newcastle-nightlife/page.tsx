@@ -116,7 +116,7 @@ export default function NewcastleNightlifePage() {
             events: events as Event[],
           })
         }
-      } catch (e) { // log stripped }
+      } catch (e) { /* ignored */ }
       finally { setLoading(false) }
     }
     load()
