@@ -755,6 +755,17 @@ export default function Home() {
   const [activeGenre, setActiveGenre] = useState<string | null>(null)
   const [showFreeOnly, setShowFreeOnly] = useState(false)
 
+
+  // Auth state listener
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ? { id: session.user.id, email: session.user.email || undefined } : null)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ? { id: session.user.id, email: session.user.email || undefined } : null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
   const dateFiltered = useMemo(() => {
   const result: Event[] = []
   for (let i = 0; i < events.length; i++) {
